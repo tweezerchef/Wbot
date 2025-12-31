@@ -48,7 +48,6 @@ export default [
         version: 'detect',
       },
       'import/resolver': {
-        typescript: true,
         node: true,
       },
     },
