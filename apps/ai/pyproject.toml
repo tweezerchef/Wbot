@@ -1,0 +1,163 @@
+# ============================================================================
+# TBot AI Backend - Python Project Configuration
+# ============================================================================
+# This file configures the Python project for the LangGraph AI backend.
+#
+# Package manager: uv (fast, modern Python package manager)
+# Linting/Formatting: Ruff (replaces black, flake8, isort)
+# Framework: LangGraph (for stateful AI agents)
+# LLMs: Anthropic Claude (primary), Google Gemini (experimental)
+# ============================================================================
+
+[project]
+name = "tbot-ai"
+version = "0.1.0"
+description = "AI backend for TBot therapy chatbot"
+readme = "README.md"
+requires-python = ">=3.11"
+
+# Main dependencies
+dependencies = [
+    # -------------------------------------------------------------------------
+    # LangChain Core
+    # -------------------------------------------------------------------------
+    # The foundation for building LLM applications
+    "langchain>=0.3.13",
+
+    # -------------------------------------------------------------------------
+    # LLM Providers
+    # -------------------------------------------------------------------------
+    # Anthropic Claude - Primary LLM for therapy conversations
+    # Known for strong reasoning and nuanced responses
+    "langchain-anthropic>=0.3.1",
+
+    # Google Gemini - Secondary/experimental LLM
+    # Useful for testing and comparing model outputs
+    "langchain-google-genai>=2.0.8",
+
+    # -------------------------------------------------------------------------
+    # LangGraph - Stateful Agent Framework
+    # -------------------------------------------------------------------------
+    # Powers the conversation graph with state management
+    # Enables complex multi-turn conversations with memory
+    "langgraph>=0.2.60",
+
+    # -------------------------------------------------------------------------
+    # Supabase
+    # -------------------------------------------------------------------------
+    # Database access and auth token validation
+    "supabase>=2.11.0",
+
+    # -------------------------------------------------------------------------
+    # Utilities
+    # -------------------------------------------------------------------------
+    # Async HTTP client for API calls
+    "httpx>=0.28.1",
+
+    # Environment variable management
+    "python-dotenv>=1.0.1",
+
+    # Data validation and serialization
+    "pydantic>=2.10.4",
+]
+
+# Development dependencies (installed with `uv sync --dev`)
+[project.optional-dependencies]
+dev = [
+    "ruff>=0.8.4",             # Linting and formatting (replaces black, flake8, isort)
+    "mypy>=1.14.1",            # Static type checking
+    "pytest>=8.3.4",           # Testing framework
+    "pytest-asyncio>=0.25.0",  # Async test support
+]
+
+# ============================================================================
+# Ruff Configuration
+# ============================================================================
+# Ruff is an extremely fast Python linter and formatter written in Rust.
+# It replaces: black, flake8, isort, pyupgrade, and many more tools.
+#
+# Run linting:    uv run ruff check .
+# Run formatting: uv run ruff format .
+# Fix auto-fixable issues: uv run ruff check --fix .
+# ============================================================================
+
+[tool.ruff]
+# Target Python version for syntax checking
+target-version = "py311"
+
+# Maximum line length (matches black default)
+line-length = 100
+
+# Directories to exclude from linting
+exclude = [
+    ".venv",
+    "__pycache__",
+    ".git",
+]
+
+[tool.ruff.lint]
+# Enable these rule sets:
+# - E, W: pycodestyle (PEP 8 style guide)
+# - F: pyflakes (logical errors like unused imports)
+# - I: isort (import sorting and organization)
+# - UP: pyupgrade (modern Python syntax)
+# - B: flake8-bugbear (common bugs and design problems)
+# - SIM: flake8-simplify (code simplification suggestions)
+# - RUF: Ruff-specific rules
+select = ["E", "W", "F", "I", "UP", "B", "SIM", "RUF"]
+
+# Ignore these specific rules:
+# - E501: Line too long (handled by line-length setting instead)
+ignore = ["E501"]
+
+[tool.ruff.lint.isort]
+# Mark our own modules as first-party for proper import grouping
+known-first-party = ["src"]
+
+[tool.ruff.format]
+# Use double quotes for strings (consistent with black)
+quote-style = "double"
+
+# Use spaces for indentation (not tabs)
+indent-style = "space"
+
+# ============================================================================
+# MyPy Configuration
+# ============================================================================
+# Static type checking for Python.
+#
+# Run type checking: uv run mypy src/
+# ============================================================================
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_return_any = true
+warn_unused_ignores = true
+
+# Ignore missing type stubs for third-party libraries
+# These libraries work fine but don't have complete type annotations
+[[tool.mypy.overrides]]
+module = [
+    "langchain.*",
+    "langchain_anthropic.*",
+    "langchain_google_genai.*",
+    "langgraph.*",
+    "supabase.*",
+]
+ignore_missing_imports = true
+
+# ============================================================================
+# Pytest Configuration
+# ============================================================================
+# Testing framework configuration.
+#
+# Run tests: uv run pytest
+# ============================================================================
+
+[tool.pytest.ini_options]
+# Automatically handle async test functions
+asyncio_mode = "auto"
+
+# Directory containing test files
+testpaths = ["tests"]

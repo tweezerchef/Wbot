@@ -1,0 +1,12 @@
+{
+  "$schema": "https://langchain-ai.github.io/langgraph/schemas/langgraph.schema.json",
+  "graphs": {
+    "therapy": "./src/graph/therapy.py:graph"
+  },
+  "env": ".env",
+  "python_version": "3.11",
+  "dependencies": ["."],
+  "auth": {
+    "path": "./src/auth.py:verify_token"
+  }
+}
