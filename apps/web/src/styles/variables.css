@@ -1,0 +1,184 @@
+/* ============================================================================
+   CSS Design Tokens (Variables)
+   ============================================================================
+   This file defines all the design tokens used throughout the application.
+   Using CSS custom properties (variables) ensures:
+
+   1. Consistency - All components use the same values
+   2. Easy theming - Change one value to update everywhere
+   3. Dark mode support - Variables can be overridden in a dark theme
+   4. Documentation - Token names describe their purpose
+
+   Usage in components:
+   .button {
+     background: var(--color-primary);
+     padding: var(--spacing-md);
+   }
+   ============================================================================ */
+
+:root {
+  /* --------------------------------------------------------------------------
+     COLOR PALETTE
+     --------------------------------------------------------------------------
+     Using a semantic naming convention:
+     - Primary: Main brand color, used for primary actions
+     - Secondary: Supporting color for secondary actions
+     - Accent: Highlight color for important elements
+     - Neutral: Grays for text, borders, backgrounds
+     - Semantic: Success, warning, error states
+     -------------------------------------------------------------------------- */
+
+  /* Primary - Calming blue-green for therapy context */
+  --color-primary: #4a9d9a;
+  --color-primary-hover: #3d8583;
+  --color-primary-light: #e8f4f3;
+
+  /* Secondary - Soft purple for meditation/calm elements */
+  --color-secondary: #7c6f9c;
+  --color-secondary-hover: #685d84;
+  --color-secondary-light: #f0edf5;
+
+  /* Accent - Warm coral for calls-to-action */
+  --color-accent: #e07a5f;
+  --color-accent-hover: #c96a51;
+
+  /* Neutral palette - Used for text, backgrounds, borders */
+  --color-neutral-50: #fafafa;   /* Lightest background */
+  --color-neutral-100: #f5f5f5;  /* Light background */
+  --color-neutral-200: #e5e5e5;  /* Border color */
+  --color-neutral-300: #d4d4d4;  /* Disabled state */
+  --color-neutral-400: #a3a3a3;  /* Placeholder text */
+  --color-neutral-500: #737373;  /* Secondary text */
+  --color-neutral-600: #525252;  /* Body text */
+  --color-neutral-700: #404040;  /* Headings */
+  --color-neutral-800: #262626;  /* Primary text */
+  --color-neutral-900: #171717;  /* Darkest text */
+
+  /* Semantic colors - Communicate state/feedback */
+  --color-success: #22c55e;
+  --color-success-light: #dcfce7;
+  --color-warning: #eab308;
+  --color-warning-light: #fef9c3;
+  --color-error: #ef4444;
+  --color-error-light: #fee2e2;
+
+  /* Background colors */
+  --color-background: #ffffff;
+  --color-background-secondary: var(--color-neutral-50);
+  --color-surface: #ffffff;
+
+  /* Text colors */
+  --color-text-primary: var(--color-neutral-800);
+  --color-text-secondary: var(--color-neutral-500);
+  --color-text-muted: var(--color-neutral-400);
+  --color-text-inverse: #ffffff;
+
+  /* --------------------------------------------------------------------------
+     SPACING SCALE
+     --------------------------------------------------------------------------
+     Using a consistent spacing scale (4px base) ensures visual harmony.
+     The scale follows: 4, 8, 12, 16, 24, 32, 48, 64, 96
+     -------------------------------------------------------------------------- */
+  --spacing-xs: 4px;    /* Tight spacing, icon gaps */
+  --spacing-sm: 8px;    /* Small gaps, compact lists */
+  --spacing-md: 16px;   /* Default spacing, card padding */
+  --spacing-lg: 24px;   /* Section spacing */
+  --spacing-xl: 32px;   /* Large gaps, section margins */
+  --spacing-2xl: 48px;  /* Page sections */
+  --spacing-3xl: 64px;  /* Major layout spacing */
+
+  /* --------------------------------------------------------------------------
+     TYPOGRAPHY
+     --------------------------------------------------------------------------
+     System font stack for fast loading and native feel.
+     Scale follows a 1.25 ratio (major third).
+     -------------------------------------------------------------------------- */
+
+  /* Font families */
+  --font-family-sans: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI',
+                      Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-family-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo,
+                      Consolas, monospace;
+
+  /* Font sizes - Using rem for accessibility (respects user preferences) */
+  --font-size-xs: 0.75rem;   /* 12px - Small labels, captions */
+  --font-size-sm: 0.875rem;  /* 14px - Secondary text */
+  --font-size-base: 1rem;    /* 16px - Body text */
+  --font-size-lg: 1.125rem;  /* 18px - Large body text */
+  --font-size-xl: 1.25rem;   /* 20px - Small headings */
+  --font-size-2xl: 1.5rem;   /* 24px - Section headings */
+  --font-size-3xl: 1.875rem; /* 30px - Page headings */
+  --font-size-4xl: 2.25rem;  /* 36px - Hero headings */
+
+  /* Font weights */
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+
+  /* Line heights - Optimized for readability */
+  --line-height-tight: 1.25;   /* Headings */
+  --line-height-normal: 1.5;   /* Body text */
+  --line-height-relaxed: 1.75; /* Long-form content */
+
+  /* --------------------------------------------------------------------------
+     BORDERS & RADIUS
+     -------------------------------------------------------------------------- */
+  --border-width: 1px;
+  --border-color: var(--color-neutral-200);
+
+  /* Border radius scale - Consistent rounding */
+  --radius-sm: 4px;    /* Buttons, inputs */
+  --radius-md: 8px;    /* Cards, modals */
+  --radius-lg: 12px;   /* Large cards */
+  --radius-xl: 16px;   /* Hero sections */
+  --radius-full: 9999px; /* Pills, avatars */
+
+  /* --------------------------------------------------------------------------
+     SHADOWS
+     --------------------------------------------------------------------------
+     Layered shadow system for depth hierarchy.
+     -------------------------------------------------------------------------- */
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1),
+               0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1),
+               0 4px 6px -4px rgb(0 0 0 / 0.1);
+  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1),
+               0 8px 10px -6px rgb(0 0 0 / 0.1);
+
+  /* --------------------------------------------------------------------------
+     TRANSITIONS
+     --------------------------------------------------------------------------
+     Consistent animation timing for smooth interactions.
+     -------------------------------------------------------------------------- */
+  --transition-fast: 150ms ease;
+  --transition-normal: 250ms ease;
+  --transition-slow: 350ms ease;
+
+  /* --------------------------------------------------------------------------
+     LAYOUT
+     -------------------------------------------------------------------------- */
+  --max-width-content: 800px;   /* Main content width */
+  --max-width-wide: 1200px;     /* Wide layouts */
+  --header-height: 64px;        /* Fixed header height */
+  --sidebar-width: 280px;       /* Sidebar navigation width */
+}
+
+/* ============================================================================
+   DARK MODE (Future Implementation)
+   ============================================================================
+   Uncomment and customize when implementing dark mode.
+   The prefers-color-scheme media query respects system preferences.
+   ============================================================================ */
+/*
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-background: var(--color-neutral-900);
+    --color-surface: var(--color-neutral-800);
+    --color-text-primary: var(--color-neutral-100);
+    --color-text-secondary: var(--color-neutral-400);
+    --color-border: var(--color-neutral-700);
+  }
+}
+*/

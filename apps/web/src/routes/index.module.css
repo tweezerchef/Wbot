@@ -1,0 +1,168 @@
+/* ============================================================================
+   Landing Page Styles
+   ============================================================================
+   CSS Module for the landing/login page.
+
+   Design goals:
+   - Calming, welcoming atmosphere appropriate for therapy context
+   - Clean, minimal layout that focuses on the call-to-action
+   - Responsive: looks good on mobile and desktop
+   - Uses CSS variables from variables.css for consistency
+   ============================================================================ */
+
+/* ----------------------------------------------------------------------------
+   Container
+   ----------------------------------------------------------------------------
+   Full-screen centered layout with calming background.
+   Uses flexbox to vertically center content.
+   ---------------------------------------------------------------------------- */
+.container {
+  /* Fill the viewport */
+  min-height: 100dvh;
+  width: 100%;
+
+  /* Center content vertically and horizontally */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+
+  /* Calming gradient background */
+  background: linear-gradient(
+    135deg,
+    var(--color-primary-light) 0%,
+    var(--color-secondary-light) 100%
+  );
+
+  /* Padding for mobile devices */
+  padding: var(--spacing-lg);
+}
+
+/* ----------------------------------------------------------------------------
+   Hero Section
+   ----------------------------------------------------------------------------
+   The main branding and messaging area.
+   ---------------------------------------------------------------------------- */
+.hero {
+  /* Center text */
+  text-align: center;
+
+  /* Limit width for readability on large screens */
+  max-width: 500px;
+
+  /* Space below before CTA */
+  margin-bottom: var(--spacing-2xl);
+}
+
+/* App title - large, prominent, calming color */
+.title {
+  /* Large but not overwhelming */
+  font-size: var(--font-size-4xl);
+  font-weight: var(--font-weight-bold);
+
+  /* Primary brand color */
+  color: var(--color-primary);
+
+  /* Slight letter spacing for elegance */
+  letter-spacing: -0.02em;
+
+  /* Space below */
+  margin-bottom: var(--spacing-md);
+}
+
+/* Tagline - secondary importance, slightly smaller */
+.tagline {
+  font-size: var(--font-size-xl);
+  color: var(--color-text-secondary);
+  font-weight: var(--font-weight-medium);
+
+  /* Relaxed line height for readability */
+  line-height: var(--line-height-relaxed);
+
+  /* Space below */
+  margin-bottom: var(--spacing-md);
+}
+
+/* Description - body text explaining features */
+.description {
+  font-size: var(--font-size-base);
+  color: var(--color-text-secondary);
+
+  /* Comfortable line height for longer text */
+  line-height: var(--line-height-relaxed);
+}
+
+/* ----------------------------------------------------------------------------
+   Call to Action Section
+   ----------------------------------------------------------------------------
+   Login/signup button and supporting text.
+   ---------------------------------------------------------------------------- */
+.cta {
+  /* Center content */
+  text-align: center;
+}
+
+/* Primary action button */
+.button {
+  /* Block display for full-width touch target on mobile */
+  display: inline-block;
+
+  /* Comfortable padding for touch */
+  padding: var(--spacing-md) var(--spacing-2xl);
+
+  /* Primary color with inverted text */
+  background-color: var(--color-primary);
+  color: var(--color-text-inverse);
+
+  /* Rounded corners */
+  border-radius: var(--radius-md);
+
+  /* Typography */
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  text-decoration: none;
+
+  /* Smooth hover transition */
+  transition: background-color var(--transition-fast),
+              transform var(--transition-fast);
+
+  /* Subtle shadow for depth */
+  box-shadow: var(--shadow-md);
+}
+
+/* Button hover state */
+.button:hover {
+  background-color: var(--color-primary-hover);
+
+  /* Slight lift effect */
+  transform: translateY(-2px);
+
+  /* No underline on hover */
+  text-decoration: none;
+}
+
+/* Button active/pressed state */
+.button:active {
+  /* Remove lift on press */
+  transform: translateY(0);
+}
+
+/* Disclaimer text below button */
+.disclaimer {
+  /* Small, muted text */
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+
+  /* Space above */
+  margin-top: var(--spacing-md);
+}
+
+/* ----------------------------------------------------------------------------
+   Loading State
+   ----------------------------------------------------------------------------
+   Shown while checking authentication session.
+   ---------------------------------------------------------------------------- */
+.loading {
+  font-size: var(--font-size-base);
+  color: var(--color-text-secondary);
+}

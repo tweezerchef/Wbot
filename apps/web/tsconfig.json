@@ -1,0 +1,51 @@
+{
+  "compilerOptions": {
+    // ----------------------------------------------------------------------------
+    // Module Resolution
+    // ----------------------------------------------------------------------------
+    // "bundler" is the modern resolution mode for projects using bundlers like Vite
+    // It enables importing .ts files without extensions and supports package.json exports
+    "moduleResolution": "bundler",
+    "module": "ESNext",
+    "target": "ES2022",
+
+    // ----------------------------------------------------------------------------
+    // Path Aliases
+    // ----------------------------------------------------------------------------
+    // Allows imports like "@/components/Button" instead of "../../../components/Button"
+    // These paths are relative to the baseUrl
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"],
+      "@tbot/shared": ["../../packages/shared/src"]
+    },
+
+    // ----------------------------------------------------------------------------
+    // React Configuration
+    // ----------------------------------------------------------------------------
+    // "react-jsx" enables the new JSX transform (React 17+)
+    // This means you don't need to import React in every file
+    "jsx": "react-jsx",
+
+    // ----------------------------------------------------------------------------
+    // Type Checking
+    // ----------------------------------------------------------------------------
+    // Strict mode enables all strict type-checking options
+    // This catches more errors at compile time
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+
+    // ----------------------------------------------------------------------------
+    // Interop
+    // ----------------------------------------------------------------------------
+    // These settings ensure compatibility with CommonJS modules
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true
+  },
+  "include": ["src/**/*", "app.config.ts"],
+  "exclude": ["node_modules", "dist", ".output", ".vinxi"]
+}

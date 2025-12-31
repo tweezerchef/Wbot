@@ -1,0 +1,330 @@
+/* ============================================================================
+   Chat Interface Styles
+   ============================================================================
+   Full-screen chat experience for mobile and desktop.
+
+   Layout structure:
+   - Fixed header at top (minimal branding)
+   - Scrollable message area (fills remaining space)
+   - Fixed input area at bottom
+
+   Using dvh (dynamic viewport height) for proper mobile behavior
+   when the keyboard appears/disappears.
+   ============================================================================ */
+
+/* ----------------------------------------------------------------------------
+   Container
+   ----------------------------------------------------------------------------
+   Full viewport container using flexbox for the three-section layout.
+   ---------------------------------------------------------------------------- */
+.container {
+  /* Fill the entire viewport */
+  height: 100dvh;
+  width: 100%;
+
+  /* Flex column layout for header, messages, input */
+  display: flex;
+  flex-direction: column;
+
+  /* Subtle background color */
+  background-color: var(--color-background-secondary);
+}
+
+/* ----------------------------------------------------------------------------
+   Header
+   ----------------------------------------------------------------------------
+   Minimal header with just the app logo.
+   Fixed height, doesn't scroll with messages.
+   ---------------------------------------------------------------------------- */
+.header {
+  /* Fixed height */
+  height: var(--header-height);
+
+  /* Center content */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  /* Visual separation from messages */
+  background-color: var(--color-surface);
+  border-bottom: 1px solid var(--border-color);
+
+  /* Prevent shrinking */
+  flex-shrink: 0;
+}
+
+.logo {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-primary);
+
+  /* Reset default margins */
+  margin: 0;
+}
+
+/* ----------------------------------------------------------------------------
+   Messages Area
+   ----------------------------------------------------------------------------
+   Scrollable container for message bubbles.
+   Grows to fill available space between header and input.
+   ---------------------------------------------------------------------------- */
+.messages {
+  /* Grow to fill space */
+  flex: 1;
+
+  /* Enable scrolling */
+  overflow-y: auto;
+
+  /* Padding around messages */
+  padding: var(--spacing-md);
+
+  /* Flex column for message stacking */
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+/* ----------------------------------------------------------------------------
+   Welcome Message
+   ----------------------------------------------------------------------------
+   Shown when the conversation is empty.
+   ---------------------------------------------------------------------------- */
+.welcome {
+  /* Center in the messages area */
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  /* Padding */
+  padding: var(--spacing-xl);
+}
+
+.welcomeText {
+  /* Centered, readable width */
+  max-width: 400px;
+  text-align: center;
+
+  /* Muted appearance */
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-relaxed);
+}
+
+/* ----------------------------------------------------------------------------
+   Message Row
+   ----------------------------------------------------------------------------
+   Container for each message, handles alignment.
+   ---------------------------------------------------------------------------- */
+.messageRow {
+  /* Default: left-aligned (assistant messages) */
+  display: flex;
+  justify-content: flex-start;
+}
+
+.messageRowUser {
+  /* User messages: right-aligned */
+  justify-content: flex-end;
+}
+
+/* ----------------------------------------------------------------------------
+   Message Bubble
+   ----------------------------------------------------------------------------
+   The actual message content container.
+   Different styles for user/assistant/system messages.
+   ---------------------------------------------------------------------------- */
+.bubble {
+  /* Limit width for readability */
+  max-width: 80%;
+
+  /* Padding inside bubble */
+  padding: var(--spacing-sm) var(--spacing-md);
+
+  /* Rounded corners */
+  border-radius: var(--radius-lg);
+
+  /* Default (assistant) styling */
+  background-color: var(--color-surface);
+  color: var(--color-text-primary);
+
+  /* Subtle shadow */
+  box-shadow: var(--shadow-sm);
+}
+
+/* User message styling - primary color, right side */
+.bubbleUser {
+  background-color: var(--color-primary);
+  color: var(--color-text-inverse);
+
+  /* Different corner rounding for user messages */
+  border-bottom-right-radius: var(--radius-sm);
+}
+
+/* Assistant message styling - neutral, left side */
+.bubbleAssistant {
+  /* Different corner rounding for assistant messages */
+  border-bottom-left-radius: var(--radius-sm);
+}
+
+/* System message styling - centered, muted */
+.bubbleSystem {
+  background-color: var(--color-warning-light);
+  color: var(--color-text-primary);
+  text-align: center;
+
+  /* Full width for system messages */
+  max-width: 100%;
+}
+
+/* Streaming message - subtle indicator */
+.bubbleStreaming {
+  /* Slight opacity to indicate in-progress */
+  opacity: 0.95;
+}
+
+/* Message text content */
+.messageContent {
+  /* Reset margins */
+  margin: 0;
+
+  /* Readable line height */
+  line-height: var(--line-height-normal);
+
+  /* Preserve whitespace and wrap long words */
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* Blinking cursor for streaming messages */
+.cursor {
+  animation: blink 1s infinite;
+  margin-left: 2px;
+}
+
+@keyframes blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}
+
+/* ----------------------------------------------------------------------------
+   Loading Indicator
+   ----------------------------------------------------------------------------
+   Three dots animation while waiting for AI response.
+   ---------------------------------------------------------------------------- */
+.loadingIndicator {
+  display: flex;
+  gap: 4px;
+  padding: var(--spacing-md);
+  justify-content: flex-start;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  background-color: var(--color-neutral-400);
+  border-radius: 50%;
+  animation: bounce 1.4s infinite ease-in-out;
+}
+
+.dot:nth-child(1) { animation-delay: 0s; }
+.dot:nth-child(2) { animation-delay: 0.2s; }
+.dot:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes bounce {
+  0%, 80%, 100% {
+    transform: translateY(0);
+  }
+  40% {
+    transform: translateY(-6px);
+  }
+}
+
+/* ----------------------------------------------------------------------------
+   Input Area
+   ----------------------------------------------------------------------------
+   Fixed at the bottom of the screen.
+   Contains the text input and send button.
+   ---------------------------------------------------------------------------- */
+.inputArea {
+  /* Fixed at bottom, doesn't scroll */
+  flex-shrink: 0;
+
+  /* Layout */
+  display: flex;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-md);
+
+  /* Visual styling */
+  background-color: var(--color-surface);
+  border-top: 1px solid var(--border-color);
+
+  /* Safe area padding for devices with notches/home indicators */
+  padding-bottom: max(var(--spacing-md), env(safe-area-inset-bottom));
+}
+
+/* Text input field */
+.input {
+  /* Grow to fill available space */
+  flex: 1;
+
+  /* Sizing */
+  padding: var(--spacing-sm) var(--spacing-md);
+  min-height: 44px; /* Minimum touch target size */
+
+  /* Typography */
+  font-size: var(--font-size-base);
+  color: var(--color-text-primary);
+
+  /* Border styling */
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-full);
+  background-color: var(--color-background);
+
+  /* Focus state */
+  outline: none;
+  transition: border-color var(--transition-fast);
+}
+
+.input:focus {
+  border-color: var(--color-primary);
+}
+
+.input:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.input::placeholder {
+  color: var(--color-text-muted);
+}
+
+/* Send button */
+.sendButton {
+  /* Fixed size, circular */
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+
+  /* Center the icon */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  /* Styling */
+  background-color: var(--color-primary);
+  color: var(--color-text-inverse);
+  border-radius: 50%;
+
+  /* Transition for hover/disabled states */
+  transition: background-color var(--transition-fast),
+              opacity var(--transition-fast);
+}
+
+.sendButton:hover:not(:disabled) {
+  background-color: var(--color-primary-hover);
+}
+
+.sendButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

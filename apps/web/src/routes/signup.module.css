@@ -1,0 +1,314 @@
+/* ============================================================================
+   Signup & Onboarding Styles
+   ============================================================================
+   Multi-step onboarding flow with calming, approachable design.
+
+   Design goals:
+   - Warm, welcoming atmosphere
+   - Clear visual hierarchy
+   - Large, easy-to-tap buttons
+   - Progress indication
+   - Minimal cognitive load
+   ============================================================================ */
+
+/* ----------------------------------------------------------------------------
+   Container
+   ----------------------------------------------------------------------------
+   Full-screen centered layout with calming gradient background.
+   ---------------------------------------------------------------------------- */
+.container {
+  /* Fill the viewport */
+  min-height: 100dvh;
+  width: 100%;
+
+  /* Center the card */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  /* Calming gradient background */
+  background: linear-gradient(
+    135deg,
+    var(--color-primary-light) 0%,
+    var(--color-secondary-light) 100%
+  );
+
+  /* Padding for mobile devices */
+  padding: var(--spacing-md);
+}
+
+/* ----------------------------------------------------------------------------
+   Card
+   ----------------------------------------------------------------------------
+   White card containing the form content.
+   ---------------------------------------------------------------------------- */
+.card {
+  /* Sizing */
+  width: 100%;
+  max-width: 480px;
+
+  /* Card styling */
+  background-color: var(--color-surface);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-lg);
+
+  /* Padding */
+  padding: var(--spacing-xl);
+}
+
+/* ----------------------------------------------------------------------------
+   Auth Step Styles
+   ---------------------------------------------------------------------------- */
+.title {
+  font-size: var(--font-size-3xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-primary);
+  text-align: center;
+  margin-bottom: var(--spacing-sm);
+}
+
+.subtitle {
+  font-size: var(--font-size-base);
+  color: var(--color-text-secondary);
+  text-align: center;
+  margin-bottom: var(--spacing-xl);
+  line-height: var(--line-height-relaxed);
+}
+
+/* Google Sign In Button */
+.googleButton {
+  /* Full width */
+  width: 100%;
+
+  /* Layout */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-sm);
+
+  /* Sizing */
+  padding: var(--spacing-md);
+  min-height: 52px;
+
+  /* Styling */
+  background-color: var(--color-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+
+  /* Typography */
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+
+  /* Transition */
+  transition: background-color var(--transition-fast),
+              border-color var(--transition-fast);
+}
+
+.googleButton:hover:not(:disabled) {
+  background-color: var(--color-neutral-50);
+  border-color: var(--color-neutral-300);
+}
+
+.googleButton:disabled {
+  opacity: 0.7;
+}
+
+.googleIcon {
+  flex-shrink: 0;
+}
+
+.terms {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  text-align: center;
+  margin-top: var(--spacing-lg);
+}
+
+/* ----------------------------------------------------------------------------
+   Progress Indicator
+   ---------------------------------------------------------------------------- */
+.progress {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  margin-bottom: var(--spacing-xl);
+}
+
+.progressBar {
+  /* Grow to fill space */
+  flex: 1;
+
+  /* Bar styling */
+  height: 4px;
+  background-color: var(--color-neutral-200);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+}
+
+.progressFill {
+  height: 100%;
+  background-color: var(--color-primary);
+  border-radius: var(--radius-full);
+  transition: width var(--transition-normal);
+}
+
+.progressText {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+/* ----------------------------------------------------------------------------
+   Question Styles
+   ---------------------------------------------------------------------------- */
+.question {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  text-align: center;
+  margin-bottom: var(--spacing-sm);
+  line-height: var(--line-height-tight);
+}
+
+.subtext {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  text-align: center;
+  margin-bottom: var(--spacing-lg);
+}
+
+/* ----------------------------------------------------------------------------
+   Error Message
+   ---------------------------------------------------------------------------- */
+.error {
+  font-size: var(--font-size-sm);
+  color: var(--color-error);
+  text-align: center;
+  padding: var(--spacing-sm);
+  background-color: var(--color-error-light);
+  border-radius: var(--radius-sm);
+  margin-bottom: var(--spacing-md);
+}
+
+/* ----------------------------------------------------------------------------
+   Options (Answer Buttons)
+   ---------------------------------------------------------------------------- */
+.options {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-lg);
+}
+
+.optionButton {
+  /* Full width */
+  width: 100%;
+
+  /* Layout */
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  /* Sizing - large touch targets */
+  padding: var(--spacing-md);
+  min-height: 56px;
+
+  /* Styling */
+  background-color: var(--color-background);
+  border: 2px solid var(--border-color);
+  border-radius: var(--radius-md);
+
+  /* Typography */
+  font-size: var(--font-size-base);
+  color: var(--color-text-primary);
+  text-align: left;
+
+  /* Transition */
+  transition: border-color var(--transition-fast),
+              background-color var(--transition-fast),
+              transform var(--transition-fast);
+}
+
+.optionButton:hover {
+  border-color: var(--color-primary);
+  background-color: var(--color-primary-light);
+}
+
+.optionButton:active {
+  transform: scale(0.98);
+}
+
+/* Selected state */
+.optionButtonSelected {
+  border-color: var(--color-primary);
+  background-color: var(--color-primary-light);
+}
+
+.checkmark {
+  color: var(--color-primary);
+  font-weight: var(--font-weight-bold);
+}
+
+/* ----------------------------------------------------------------------------
+   Navigation Buttons
+   ---------------------------------------------------------------------------- */
+.navigation {
+  display: flex;
+  gap: var(--spacing-md);
+}
+
+.backButton {
+  /* Sizing */
+  padding: var(--spacing-md) var(--spacing-lg);
+  min-height: 48px;
+
+  /* Styling */
+  background-color: transparent;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+
+  /* Typography */
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-secondary);
+
+  /* Transition */
+  transition: border-color var(--transition-fast),
+              color var(--transition-fast);
+}
+
+.backButton:hover:not(:disabled) {
+  border-color: var(--color-neutral-400);
+  color: var(--color-text-primary);
+}
+
+.continueButton {
+  /* Grow to fill remaining space */
+  flex: 1;
+
+  /* Sizing */
+  padding: var(--spacing-md) var(--spacing-lg);
+  min-height: 48px;
+
+  /* Styling */
+  background-color: var(--color-primary);
+  border: none;
+  border-radius: var(--radius-md);
+
+  /* Typography */
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-inverse);
+
+  /* Transition */
+  transition: background-color var(--transition-fast);
+}
+
+.continueButton:hover:not(:disabled) {
+  background-color: var(--color-primary-hover);
+}
+
+.continueButton:disabled {
+  opacity: 0.5;
+}
