@@ -14,7 +14,7 @@ and is saved between requests.
 ============================================================================
 """
 
-from typing import Annotated, TypedDict
+from typing import Annotated, NotRequired, TypedDict
 
 from langchain_core.messages import BaseMessage
 from langgraph.graph.message import add_messages
@@ -62,3 +62,9 @@ class WellnessState(TypedDict):
 
     # User context from authentication (not reduced, just replaced)
     user_context: dict
+
+    # Retrieved memories from semantic search (set by retrieve_memories node)
+    # Each memory is a dict with: id, user_message, ai_response, similarity
+    # Used by generate_response to inject relevant context into the prompt
+    # NotRequired because it's only populated during graph execution
+    retrieved_memories: NotRequired[list[dict]]
