@@ -31,8 +31,8 @@ venv/
 *.swo
 .DS_Store
 
-# Supabase
-database/.supabase/
+# Supabase local runtime data
+.supabase/
 
 # Logs
 *.log
