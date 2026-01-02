@@ -44,3 +44,6 @@ coverage/
 
 # Misc
 *.tsbuildinfo
+
+# Vite temporary files
+app.config.timestamp_*.js

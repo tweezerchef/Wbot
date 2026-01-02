@@ -35,6 +35,8 @@ export default tseslint.config(
       '*.config.ts',
       // Auto-generated files
       '**/types/database.ts',
+      // Vite temporary files
+      '**/app.config.timestamp_*.js',
     ],
   },
 
