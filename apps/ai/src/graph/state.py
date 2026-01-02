@@ -20,9 +20,9 @@ from langchain_core.messages import BaseMessage
 from langgraph.graph.message import add_messages
 
 
-class TherapyState(TypedDict):
+class WellnessState(TypedDict):
     """
-    State for the therapy conversation graph.
+    State for the wellness conversation graph.
 
     This TypedDict defines the shape of data that flows through the graph.
     Each field can have a reducer (via Annotated) that controls how

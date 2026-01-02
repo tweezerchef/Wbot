@@ -1,13 +1,13 @@
 -- ============================================================================
 -- Migration: 002_conversations.sql
--- Purpose: Create the conversations table to store therapy chat sessions.
+-- Purpose: Create the conversations table to store wellness chat sessions.
 --          Each conversation belongs to a user and contains multiple messages.
 -- ============================================================================
 
 -- ----------------------------------------------------------------------------
 -- CONVERSATIONS TABLE
 -- ----------------------------------------------------------------------------
--- A conversation represents a single therapy chat session between a user
+-- A conversation represents a single wellness chat session between a user
 -- and the AI assistant. Users can have multiple conversations, and each
 -- conversation can have many messages (see 003_messages.sql).
 --
@@ -61,7 +61,7 @@ CREATE INDEX IF NOT EXISTS idx_conversations_updated_at
 -- ROW LEVEL SECURITY (RLS)
 -- ----------------------------------------------------------------------------
 -- Same pattern as profiles: users can only access their own conversations.
--- This prevents users from seeing or modifying other users' therapy sessions.
+-- This prevents users from seeing or modifying other users' wellness sessions.
 -- ----------------------------------------------------------------------------
 ALTER TABLE conversations ENABLE ROW LEVEL SECURITY;
 

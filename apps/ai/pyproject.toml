@@ -1,5 +1,5 @@
 # ============================================================================
-# TBot AI Backend - Python Project Configuration
+# Wbot AI Backend - Python Project Configuration
 # ============================================================================
 # This file configures the Python project for the LangGraph AI backend.
 #
@@ -10,11 +10,11 @@
 # ============================================================================
 
 [project]
-name = "tbot-ai"
+name = "wbot-ai"
 version = "0.1.0"
-description = "AI backend for TBot therapy chatbot"
+description = "AI backend for Wbot wellness chatbot"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.11,<3.14"
 
 # Main dependencies
 dependencies = [
@@ -26,7 +26,7 @@ dependencies = [
     # -------------------------------------------------------------------------
     # LLM Providers
     # -------------------------------------------------------------------------
-    # Anthropic Claude - Primary LLM for therapy conversations
+    # Anthropic Claude - Primary LLM for wellness conversations
     # Known for strong reasoning and nuanced responses
     "langchain-anthropic>=0.3.1",
     # Google Gemini - Secondary/experimental LLM
@@ -140,6 +140,41 @@ module = [
     "supabase.*",
 ]
 ignore_missing_imports = true
+
+# ============================================================================
+# Pyright Configuration (used by Pylance in VS Code)
+# ============================================================================
+# Static type checking that powers VS Code's Python IntelliSense.
+# This config is read by Pylance/Pyright automatically.
+#
+# Type checking modes:
+# - "off": No type checking
+# - "basic": Catches common errors (recommended for most projects)
+# - "standard": More thorough checking
+# - "strict": Full type safety enforcement
+# ============================================================================
+
+[tool.pyright]
+pythonVersion = "3.11"
+typeCheckingMode = "basic"
+venvPath = "."
+venv = ".venv"
+
+# Include paths for type checking
+include = ["src"]
+
+# Exclude paths from type checking
+exclude = [
+    ".venv",
+    "__pycache__",
+    "tests",
+]
+
+# Report settings for common issues
+reportMissingImports = true
+reportMissingTypeStubs = false
+reportUnusedImport = true
+reportUnusedVariable = true
 
 # ============================================================================
 # Pytest Configuration

@@ -1,10 +1,10 @@
-# TBot - AI Therapy Companion
+# Wbot - AI Wellness Companion
 
-A web-based therapy chatbot that provides personalized mental wellness support through conversational AI, guided breathing exercises, meditation, and journaling prompts.
+A web-based wellness chatbot that provides personalized mental wellness support through conversational AI, guided breathing exercises, meditation, and journaling prompts.
 
 ## Architecture Overview
 
-TBot is a monorepo containing three main components:
+Wbot is a monorepo containing three main components:
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -18,7 +18,7 @@ TBot is a monorepo containing three main components:
 │                      AI Backend (Python)                         │
 │                 LangGraph + LangChain                            │
 │         ┌─────────────────────────────────────────┐             │
-│         │            Therapy Graph                 │             │
+│         │           Wellness Graph                 │             │
 │         │  ┌─────────┐  ┌─────────┐  ┌─────────┐  │             │
 │         │  │Generate │  │Breathing│  │Meditation│ │             │
 │         │  │Response │  │Exercise │  │ Guidance │  │             │
@@ -50,7 +50,7 @@ TBot is a monorepo containing three main components:
 ## Directory Structure
 
 ```
-tbot/
+wbot/
 ├── apps/
 │   ├── web/                    # TanStack Start frontend
 │   │   ├── src/
@@ -73,8 +73,8 @@ tbot/
 │   └── ai/                     # Python LangGraph backend
 │       ├── src/
 │       │   ├── graph/
-│       │   │   ├── state.py    # TherapyState definition
-│       │   │   └── therapy.py  # Main graph definition
+│       │   │   ├── state.py    # WellnessState definition
+│       │   │   └── wellness.py # Main graph definition
 │       │   ├── nodes/          # Graph nodes (one folder each)
 │       │   │   ├── generate_response/
 │       │   │   ├── breathing_exercise/
@@ -82,7 +82,7 @@ tbot/
 │       │   │   ├── journaling_prompt/
 │       │   │   └── detect_activity/
 │       │   ├── prompts/
-│       │   │   └── therapy_system.py
+│       │   │   └── wellness_system.py
 │       │   ├── llm/
 │       │   │   └── providers.py # Claude + Gemini setup
 │       │   ├── utils/
@@ -130,7 +130,7 @@ tbot/
 
 ```bash
 git clone <repository-url>
-cd tbot
+cd wbot
 pnpm install
 ```
 

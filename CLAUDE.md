@@ -1,4 +1,4 @@
-# Claude Code Instructions for TBot
+# Claude Code Instructions for Wbot
 
 This file provides instructions and context for Claude Code when working on this project.
 
@@ -6,7 +6,7 @@ This file provides instructions and context for Claude Code when working on this
 
 ## Project Overview
 
-TBot is an AI therapy chatbot built as a monorepo with:
+Wbot is an AI wellness chatbot built as a monorepo with:
 
 - **Web Frontend**: TanStack Start (React + Vite)
 - **AI Backend**: Python with LangGraph/LangChain
@@ -42,7 +42,7 @@ The chatbot is the PRIMARY interface - activities render inside the chat, not as
 - **AVOID** `unknown` - prefer specific types; use type guards when needed
 - **ALWAYS** type function parameters and return types
 - **PREFER** inferring types from Zod schemas with `z.infer<typeof schema>`
-- **USE** the shared types from `@tbot/shared` for database entities
+- **USE** the shared types from `@wbot/shared` for database entities
 - Generate database types with `pnpm db:generate-types` after schema changes
 
 ### When Uncertain
@@ -91,7 +91,7 @@ apps/
 | Utilities        | camelCase                   | `formatDate.ts`          |
 | Routes           | kebab-case                  | `sign-up.tsx`            |
 | Python modules   | snake_case                  | `generate_response.py`   |
-| Python classes   | PascalCase                  | `TherapyState`           |
+| Python classes   | PascalCase                  | `WellnessState`          |
 | Environment vars | SCREAMING_SNAKE_CASE        | `VITE_SUPABASE_URL`      |
 
 ### Component Structure
@@ -193,8 +193,8 @@ This is a pnpm workspace monorepo. Follow these patterns:
 pnpm add -wD <package>
 
 # To a specific app/package
-pnpm add <package> --filter @tbot/web
-pnpm add -D <package> --filter @tbot/shared
+pnpm add <package> --filter @wbot/web
+pnpm add -D <package> --filter @wbot/shared
 
 # ALWAYS run install after adding packages to sync lockfile
 pnpm install
@@ -234,18 +234,18 @@ SUPABASE_SERVICE_KEY=     # Service role key (server only)
 
 ## Key Files Reference
 
-| Purpose         | File Path                               |
-| --------------- | --------------------------------------- |
-| Root layout     | `apps/web/src/routes/__root.tsx`        |
-| Router config   | `apps/web/src/router.tsx`               |
-| Supabase client | `apps/web/src/lib/supabase.ts`          |
-| CSS variables   | `apps/web/src/styles/variables.css`     |
-| AI graph        | `apps/ai/src/graph/therapy.py`          |
-| Graph state     | `apps/ai/src/graph/state.py`            |
-| System prompt   | `apps/ai/src/prompts/therapy_system.py` |
-| DB migrations   | `database/migrations/*.sql`             |
-| Shared types    | `packages/shared/src/types/*.ts`        |
-| Roadmap         | `ROADMAP.md`                            |
+| Purpose         | File Path                                |
+| --------------- | ---------------------------------------- |
+| Root layout     | `apps/web/src/routes/__root.tsx`         |
+| Router config   | `apps/web/src/router.tsx`                |
+| Supabase client | `apps/web/src/lib/supabase.ts`           |
+| CSS variables   | `apps/web/src/styles/variables.css`      |
+| AI graph        | `apps/ai/src/graph/wellness.py`          |
+| Graph state     | `apps/ai/src/graph/state.py`             |
+| System prompt   | `apps/ai/src/prompts/wellness_system.py` |
+| DB migrations   | `database/migrations/*.sql`              |
+| Shared types    | `packages/shared/src/types/*.ts`         |
+| Roadmap         | `ROADMAP.md`                             |
 
 ---
 
@@ -269,7 +269,7 @@ SUPABASE_SERVICE_KEY=     # Service role key (server only)
 
 1. Create folder in `apps/ai/src/nodes/node_name/`
 2. Create `node.py` with the node function
-3. Register node in `apps/ai/src/graph/therapy.py`
+3. Register node in `apps/ai/src/graph/wellness.py`
 4. Add placeholder console.log for routing validation during development
 
 ### Adding Database Tables

@@ -38,7 +38,7 @@ const LANGGRAPH_URL =
 
 // The name of the graph to invoke (defined in apps/ai)
 // This matches the graph name in langgraph.json
-const GRAPH_NAME = 'therapy';
+const GRAPH_NAME = 'wellness';
 
 /* ----------------------------------------------------------------------------
    Types

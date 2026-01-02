@@ -1,18 +1,19 @@
 {
-  "name": "tbot",
+  "name": "wbot",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "turbo dev",
     "dev:all": "concurrently -n web,ai,db -c blue,green,yellow \"pnpm dev:web\" \"pnpm dev:ai\" \"pnpm db:start\"",
-    "dev:web": "turbo dev --filter=@tbot/web",
+    "dev:web": "turbo dev --filter=@wbot/web",
     "dev:ai": "cd apps/ai && uv run langgraph dev",
     "build": "turbo build",
     "lint": "turbo lint",
     "lint:fix": "turbo lint -- --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "deps:install": "./scripts/install-deps.sh",
     "clean": "turbo clean",
     "db:start": "cd database && pnpm exec supabase start",
     "db:stop": "cd database && pnpm exec supabase stop",
@@ -39,6 +40,19 @@
     "turbo": "^2.3.3",
     "typescript": "^5.7.2",
     "typescript-eslint": "^8.51.0"
+  },
+  "lint-staged": {
+    "*.{js,jsx,ts,tsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,md,css}": [
+      "prettier --write"
+    ],
+    "apps/ai/**/*.py": [
+      "bash -c 'cd apps/ai && uv run ruff check --fix'",
+      "bash -c 'cd apps/ai && uv run ruff format'"
+    ]
   },
   "packageManager": "pnpm@9.15.1",
   "engines": {

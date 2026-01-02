@@ -15,7 +15,7 @@
    ============================================================================ */
 
 import { createClient } from '@supabase/supabase-js';
-import type { Database } from '@tbot/shared';
+import type { Database } from '@wbot/shared';
 
 /* ----------------------------------------------------------------------------
    Environment Variables

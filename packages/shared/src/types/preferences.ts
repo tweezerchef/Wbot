@@ -77,7 +77,7 @@ export type PreferredActivity =
   | 'mood_tracking'; // Mood tracking
 
 /**
- * User's experience with therapy/wellness apps.
+ * User's experience with wellness apps.
  */
 export type ExperienceLevel =
   | 'first_time' // First time

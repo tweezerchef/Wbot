@@ -1,5 +1,11 @@
 """
-TBot AI Backend
+Wbot AI Backend
 
-This package contains the LangGraph-based AI backend for the therapy chatbot.
+This package contains the LangGraph-based AI backend for the wellness chatbot.
 """
+
+from src.env import load_monorepo_dotenv
+
+# Load the monorepo root `.env` for local/dev execution.
+# This does not override already-set environment variables.
+load_monorepo_dotenv()

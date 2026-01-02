@@ -25,11 +25,12 @@ Security considerations:
 import os
 from typing import Any
 
-from dotenv import load_dotenv
 from supabase import Client, create_client
 
-# Load environment variables from .env file
-load_dotenv()
+from src.env import load_monorepo_dotenv
+
+# Load environment variables from monorepo root `.env` (if present)
+load_monorepo_dotenv()
 
 
 def get_supabase_client() -> Client:
@@ -52,13 +53,15 @@ def get_supabase_client() -> Client:
     if not url:
         raise ValueError(
             "SUPABASE_URL environment variable is required. "
-            "Set it to your Supabase project URL (e.g., https://xyz.supabase.co)"
+            "Set it to your Supabase project URL "
+            "(e.g., https://xyz.supabase.co)"
         )
 
     if not key:
         raise ValueError(
             "SUPABASE_SERVICE_KEY environment variable is required. "
-            "Get it from your Supabase project settings > API > service_role key"
+            "Get it from your Supabase project settings > API > "
+            "service_role key"
         )
 
     return create_client(url, key)
@@ -151,6 +154,4 @@ async def verify_token(request: dict[str, Any]) -> dict[str, Any]:
         print(f"Token validation error: {e}")
 
         # Raise a generic error to avoid leaking information
-        raise ValueError(
-            "Authentication failed. Please sign in again."
-        ) from e
+        raise ValueError("Authentication failed. Please sign in again.") from e

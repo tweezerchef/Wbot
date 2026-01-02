@@ -19,13 +19,13 @@ import logging
 
 from langchain_core.messages import AIMessage
 
-from src.graph.state import TherapyState
+from src.graph.state import WellnessState
 
 # Set up logging for this node
 logger = logging.getLogger(__name__)
 
 
-async def run_breathing_exercise(state: TherapyState) -> dict:
+async def run_breathing_exercise(state: WellnessState) -> dict:
     """
     Guides the user through a breathing exercise.
 

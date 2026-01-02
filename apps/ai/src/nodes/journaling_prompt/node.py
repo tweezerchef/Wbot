@@ -18,13 +18,13 @@ import logging
 
 from langchain_core.messages import AIMessage
 
-from src.graph.state import TherapyState
+from src.graph.state import WellnessState
 
 # Set up logging for this node
 logger = logging.getLogger(__name__)
 
 
-async def provide_journaling_prompt(state: TherapyState) -> dict:
+async def provide_journaling_prompt(state: WellnessState) -> dict:
     """
     Offers a journaling prompt based on conversation context.
 

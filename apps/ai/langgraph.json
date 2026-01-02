@@ -1,9 +1,9 @@
 {
   "$schema": "https://langchain-ai.github.io/langgraph/schemas/langgraph.schema.json",
   "graphs": {
-    "therapy": "./src/graph/therapy.py:graph"
+    "wellness": "./src/graph/wellness.py:graph"
   },
-  "env": ".env",
+  "env": "../../.env",
   "python_version": "3.11",
   "dependencies": ["."],
   "auth": {

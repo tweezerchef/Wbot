@@ -90,7 +90,7 @@ export function LandingPage() {
       {/* Hero section with app branding */}
       <section className={styles.hero}>
         {/* App logo/name */}
-        <h1 className={styles.title}>TBot</h1>
+        <h1 className={styles.title}>Wbot</h1>
 
         {/* App tagline - calming and welcoming */}
         <p className={styles.tagline}>
@@ -99,8 +99,8 @@ export function LandingPage() {
 
         {/* Brief description of what the app offers */}
         <p className={styles.description}>
-          Chat with an AI therapist, practice breathing exercises, guided meditation, and reflective
-          journaling — all in one supportive space.
+          Chat with an AI wellness companion, practice breathing exercises, guided meditation, and
+          reflective journaling — all in one supportive space.
         </p>
       </section>
 

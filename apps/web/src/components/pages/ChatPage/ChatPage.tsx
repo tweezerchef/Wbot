@@ -183,7 +183,7 @@ export function ChatPage() {
     <div className={styles.container}>
       {/* Minimal header - just branding */}
       <header className={styles.header}>
-        <h1 className={styles.logo}>TBot</h1>
+        <h1 className={styles.logo}>Wbot</h1>
       </header>
 
       {/* Message list - scrollable area */}

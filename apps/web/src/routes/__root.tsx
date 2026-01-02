@@ -37,7 +37,7 @@ export const Route = createRootRoute({
       // Responsive viewport - essential for mobile full-screen experience
       { name: 'viewport', content: 'width=device-width, initial-scale=1, viewport-fit=cover' },
       // App description for SEO and social sharing
-      { name: 'description', content: 'TBot - Your personal therapy companion' },
+      { name: 'description', content: 'Wbot - Your personal wellness companion' },
       // Theme color for browser chrome (mobile)
       { name: 'theme-color', content: '#4a9d9a' },
       // Prevent phone number detection (can interfere with chat)

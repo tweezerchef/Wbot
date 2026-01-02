@@ -1,6 +1,6 @@
-# TBot Development Roadmap
+# Wbot Development Roadmap
 
-This document outlines the next steps for developing TBot from the current scaffolding to a fully functional therapy chatbot.
+This document outlines the next steps for developing Wbot from the current scaffolding to a fully functional wellness chatbot.
 
 ---
 
@@ -59,7 +59,7 @@ This document outlines the next steps for developing TBot from the current scaff
 
 ## Phase 2: Chat Interface
 
-**Goal:** Users can have conversations with the AI therapist.
+**Goal:** Users can have conversations with the AI wellness companion.
 
 ### Tasks
 
@@ -97,13 +97,13 @@ This document outlines the next steps for developing TBot from the current scaff
 
 ## Phase 3: AI Backend Implementation
 
-**Goal:** The AI provides meaningful therapeutic responses.
+**Goal:** The AI provides meaningful wellness responses.
 
 ### Tasks
 
 - [ ] **3.1 Generate Response Node**
   - Implement Claude integration
-  - System prompt with therapy guidelines
+  - System prompt with wellness guidelines
   - Include user preferences in context
   - Conversation memory management
   - Response streaming
@@ -115,7 +115,7 @@ This document outlines the next steps for developing TBot from the current scaff
   - Let user accept or decline
 
 - [ ] **3.3 LangGraph State Management**
-  - Define complete TherapyState schema
+  - Define complete WellnessState schema
   - Implement state persistence
   - Handle conversation checkpoints
 
@@ -221,8 +221,8 @@ This document outlines the next steps for developing TBot from the current scaff
 - [ ] Export conversation history
 - [ ] Multiple AI personality options
 - [ ] Integration with health apps
-- [ ] Group therapy sessions
-- [ ] Therapist dashboard for oversight
+- [ ] Group wellness sessions
+- [ ] Wellness coach dashboard for oversight
 - [ ] Multi-language support
 - [ ] Offline mode with sync
 
@@ -267,7 +267,7 @@ pnpm db:start   # Database
 | Auth      | `apps/web/src/lib/supabase.ts`      |
 | Routing   | `apps/web/src/routes/*.tsx`         |
 | Styling   | `apps/web/src/styles/variables.css` |
-| AI Graph  | `apps/ai/src/graph/therapy.py`      |
+| AI Graph  | `apps/ai/src/graph/wellness.py`     |
 | AI Nodes  | `apps/ai/src/nodes/*/node.py`       |
 | DB Schema | `database/migrations/*.sql`         |
 | Types     | `packages/shared/src/types/*.ts`    |

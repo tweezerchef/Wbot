@@ -1,8 +1,8 @@
 """
 ============================================================================
-Therapy Conversation Graph
+Wellness Conversation Graph
 ============================================================================
-The main LangGraph graph definition for TBot's therapy chatbot.
+The main LangGraph graph definition for Wbot's wellness chatbot.
 
 Graph Structure (Current - Simple):
     START -> generate_response -> END
@@ -21,13 +21,13 @@ The compiled `graph` is exported for use by LangGraph Deploy.
 
 from langgraph.graph import END, StateGraph
 
-from src.graph.state import TherapyState
+from src.graph.state import WellnessState
 from src.nodes.generate_response import generate_response
 
 
 def build_graph() -> StateGraph:
     """
-    Constructs the therapy conversation graph.
+    Constructs the wellness conversation graph.
 
     Current implementation is simple:
     - Receives user message
@@ -59,8 +59,8 @@ def build_graph() -> StateGraph:
          └─────────┘
     """
     # Create the graph builder with our state type
-    # TherapyState defines the shape of data flowing through the graph
-    builder = StateGraph(TherapyState)
+    # WellnessState defines the shape of data flowing through the graph
+    builder = StateGraph(WellnessState)
 
     # -------------------------------------------------------------------------
     # Add Nodes
@@ -100,7 +100,7 @@ graph = build_graph().compile()
 # When activity routing is implemented, the graph will look like this:
 #
 # def build_graph_with_activities() -> StateGraph:
-#     builder = StateGraph(TherapyState)
+#     builder = StateGraph(WellnessState)
 #
 #     # Add all nodes
 #     builder.add_node("detect_activity", detect_activity_intent)
@@ -113,7 +113,7 @@ graph = build_graph().compile()
 #     builder.set_entry_point("detect_activity")
 #
 #     # Conditional routing based on detected activity
-#     def route_activity(state: TherapyState) -> str:
+#     def route_activity(state: WellnessState) -> str:
 #         activity = state.get("suggested_activity")
 #         if activity == "breathing":
 #             return "breathing_exercise"

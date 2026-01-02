@@ -5,7 +5,7 @@ LLM Provider Configuration
 Configures and creates language model instances.
 
 Supported providers:
-- Anthropic (Claude) - Primary model for therapy conversations
+- Anthropic (Claude) - Primary model for wellness conversations
 - Google (Gemini) - Alternative/experimental model
 
 The provider can be selected via:
@@ -87,7 +87,7 @@ def create_llm(
             raise ValueError(
                 f"Unknown LLM_PROVIDER: '{provider_str}'. "
                 f"Valid options: {[p.value for p in LLMProvider]}"
-            )
+            ) from None
 
     # Create the appropriate model
     if provider == LLMProvider.ANTHROPIC:

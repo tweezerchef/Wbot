@@ -1,7 +1,7 @@
 -- ============================================================================
 -- Migration: 003_messages.sql
 -- Purpose: Create the messages table to store individual chat messages
---          within therapy conversations.
+--          within wellness conversations.
 -- ============================================================================
 
 -- ----------------------------------------------------------------------------
@@ -30,7 +30,7 @@ CREATE TABLE IF NOT EXISTS messages (
 
   -- Who sent this message
   -- 'user' = the human user
-  -- 'assistant' = the AI therapy bot
+  -- 'assistant' = the AI wellness bot
   -- 'system' = system messages (e.g., "conversation started")
   -- Using TEXT with CHECK constraint instead of ENUM for flexibility
   role TEXT NOT NULL CHECK (role IN ('user', 'assistant', 'system')),

@@ -2,7 +2,7 @@
 ============================================================================
 Generate Response Node
 ============================================================================
-The primary node for generating AI responses in the therapy conversation.
+The primary node for generating AI responses in the wellness conversation.
 
 This node:
 1. Takes the current conversation state
@@ -17,13 +17,13 @@ When deployed, tokens are streamed to the client as they're generated.
 
 from langchain_core.messages import SystemMessage
 
-from src.graph.state import TherapyState
+from src.graph.state import WellnessState
 from src.llm.providers import create_llm
-from src.prompts.therapy_system import THERAPY_SYSTEM_PROMPT
+from src.prompts.wellness_system import WELLNESS_SYSTEM_PROMPT
 from src.utils.user_context import format_user_context
 
 
-async def generate_response(state: TherapyState) -> dict:
+async def generate_response(state: WellnessState) -> dict:
     """
     Generates an AI response based on conversation history.
 
@@ -51,7 +51,7 @@ async def generate_response(state: TherapyState) -> dict:
 
     State Update:
         The returned message is automatically appended to state.messages
-        via the add_messages reducer defined in TherapyState.
+        via the add_messages reducer defined in WellnessState.
 
     Streaming:
         This function is async and the LLM call (ainvoke) supports streaming.
@@ -90,9 +90,9 @@ async def generate_response(state: TherapyState) -> dict:
     context_str = format_user_context(user_context)
 
     # Create the system message with personalized context
-    # The THERAPY_SYSTEM_PROMPT has a {user_context} placeholder
+    # The WELLNESS_SYSTEM_PROMPT has a {user_context} placeholder
     system_message = SystemMessage(
-        content=THERAPY_SYSTEM_PROMPT.format(user_context=context_str)
+        content=WELLNESS_SYSTEM_PROMPT.format(user_context=context_str)
     )
 
     # Build the complete message list for the LLM

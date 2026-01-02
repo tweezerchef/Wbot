@@ -185,11 +185,11 @@ def _add_preferred_activities(lines: list[str], preferences: dict[str, Any]) -> 
 
 
 def _add_experience_level(lines: list[str], preferences: dict[str, Any]) -> None:
-    """Adds the user's experience with therapy/wellness apps."""
+    """Adds the user's experience with wellness apps."""
     experience_map = {
         "first_time": "This is their first time using a wellness app or exploring these topics.",
         "tried_apps": "They've tried wellness apps before but didn't stick with them. Consider what might make this experience different.",
-        "some_therapy": "They have some experience with therapy, so they may be familiar with therapeutic concepts.",
+        "some_therapy": "They have some experience with wellness practices, so they may be familiar with wellness concepts.",
         "regular_practice": "They practice wellness regularly and may appreciate more advanced techniques.",
     }
 

@@ -125,11 +125,11 @@ const ONBOARDING_QUESTIONS = [
   },
   {
     id: 'experience_level',
-    question: 'Have you tried therapy or wellness apps before?',
+    question: 'Have you tried wellness apps before?',
     options: [
       { label: 'This is my first time', value: 'first_time' },
       { label: "I've tried apps but didn't stick with them", value: 'tried_apps' },
-      { label: "I've done some therapy before", value: 'some_therapy' },
+      { label: "I've done some wellness practices before", value: 'some_therapy' },
       { label: 'I practice wellness regularly', value: 'regular_practice' },
     ],
   },
@@ -413,7 +413,7 @@ export function SignupPage() {
       <div className={styles.container}>
         <div className={styles.card}>
           {/* Header */}
-          <h1 className={styles.title}>Welcome to TBot</h1>
+          <h1 className={styles.title}>Welcome to Wbot</h1>
           <p className={styles.subtitle}>
             Your personal companion for mindful reflection and wellness
           </p>

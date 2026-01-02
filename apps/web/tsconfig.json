@@ -17,7 +17,7 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"],
-      "@tbot/shared": ["../../packages/shared/src"]
+      "@wbot/shared": ["../../packages/shared/src"]
     },
 
     // ----------------------------------------------------------------------------
@@ -46,6 +46,6 @@
     "resolveJsonModule": true,
     "isolatedModules": true
   },
-  "include": ["src/**/*", "app.config.ts"],
+  "include": ["src/**/*", "app.config.ts", "vite.config.ts"],
   "exclude": ["node_modules", "dist", ".output", ".vinxi"]
 }

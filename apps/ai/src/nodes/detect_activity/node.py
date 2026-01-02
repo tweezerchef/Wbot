@@ -16,13 +16,13 @@ This is a stub for architecture validation.
 
 import logging
 
-from src.graph.state import TherapyState
+from src.graph.state import WellnessState
 
 # Set up logging for this node
 logger = logging.getLogger(__name__)
 
 
-async def detect_activity_intent(state: TherapyState) -> dict:
+async def detect_activity_intent(state: WellnessState) -> dict:
     """
     Analyzes conversation to detect if an activity would be helpful.
 
