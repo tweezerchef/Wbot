@@ -33,7 +33,8 @@ import { Client } from '@langchain/langgraph-sdk';
 // LangGraph Deploy URL
 // In development: Local LangGraph server (usually http://localhost:8123)
 // In production: Your LangGraph Deploy URL from LangGraph Cloud
-const LANGGRAPH_URL = import.meta.env.VITE_LANGGRAPH_API_URL || 'http://localhost:8123';
+const LANGGRAPH_URL =
+  (import.meta.env.VITE_LANGGRAPH_API_URL as string | undefined) ?? 'http://localhost:8123';
 
 // The name of the graph to invoke (defined in apps/ai)
 // This matches the graph name in langgraph.json
@@ -156,18 +157,14 @@ export class AIClient {
 
       // Stream the response from LangGraph
       // The SDK handles the SSE connection and parsing
-      const stream = this.client.runs.stream(
-        thread.thread_id,
-        GRAPH_NAME,
-        {
-          input: {
-            // Pass the user's message to the graph
-            messages: [{ role: 'user', content: message }],
-          },
-          // Stream mode: 'messages' gives us token-by-token output
-          streamMode: 'messages',
+      const stream = this.client.runs.stream(thread.thread_id, GRAPH_NAME, {
+        input: {
+          // Pass the user's message to the graph
+          messages: [{ role: 'user', content: message }],
         },
-      );
+        // Stream mode: 'messages' gives us token-by-token output
+        streamMode: 'messages',
+      });
 
       // Process each chunk from the stream
       for await (const chunk of stream) {
@@ -177,8 +174,8 @@ export class AIClient {
         // Check if this is a message chunk with content
         if (chunk.event === 'messages/partial') {
           // Extract the latest assistant message content
-          const messages = chunk.data as Array<{ role: string; content: string }>;
-          const lastMessage = messages[messages.length - 1];
+          const messages = chunk.data as unknown as { role: string; content: string }[];
+          const lastMessage = messages.at(-1);
 
           if (lastMessage?.role === 'assistant' && lastMessage.content) {
             yield { type: 'token', content: lastMessage.content };
@@ -234,15 +231,20 @@ export class AIClient {
 
       // Extract messages from the graph state
       // The structure depends on how the graph stores messages
-      const messages = (state.values as { messages?: Array<{
-        id?: string;
-        role: string;
-        content: string;
-        created_at?: string;
-      }> }).messages || [];
+      const messages =
+        (
+          state.values as {
+            messages?: {
+              id?: string;
+              role: string;
+              content: string;
+              created_at?: string;
+            }[];
+          }
+        ).messages ?? [];
 
       return messages.map((msg, index) => ({
-        id: msg.id || `msg-${index}`,
+        id: msg.id ?? `msg-${String(index)}`,
         role: msg.role as 'user' | 'assistant' | 'system',
         content: msg.content,
         createdAt: msg.created_at ? new Date(msg.created_at) : new Date(),

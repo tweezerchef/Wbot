@@ -1,159 +1,260 @@
-/**
- * ============================================================================
- * Database Types
- * ============================================================================
- * TypeScript types for the Supabase database schema.
- *
- * NOTE: This file can be auto-generated using:
- *   pnpm db:generate-types
- *
- * The command runs:
- *   supabase gen types typescript --local > packages/shared/src/types/database.ts
- *
- * For now, this is a manually-created version matching our migrations.
- * ============================================================================
- */
+export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
 
-import type { UserPreferences } from './preferences';
-
-/**
- * Database schema types for Supabase client.
- * Use with: createClient<Database>(url, key)
- */
-export interface Database {
-  public: {
+export type Database = {
+  graphql_public: {
     Tables: {
-      profiles: {
-        Row: Profile;
-        Insert: ProfileInsert;
-        Update: ProfileUpdate;
-      };
-      conversations: {
-        Row: Conversation;
-        Insert: ConversationInsert;
-        Update: ConversationUpdate;
-      };
-      messages: {
-        Row: Message;
-        Insert: MessageInsert;
-        Update: MessageUpdate;
+      [_ in never]: never;
+    };
+    Views: {
+      [_ in never]: never;
+    };
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json;
+          operationName?: string;
+          query?: string;
+          variables?: Json;
+        };
+        Returns: Json;
       };
     };
+    Enums: {
+      [_ in never]: never;
+    };
+    CompositeTypes: {
+      [_ in never]: never;
+    };
   };
+  public: {
+    Tables: {
+      conversations: {
+        Row: {
+          created_at: string | null;
+          id: string;
+          title: string | null;
+          updated_at: string | null;
+          user_id: string;
+        };
+        Insert: {
+          created_at?: string | null;
+          id?: string;
+          title?: string | null;
+          updated_at?: string | null;
+          user_id: string;
+        };
+        Update: {
+          created_at?: string | null;
+          id?: string;
+          title?: string | null;
+          updated_at?: string | null;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'conversations_user_id_fkey';
+            columns: ['user_id'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      messages: {
+        Row: {
+          content: string;
+          conversation_id: string;
+          created_at: string | null;
+          id: string;
+          metadata: Json | null;
+          role: string;
+        };
+        Insert: {
+          content: string;
+          conversation_id: string;
+          created_at?: string | null;
+          id?: string;
+          metadata?: Json | null;
+          role: string;
+        };
+        Update: {
+          content?: string;
+          conversation_id?: string;
+          created_at?: string | null;
+          id?: string;
+          metadata?: Json | null;
+          role?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'messages_conversation_id_fkey';
+            columns: ['conversation_id'];
+            isOneToOne: false;
+            referencedRelation: 'conversations';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      profiles: {
+        Row: {
+          created_at: string | null;
+          display_name: string | null;
+          id: string;
+          preferences: Json | null;
+          updated_at: string | null;
+        };
+        Insert: {
+          created_at?: string | null;
+          display_name?: string | null;
+          id: string;
+          preferences?: Json | null;
+          updated_at?: string | null;
+        };
+        Update: {
+          created_at?: string | null;
+          display_name?: string | null;
+          id?: string;
+          preferences?: Json | null;
+          updated_at?: string | null;
+        };
+        Relationships: [];
+      };
+    };
+    Views: {
+      [_ in never]: never;
+    };
+    Functions: {
+      [_ in never]: never;
+    };
+    Enums: {
+      [_ in never]: never;
+    };
+    CompositeTypes: {
+      [_ in never]: never;
+    };
+  };
+};
+
+type DatabaseWithoutInternals = Omit<Database, '__InternalSupabase'>;
+
+type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, 'public'>];
+
+export type Tables<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof (DefaultSchema['Tables'] & DefaultSchema['Views'])
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals;
+  }
+    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables'] &
+        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Views'])
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals;
 }
+  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables'] &
+      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Views'])[TableName] extends {
+      Row: infer R;
+    }
+    ? R
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema['Tables'] & DefaultSchema['Views'])
+    ? (DefaultSchema['Tables'] & DefaultSchema['Views'])[DefaultSchemaTableNameOrOptions] extends {
+        Row: infer R;
+      }
+      ? R
+      : never
+    : never;
 
-// =============================================================================
-// Profiles Table
-// =============================================================================
-
-/** A user profile (extends Supabase Auth users) */
-export interface Profile {
-  /** UUID matching auth.users.id */
-  id: string;
-
-  /** User's display name */
-  display_name: string | null;
-
-  /** User preferences from onboarding (JSONB) */
-  preferences: UserPreferences;
-
-  /** When the profile was created */
-  created_at: string;
-
-  /** When the profile was last updated */
-  updated_at: string;
+export type TablesInsert<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema['Tables']
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals;
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables']
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals;
 }
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables'][TableName] extends {
+      Insert: infer I;
+    }
+    ? I
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema['Tables']
+    ? DefaultSchema['Tables'][DefaultSchemaTableNameOrOptions] extends {
+        Insert: infer I;
+      }
+      ? I
+      : never
+    : never;
 
-/** Fields for inserting a new profile */
-export interface ProfileInsert {
-  id: string;
-  display_name?: string | null;
-  preferences?: UserPreferences;
-  created_at?: string;
-  updated_at?: string;
+export type TablesUpdate<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema['Tables']
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals;
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables']
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals;
 }
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables'][TableName] extends {
+      Update: infer U;
+    }
+    ? U
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema['Tables']
+    ? DefaultSchema['Tables'][DefaultSchemaTableNameOrOptions] extends {
+        Update: infer U;
+      }
+      ? U
+      : never
+    : never;
 
-/** Fields for updating a profile */
-export interface ProfileUpdate {
-  display_name?: string | null;
-  preferences?: UserPreferences;
-  updated_at?: string;
+export type Enums<
+  DefaultSchemaEnumNameOrOptions extends
+    | keyof DefaultSchema['Enums']
+    | { schema: keyof DatabaseWithoutInternals },
+  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals;
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions['schema']]['Enums']
+    : never = never,
+> = DefaultSchemaEnumNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals;
 }
+  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions['schema']]['Enums'][EnumName]
+  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema['Enums']
+    ? DefaultSchema['Enums'][DefaultSchemaEnumNameOrOptions]
+    : never;
 
-// =============================================================================
-// Conversations Table
-// =============================================================================
-
-/** A therapy conversation */
-export interface Conversation {
-  /** Unique identifier */
-  id: string;
-
-  /** User who owns this conversation */
-  user_id: string;
-
-  /** Optional title */
-  title: string | null;
-
-  /** When the conversation was created */
-  created_at: string;
-
-  /** When the conversation was last active */
-  updated_at: string;
+export type CompositeTypes<
+  PublicCompositeTypeNameOrOptions extends
+    | keyof DefaultSchema['CompositeTypes']
+    | { schema: keyof DatabaseWithoutInternals },
+  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals;
+  }
+    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions['schema']]['CompositeTypes']
+    : never = never,
+> = PublicCompositeTypeNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals;
 }
+  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions['schema']]['CompositeTypes'][CompositeTypeName]
+  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema['CompositeTypes']
+    ? DefaultSchema['CompositeTypes'][PublicCompositeTypeNameOrOptions]
+    : never;
 
-/** Fields for inserting a new conversation */
-export interface ConversationInsert {
-  id?: string;
-  user_id: string;
-  title?: string | null;
-  created_at?: string;
-  updated_at?: string;
-}
-
-/** Fields for updating a conversation */
-export interface ConversationUpdate {
-  title?: string | null;
-  updated_at?: string;
-}
-
-// =============================================================================
-// Messages Table
-// =============================================================================
-
-/** A message in a conversation */
-export interface Message {
-  /** Unique identifier */
-  id: string;
-
-  /** Parent conversation */
-  conversation_id: string;
-
-  /** Who sent the message */
-  role: 'user' | 'assistant' | 'system';
-
-  /** Message text content */
-  content: string;
-
-  /** Optional metadata (JSONB) */
-  metadata: Record<string, unknown>;
-
-  /** When the message was created */
-  created_at: string;
-}
-
-/** Fields for inserting a new message */
-export interface MessageInsert {
-  id?: string;
-  conversation_id: string;
-  role: 'user' | 'assistant' | 'system';
-  content: string;
-  metadata?: Record<string, unknown>;
-  created_at?: string;
-}
-
-/** Fields for updating a message */
-export interface MessageUpdate {
-  content?: string;
-  metadata?: Record<string, unknown>;
-}
+export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
+  public: {
+    Enums: {},
+  },
+} as const;

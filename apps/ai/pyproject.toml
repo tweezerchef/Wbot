@@ -23,42 +23,36 @@ dependencies = [
     # -------------------------------------------------------------------------
     # The foundation for building LLM applications
     "langchain>=0.3.13",
-
     # -------------------------------------------------------------------------
     # LLM Providers
     # -------------------------------------------------------------------------
     # Anthropic Claude - Primary LLM for therapy conversations
     # Known for strong reasoning and nuanced responses
     "langchain-anthropic>=0.3.1",
-
     # Google Gemini - Secondary/experimental LLM
     # Useful for testing and comparing model outputs
     "langchain-google-genai>=2.0.8",
-
     # -------------------------------------------------------------------------
     # LangGraph - Stateful Agent Framework
     # -------------------------------------------------------------------------
     # Powers the conversation graph with state management
     # Enables complex multi-turn conversations with memory
     "langgraph>=0.2.60",
-
     # -------------------------------------------------------------------------
     # Supabase
     # -------------------------------------------------------------------------
     # Database access and auth token validation
     "supabase>=2.11.0",
-
     # -------------------------------------------------------------------------
     # Utilities
     # -------------------------------------------------------------------------
     # Async HTTP client for API calls
     "httpx>=0.28.1",
-
     # Environment variable management
     "python-dotenv>=1.0.1",
-
     # Data validation and serialization
     "pydantic>=2.10.4",
+    "langgraph-cli[inmem]>=0.4.11",
 ]
 
 # Development dependencies (installed with `uv sync --dev`)

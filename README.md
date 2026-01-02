@@ -35,17 +35,17 @@ TBot is a monorepo containing three main components:
 
 ## Tech Stack
 
-| Component | Technology |
-|-----------|------------|
-| Frontend | TanStack Start, React 19, Vite 7 |
-| Styling | CSS Modules, CSS Variables |
-| AI Backend | Python, LangGraph, LangChain |
-| LLM Providers | Anthropic Claude, Google Gemini |
-| Database | Supabase (PostgreSQL) |
-| Auth | Supabase Auth (Email + Google OAuth) |
-| Package Manager | pnpm |
-| Build System | Turborepo |
-| Linting | ESLint (Airbnb), Ruff (Python) |
+| Component       | Technology                           |
+| --------------- | ------------------------------------ |
+| Frontend        | TanStack Start, React 19, Vite 7     |
+| Styling         | CSS Modules, CSS Variables           |
+| AI Backend      | Python, LangGraph, LangChain         |
+| LLM Providers   | Anthropic Claude, Google Gemini      |
+| Database        | Supabase (PostgreSQL)                |
+| Auth            | Supabase Auth (Email + Google OAuth) |
+| Package Manager | pnpm                                 |
+| Build System    | Turborepo                            |
+| Linting         | ESLint 9 + Prettier, Ruff (Python)   |
 
 ## Directory Structure
 
@@ -118,10 +118,11 @@ tbot/
 
 ## Prerequisites
 
-- **Node.js** >= 22.12.0
+- **Node.js** >= 20
 - **pnpm** >= 9.0.0
 - **Python** >= 3.11
-- **uv** (Python package manager) - Install with `curl -LsSf https://astral.sh/uv/install.sh | sh`
+- **uv** (Python package manager) - Install with `brew install uv` or `curl -LsSf https://astral.sh/uv/install.sh | sh`
+- **Docker** - Required for local Supabase development
 
 ## Setup
 
@@ -195,31 +196,37 @@ supabase db push
 
 ## Development
 
-### Start the Web Frontend
+### Quick Start (Recommended)
+
+Start everything with one command:
 
 ```bash
-pnpm dev:web
+# Make sure Docker is running first
+pnpm dev:all
 ```
 
-Opens at http://localhost:5173
+This starts the web frontend, AI backend, and Supabase database together.
 
-### Start the AI Backend
-
-```bash
-cd apps/ai
-uv run langgraph dev
-```
-
-Opens at http://localhost:8000
-
-### Run Both (Recommended)
+### Individual Services
 
 ```bash
-# Terminal 1
+# Web frontend only (http://localhost:5173)
 pnpm dev:web
 
-# Terminal 2
-cd apps/ai && uv run langgraph dev
+# AI backend only (http://localhost:8123)
+pnpm dev:ai
+
+# Database only
+pnpm db:start
+```
+
+### Database Commands
+
+```bash
+pnpm db:start           # Start local Supabase
+pnpm db:stop            # Stop local Supabase
+pnpm db:reset           # Reset database and rerun migrations
+pnpm db:generate-types  # Generate TypeScript types from DB schema
 ```
 
 ### Other Commands
@@ -230,67 +237,74 @@ pnpm build
 
 # Lint all packages
 pnpm lint
+pnpm lint:fix           # Auto-fix lint issues
 
-# Type check
-pnpm typecheck
+# Format code
+pnpm format             # Format all files with Prettier
+pnpm format:check       # Check formatting
 
-# Format Python code
+# Python linting
+cd apps/ai && uv run ruff check .
 cd apps/ai && uv run ruff format .
 ```
 
 ## Database Schema
 
 ### profiles
+
 Stores user profile and preferences.
 
-| Column | Type | Description |
-|--------|------|-------------|
-| id | uuid | Primary key (matches auth.users.id) |
-| display_name | text | User's display name |
-| preferences | jsonb | User preferences from onboarding |
-| created_at | timestamptz | Account creation time |
-| updated_at | timestamptz | Last update time |
+| Column       | Type        | Description                         |
+| ------------ | ----------- | ----------------------------------- |
+| id           | uuid        | Primary key (matches auth.users.id) |
+| display_name | text        | User's display name                 |
+| preferences  | jsonb       | User preferences from onboarding    |
+| created_at   | timestamptz | Account creation time               |
+| updated_at   | timestamptz | Last update time                    |
 
 ### conversations
+
 Stores chat conversation sessions.
 
-| Column | Type | Description |
-|--------|------|-------------|
-| id | uuid | Primary key |
-| user_id | uuid | Foreign key to profiles |
-| title | text | Conversation title |
+| Column     | Type        | Description             |
+| ---------- | ----------- | ----------------------- |
+| id         | uuid        | Primary key             |
+| user_id    | uuid        | Foreign key to profiles |
+| title      | text        | Conversation title      |
 | created_at | timestamptz | Conversation start time |
-| updated_at | timestamptz | Last message time |
+| updated_at | timestamptz | Last message time       |
 
 ### messages
+
 Stores individual chat messages.
 
-| Column | Type | Description |
-|--------|------|-------------|
-| id | uuid | Primary key |
-| conversation_id | uuid | Foreign key to conversations |
-| role | text | 'user' or 'assistant' |
-| content | text | Message content |
-| metadata | jsonb | Activity data, etc. |
-| created_at | timestamptz | Message timestamp |
+| Column          | Type        | Description                  |
+| --------------- | ----------- | ---------------------------- |
+| id              | uuid        | Primary key                  |
+| conversation_id | uuid        | Foreign key to conversations |
+| role            | text        | 'user' or 'assistant'        |
+| content         | text        | Message content              |
+| metadata        | jsonb       | Activity data, etc.          |
+| created_at      | timestamptz | Message timestamp            |
 
 ## LangGraph Nodes
 
 The AI backend uses a LangGraph state machine with these nodes:
 
-| Node | Purpose |
-|------|---------|
-| `generate_response` | Main conversational response using Claude/Gemini |
-| `detect_activity` | Detects when to suggest wellness activities |
-| `breathing_exercise` | Generates guided breathing instructions |
-| `meditation_guidance` | Provides meditation guidance |
-| `journaling_prompt` | Creates reflective journaling prompts |
+| Node                  | Purpose                                          |
+| --------------------- | ------------------------------------------------ |
+| `generate_response`   | Main conversational response using Claude/Gemini |
+| `detect_activity`     | Detects when to suggest wellness activities      |
+| `breathing_exercise`  | Generates guided breathing instructions          |
+| `meditation_guidance` | Provides meditation guidance                     |
+| `journaling_prompt`   | Creates reflective journaling prompts            |
 
 ## Deployment
 
 ### Web Frontend
 
 Deploy to any platform supporting Node.js:
+
 - Vercel (recommended for TanStack Start)
 - Netlify
 - Railway
@@ -309,6 +323,7 @@ Or self-host with Docker.
 ### Database
 
 Supabase handles hosting. For production:
+
 1. Enable Point-in-Time Recovery
 2. Set up database backups
 3. Configure connection pooling

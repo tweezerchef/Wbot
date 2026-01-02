@@ -19,11 +19,7 @@
 // ============================================================================
 
 /// <reference types="vite/client" />
-import {
-  HeadContent,
-  Scripts,
-  createRootRoute,
-} from '@tanstack/react-router';
+import { HeadContent, Scripts, createRootRoute } from '@tanstack/react-router';
 import * as React from 'react';
 
 // Import global styles - applies CSS reset and variables

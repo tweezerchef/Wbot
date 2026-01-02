@@ -23,7 +23,7 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 
-import { createAIClient, type StreamEvent, type Message } from '../../../lib/ai-client';
+import { createAIClient, type Message } from '../../../lib/ai-client';
 
 import styles from './ChatPage.module.css';
 
@@ -87,7 +87,7 @@ export function ChatPage() {
 
     // Add user message to the list
     const userMessage: Message = {
-      id: `user-${Date.now()}`,
+      id: `user-${String(Date.now())}`,
       role: 'user',
       content: messageText,
       createdAt: new Date(),
@@ -112,7 +112,7 @@ export function ChatPage() {
       let fullResponse = '';
 
       // Stream the AI response
-      for await (const event of client.streamMessage(messageText, conversationId) as AsyncGenerator<StreamEvent>) {
+      for await (const event of client.streamMessage(messageText, conversationId)) {
         switch (event.type) {
           case 'token':
             // Append token to streaming content
@@ -123,7 +123,7 @@ export function ChatPage() {
           case 'done': {
             // Streaming complete - add full message to list
             const assistantMessage: Message = {
-              id: event.messageId || `assistant-${Date.now()}`,
+              id: event.messageId ?? `assistant-${String(Date.now())}`,
               role: 'assistant',
               content: fullResponse,
               createdAt: new Date(),
@@ -137,7 +137,7 @@ export function ChatPage() {
             // Handle error - show in chat
             console.error('Stream error:', event.error);
             const errorMessage: Message = {
-              id: `error-${Date.now()}`,
+              id: `error-${String(Date.now())}`,
               role: 'system',
               content: `Sorry, something went wrong: ${event.error}`,
               createdAt: new Date(),
@@ -152,9 +152,9 @@ export function ChatPage() {
       // Handle unexpected errors
       console.error('Failed to send message:', error);
       const errorMessage: Message = {
-        id: `error-${Date.now()}`,
+        id: `error-${String(Date.now())}`,
         role: 'system',
-        content: 'Sorry, I couldn\'t connect to the server. Please try again.',
+        content: "Sorry, I couldn't connect to the server. Please try again.",
         createdAt: new Date(),
       };
       setMessages((prev) => [...prev, errorMessage]);
@@ -172,7 +172,7 @@ export function ChatPage() {
     // Send on Enter (without Shift for newlines in future textarea)
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      handleSendMessage();
+      void handleSendMessage();
     }
   };
 
@@ -192,8 +192,8 @@ export function ChatPage() {
         {messages.length === 0 && !streamingContent && (
           <div className={styles.welcome}>
             <p className={styles.welcomeText}>
-              Hello! I'm here to support you. Feel free to share what's on your mind,
-              and we can explore breathing exercises, meditation, or journaling together.
+              Hello! I'm here to support you. Feel free to share what's on your mind, and we can
+              explore breathing exercises, meditation, or journaling together.
             </p>
           </div>
         )}
@@ -237,14 +237,18 @@ export function ChatPage() {
           className={styles.input}
           placeholder="Type a message..."
           value={inputValue}
-          onChange={(e) => setInputValue(e.target.value)}
+          onChange={(e) => {
+            setInputValue(e.target.value);
+          }}
           onKeyDown={handleKeyDown}
           disabled={isLoading}
           aria-label="Message input"
         />
         <button
           className={styles.sendButton}
-          onClick={handleSendMessage}
+          onClick={() => {
+            void handleSendMessage();
+          }}
           disabled={!inputValue.trim() || isLoading}
           aria-label="Send message"
         >
@@ -312,4 +316,3 @@ function MessageBubble({ message, isStreaming = false }: MessageBubbleProps) {
     </div>
   );
 }
-

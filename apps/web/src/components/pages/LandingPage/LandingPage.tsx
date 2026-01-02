@@ -46,7 +46,9 @@ export function LandingPage() {
      -------------------------------------------------------------------------- */
   useEffect(() => {
     const checkSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
 
       if (session) {
         // User is authenticated, check if they completed onboarding
@@ -56,12 +58,14 @@ export function LandingPage() {
           .eq('id', session.user.id)
           .single();
 
-        if (profile?.preferences && Object.keys(profile.preferences).length > 0) {
+        // Check if preferences exist and have content
+        const preferences = profile?.preferences as Record<string, unknown> | null;
+        if (preferences && Object.keys(preferences).length > 0) {
           // Completed onboarding, go to chat
-          navigate({ to: '/chat' });
+          void navigate({ to: '/chat' });
         } else {
           // Needs to complete onboarding
-          navigate({ to: '/signup' });
+          void navigate({ to: '/signup' });
         }
       } else {
         // Not authenticated, show landing page
@@ -69,7 +73,7 @@ export function LandingPage() {
       }
     };
 
-    checkSession();
+    void checkSession();
   }, [navigate]);
 
   // Show nothing while checking session to prevent flash
@@ -95,9 +99,8 @@ export function LandingPage() {
 
         {/* Brief description of what the app offers */}
         <p className={styles.description}>
-          Chat with an AI therapist, practice breathing exercises,
-          guided meditation, and reflective journaling — all in one
-          supportive space.
+          Chat with an AI therapist, practice breathing exercises, guided meditation, and reflective
+          journaling — all in one supportive space.
         </p>
       </section>
 
@@ -108,11 +111,8 @@ export function LandingPage() {
           Get Started
         </a>
 
-        <p className={styles.disclaimer}>
-          Free to use. Your conversations are private.
-        </p>
+        <p className={styles.disclaimer}>Free to use. Your conversations are private.</p>
       </section>
     </div>
   );
 }
-

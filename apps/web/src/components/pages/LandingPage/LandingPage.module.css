@@ -123,8 +123,9 @@
   text-decoration: none;
 
   /* Smooth hover transition */
-  transition: background-color var(--transition-fast),
-              transform var(--transition-fast);
+  transition:
+    background-color var(--transition-fast),
+    transform var(--transition-fast);
 
   /* Subtle shadow for depth */
   box-shadow: var(--shadow-md);
@@ -166,4 +167,3 @@
   font-size: var(--font-size-base);
   color: var(--color-text-secondary);
 }
-

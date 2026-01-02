@@ -7,6 +7,7 @@ This file provides instructions and context for Claude Code when working on this
 ## Project Overview
 
 TBot is an AI therapy chatbot built as a monorepo with:
+
 - **Web Frontend**: TanStack Start (React + Vite)
 - **AI Backend**: Python with LangGraph/LangChain
 - **Database**: Supabase (PostgreSQL)
@@ -31,8 +32,18 @@ The chatbot is the PRIMARY interface - activities render inside the chat, not as
 - **ALWAYS** research solutions using web search and official docs before implementing
 - **ALWAYS** separate concerns with clear folder structure and descriptive filenames
 - **ALWAYS** add comments explaining what code does and why
+- **ALWAYS** use proper TypeScript types - avoid `any` and `unknown` where possible
 - **NEVER** add unnecessary complexity or over-engineer solutions
 - **NEVER** add features not explicitly requested
+
+### TypeScript Typing Rules
+
+- **NEVER** use `any` - define proper types or interfaces
+- **AVOID** `unknown` - prefer specific types; use type guards when needed
+- **ALWAYS** type function parameters and return types
+- **PREFER** inferring types from Zod schemas with `z.infer<typeof schema>`
+- **USE** the shared types from `@tbot/shared` for database entities
+- Generate database types with `pnpm db:generate-types` after schema changes
 
 ### When Uncertain
 
@@ -72,16 +83,16 @@ apps/
 
 ### Naming Conventions
 
-| Type | Convention | Example |
-|------|------------|---------|
-| React Components | PascalCase | `ChatMessage.tsx` |
-| CSS Modules | camelCase | `ChatMessage.module.css` |
-| Hooks | camelCase with `use` prefix | `useAuth.ts` |
-| Utilities | camelCase | `formatDate.ts` |
-| Routes | kebab-case | `sign-up.tsx` |
-| Python modules | snake_case | `generate_response.py` |
-| Python classes | PascalCase | `TherapyState` |
-| Environment vars | SCREAMING_SNAKE_CASE | `VITE_SUPABASE_URL` |
+| Type             | Convention                  | Example                  |
+| ---------------- | --------------------------- | ------------------------ |
+| React Components | PascalCase                  | `ChatMessage.tsx`        |
+| CSS Modules      | camelCase                   | `ChatMessage.module.css` |
+| Hooks            | camelCase with `use` prefix | `useAuth.ts`             |
+| Utilities        | camelCase                   | `formatDate.ts`          |
+| Routes           | kebab-case                  | `sign-up.tsx`            |
+| Python modules   | snake_case                  | `generate_response.py`   |
+| Python classes   | PascalCase                  | `TherapyState`           |
+| Environment vars | SCREAMING_SNAKE_CASE        | `VITE_SUPABASE_URL`      |
 
 ### Component Structure
 
@@ -125,6 +136,7 @@ export function MessageBubble({ content, role }: MessageBubbleProps) {
 - **Styling**: CSS Modules + CSS Variables
 - **State**: React hooks (no external state library yet)
 - **Auth Client**: Supabase JS v2
+- **Validation**: Zod (required for all data validation)
 
 ### Backend
 
@@ -145,23 +157,55 @@ export function MessageBubble({ content, role }: MessageBubbleProps) {
 ## Common Commands
 
 ```bash
-# Development
-pnpm dev:web              # Start web frontend
-cd apps/ai && uv run langgraph dev  # Start AI backend
+# Development (start everything with one command)
+pnpm dev:all              # Start web + AI + Supabase together
+pnpm dev:web              # Start web frontend only
+pnpm dev:ai               # Start AI backend only
+
+# Database (requires Docker running)
+pnpm db:start             # Start local Supabase
+pnpm db:stop              # Stop local Supabase
+pnpm db:reset             # Reset database and rerun migrations
+pnpm db:generate-types    # Generate TypeScript types from DB
 
 # Building
 pnpm build                # Build all packages
-pnpm typecheck            # Type check TypeScript
 
-# Linting
-pnpm lint                 # Lint all packages
+# Linting & Formatting
+pnpm lint                 # Lint all packages (ESLint 9)
+pnpm lint:fix             # Lint with auto-fix
+pnpm format               # Format all files with Prettier
+pnpm format:check         # Check formatting without fixing
 cd apps/ai && uv run ruff check .   # Lint Python
 cd apps/ai && uv run ruff format .  # Format Python
-
-# Database
-supabase db push          # Run migrations
-supabase db reset         # Reset local database
 ```
+
+---
+
+## Package Management (pnpm Monorepo)
+
+This is a pnpm workspace monorepo. Follow these patterns:
+
+### Adding Dependencies
+
+```bash
+# To workspace root (shared dev tools like ESLint, Prettier)
+pnpm add -wD <package>
+
+# To a specific app/package
+pnpm add <package> --filter @tbot/web
+pnpm add -D <package> --filter @tbot/shared
+
+# ALWAYS run install after adding packages to sync lockfile
+pnpm install
+```
+
+### Important Rules
+
+- **ALWAYS** run `pnpm install` after adding packages to ensure lockfile is synced
+- **NEVER** use npm or yarn - this project uses pnpm exclusively
+- **NEVER** install packages globally - add them as project dependencies
+- Use `-w` flag for workspace root, `--filter` for specific packages
 
 ---
 
@@ -190,18 +234,18 @@ SUPABASE_SERVICE_KEY=     # Service role key (server only)
 
 ## Key Files Reference
 
-| Purpose | File Path |
-|---------|-----------|
-| Root layout | `apps/web/src/routes/__root.tsx` |
-| Router config | `apps/web/src/router.tsx` |
-| Supabase client | `apps/web/src/lib/supabase.ts` |
-| CSS variables | `apps/web/src/styles/variables.css` |
-| AI graph | `apps/ai/src/graph/therapy.py` |
-| Graph state | `apps/ai/src/graph/state.py` |
-| System prompt | `apps/ai/src/prompts/therapy_system.py` |
-| DB migrations | `database/migrations/*.sql` |
-| Shared types | `packages/shared/src/types/*.ts` |
-| Roadmap | `ROADMAP.md` |
+| Purpose         | File Path                               |
+| --------------- | --------------------------------------- |
+| Root layout     | `apps/web/src/routes/__root.tsx`        |
+| Router config   | `apps/web/src/router.tsx`               |
+| Supabase client | `apps/web/src/lib/supabase.ts`          |
+| CSS variables   | `apps/web/src/styles/variables.css`     |
+| AI graph        | `apps/ai/src/graph/therapy.py`          |
+| Graph state     | `apps/ai/src/graph/state.py`            |
+| System prompt   | `apps/ai/src/prompts/therapy_system.py` |
+| DB migrations   | `database/migrations/*.sql`             |
+| Shared types    | `packages/shared/src/types/*.ts`        |
+| Roadmap         | `ROADMAP.md`                            |
 
 ---
 
@@ -257,13 +301,65 @@ Use camelCase for class names in CSS Modules:
 
 ```css
 /* Good */
-.messageContainer { }
-.userMessage { }
+.messageContainer {
+}
+.userMessage {
+}
 
 /* Avoid */
-.message-container { }
-.user_message { }
+.message-container {
+}
+.user_message {
+}
 ```
+
+---
+
+## Zod Validation Guidelines
+
+**ALWAYS use Zod for data validation.** This includes:
+
+- API response validation
+- Form input validation
+- Environment variable validation
+- Props validation (when complex)
+- Any external data parsing
+
+### Schema Location
+
+Store Zod schemas in `apps/web/src/lib/schemas/` or colocate with the component/feature that uses them.
+
+### Example Usage
+
+```tsx
+// lib/schemas/user.ts
+import { z } from 'zod';
+
+// Define the schema
+export const userSchema = z.object({
+  id: z.string().uuid(),
+  email: z.string().email(),
+  displayName: z.string().min(1).max(100).optional(),
+  preferences: z.record(z.unknown()).optional(),
+});
+
+// Infer TypeScript type from schema
+export type User = z.infer<typeof userSchema>;
+
+// Use for validation
+const result = userSchema.safeParse(data);
+if (!result.success) {
+  console.error('Validation failed:', result.error.flatten());
+}
+```
+
+### Best Practices
+
+- Use `safeParse()` for graceful error handling (returns `{ success, data, error }`)
+- Use `parse()` only when you want to throw on invalid data
+- Infer TypeScript types from schemas with `z.infer<typeof schema>`
+- Add `.describe()` for self-documenting schemas
+- Use `.refine()` for custom validation logic
 
 ---
 
@@ -305,4 +401,4 @@ Use camelCase for class names in CSS Modules:
 
 ---
 
-*This file helps Claude Code understand the project conventions and constraints.*
+_This file helps Claude Code understand the project conventions and constraints._

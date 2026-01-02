@@ -128,8 +128,8 @@ const ONBOARDING_QUESTIONS = [
     question: 'Have you tried therapy or wellness apps before?',
     options: [
       { label: 'This is my first time', value: 'first_time' },
-      { label: 'I\'ve tried apps but didn\'t stick with them', value: 'tried_apps' },
-      { label: 'I\'ve done some therapy before', value: 'some_therapy' },
+      { label: "I've tried apps but didn't stick with them", value: 'tried_apps' },
+      { label: "I've done some therapy before", value: 'some_therapy' },
       { label: 'I practice wellness regularly', value: 'regular_practice' },
     ],
   },
@@ -149,8 +149,10 @@ const ONBOARDING_QUESTIONS = [
 /* ----------------------------------------------------------------------------
    Types
    ---------------------------------------------------------------------------- */
-type QuestionId = typeof ONBOARDING_QUESTIONS[number]['id'];
-type Preferences = Partial<Record<QuestionId, string | string[]>>;
+type QuestionId = (typeof ONBOARDING_QUESTIONS)[number]['id'];
+// Use a more flexible type for collecting preferences during onboarding
+// These get converted to UserPreferences when saving
+type OnboardingPreferences = Partial<Record<QuestionId, string | string[]>>;
 
 /* ----------------------------------------------------------------------------
    Signup Page Component
@@ -163,13 +165,18 @@ export function SignupPage() {
   const [step, setStep] = useState<'auth' | number>('auth');
 
   // User's answers to onboarding questions
-  const [preferences, setPreferences] = useState<Preferences>({});
+  const [preferences, setPreferences] = useState<OnboardingPreferences>({});
 
   // Loading state for async operations
   const [isLoading, setIsLoading] = useState(false);
 
   // Error message display
   const [error, setError] = useState<string | null>(null);
+
+  // Email/password auth state
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [isSignUp, setIsSignUp] = useState(true);
 
   /* --------------------------------------------------------------------------
      Check for existing session on mount
@@ -179,7 +186,9 @@ export function SignupPage() {
      -------------------------------------------------------------------------- */
   useEffect(() => {
     const checkSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
       if (session) {
         // Check if user has already completed onboarding
         const { data: profile } = await supabase
@@ -189,8 +198,9 @@ export function SignupPage() {
           .single();
 
         // If they have preferences, they've completed onboarding
-        if (profile?.preferences && Object.keys(profile.preferences).length > 0) {
-          navigate({ to: '/chat' });
+        const preferences = profile?.preferences as Record<string, unknown> | null;
+        if (preferences && Object.keys(preferences).length > 0) {
+          void navigate({ to: '/chat' });
         } else {
           // Start onboarding questions
           setStep(0);
@@ -198,7 +208,7 @@ export function SignupPage() {
       }
     };
 
-    checkSession();
+    void checkSession();
   }, [navigate]);
 
   /* --------------------------------------------------------------------------
@@ -230,6 +240,66 @@ export function SignupPage() {
   };
 
   /* --------------------------------------------------------------------------
+     Email/Password Auth Handlers
+     -------------------------------------------------------------------------- */
+  const handleEmailAuth = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      if (isSignUp) {
+        // Sign up with email/password
+        const { error: signUpError } = await supabase.auth.signUp({
+          email,
+          password,
+        });
+
+        if (signUpError) {
+          throw signUpError;
+        }
+
+        // After sign up, move to onboarding questions
+        setStep(0);
+      } else {
+        // Sign in with email/password
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+
+        if (signInError) {
+          throw signInError;
+        }
+
+        // Check if user has completed onboarding
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        if (user) {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('preferences')
+            .eq('id', user.id)
+            .single();
+
+          if (profile?.preferences && Object.keys(profile.preferences).length > 0) {
+            void navigate({ to: '/chat' });
+          } else {
+            setStep(0);
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Auth error:', err);
+      const message = err instanceof Error ? err.message : 'Authentication failed';
+      setError(message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  /* --------------------------------------------------------------------------
      Handle Answer Selection
      -------------------------------------------------------------------------- */
   const handleSelectOption = (questionId: QuestionId, value: string, isMultiSelect: boolean) => {
@@ -238,7 +308,7 @@ export function SignupPage() {
     setPreferences((prev) => {
       if (isMultiSelect) {
         // For multi-select, toggle the value in an array
-        const current = (prev[questionId] as string[]) || [];
+        const current = (prev[questionId] ?? []) as string[];
         const updated = current.includes(value)
           ? current.filter((v) => v !== value)
           : [...current, value];
@@ -254,7 +324,7 @@ export function SignupPage() {
         if (step < ONBOARDING_QUESTIONS.length - 1) {
           setStep(step + 1);
         } else {
-          savePreferencesAndRedirect();
+          void savePreferencesAndRedirect();
         }
       }, 300);
     }
@@ -305,7 +375,9 @@ export function SignupPage() {
 
     try {
       // Get current user
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
 
       if (!user) {
         throw new Error('No authenticated user');
@@ -325,7 +397,7 @@ export function SignupPage() {
       }
 
       // Redirect to chat
-      navigate({ to: '/chat' });
+      void navigate({ to: '/chat' });
     } catch (err) {
       console.error('Failed to save preferences:', err);
       setError('Failed to save your preferences. Please try again.');
@@ -349,19 +421,83 @@ export function SignupPage() {
           {/* Error message */}
           {error && <p className={styles.error}>{error}</p>}
 
+          {/* Email/Password Form */}
+          <form
+            onSubmit={(e) => {
+              void handleEmailAuth(e);
+            }}
+            className={styles.authForm}
+          >
+            <div className={styles.formGroup}>
+              <label htmlFor="email" className={styles.label}>
+                Email
+              </label>
+              <input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                }}
+                className={styles.input}
+                placeholder="you@example.com"
+                required
+                disabled={isLoading}
+              />
+            </div>
+
+            <div className={styles.formGroup}>
+              <label htmlFor="password" className={styles.label}>
+                Password
+              </label>
+              <input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                }}
+                className={styles.input}
+                placeholder="At least 6 characters"
+                minLength={6}
+                required
+                disabled={isLoading}
+              />
+            </div>
+
+            <button type="submit" className={styles.submitButton} disabled={isLoading}>
+              {isLoading ? 'Please wait...' : isSignUp ? 'Sign Up' : 'Log In'}
+            </button>
+          </form>
+
+          {/* Toggle between Sign Up and Log In */}
+          <button
+            type="button"
+            className={styles.toggleLink}
+            onClick={() => {
+              setIsSignUp(!isSignUp);
+              setError(null);
+            }}
+            disabled={isLoading}
+          >
+            {isSignUp ? 'Already have an account? Log in' : 'Need an account? Sign up'}
+          </button>
+
+          {/* Divider */}
+          <div className={styles.divider}>
+            <span>or</span>
+          </div>
+
           {/* Google Sign In Button */}
           <button
             className={styles.googleButton}
-            onClick={handleGoogleSignIn}
+            onClick={() => {
+              void handleGoogleSignIn();
+            }}
             disabled={isLoading}
           >
             {/* Google Icon */}
-            <svg
-              className={styles.googleIcon}
-              viewBox="0 0 24 24"
-              width="24"
-              height="24"
-            >
+            <svg className={styles.googleIcon} viewBox="0 0 24 24" width="24" height="24">
               <path
                 fill="#4285F4"
                 d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -379,7 +515,7 @@ export function SignupPage() {
                 d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
               />
             </svg>
-            {isLoading ? 'Signing in...' : 'Continue with Google'}
+            Continue with Google
           </button>
 
           {/* Terms disclaimer */}
@@ -406,7 +542,7 @@ export function SignupPage() {
           <div className={styles.progressBar}>
             <div
               className={styles.progressFill}
-              style={{ width: `${((step + 1) / ONBOARDING_QUESTIONS.length) * 100}%` }}
+              style={{ width: `${String(((step + 1) / ONBOARDING_QUESTIONS.length) * 100)}%` }}
             />
           </div>
           <span className={styles.progressText}>
@@ -435,12 +571,12 @@ export function SignupPage() {
               <button
                 key={option.value}
                 className={`${styles.optionButton} ${isSelected ? styles.optionButtonSelected : ''}`}
-                onClick={() => handleSelectOption(currentQuestion.id, option.value, !!isMultiSelect)}
+                onClick={() => {
+                  handleSelectOption(currentQuestion.id, option.value, isMultiSelect);
+                }}
               >
                 {option.label}
-                {isMultiSelect && isSelected && (
-                  <span className={styles.checkmark}>✓</span>
-                )}
+                {isMultiSelect && isSelected && <span className={styles.checkmark}>✓</span>}
               </button>
             );
           })}
@@ -449,11 +585,7 @@ export function SignupPage() {
         {/* Navigation buttons */}
         <div className={styles.navigation}>
           {step > 0 && (
-            <button
-              className={styles.backButton}
-              onClick={handleBack}
-              disabled={isLoading}
-            >
+            <button className={styles.backButton} onClick={handleBack} disabled={isLoading}>
               Back
             </button>
           )}
@@ -462,8 +594,14 @@ export function SignupPage() {
           {isMultiSelect && (
             <button
               className={styles.continueButton}
-              onClick={handleNext}
-              disabled={isLoading || !currentAnswer || (Array.isArray(currentAnswer) && currentAnswer.length === 0)}
+              onClick={() => {
+                void handleNext();
+              }}
+              disabled={
+                isLoading ||
+                !currentAnswer ||
+                (Array.isArray(currentAnswer) && currentAnswer.length === 0)
+              }
             >
               {isLoading
                 ? 'Saving...'
@@ -477,4 +615,3 @@ export function SignupPage() {
     </div>
   );
 }
-

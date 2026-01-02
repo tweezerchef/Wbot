@@ -1,0 +1,18 @@
+# Dependencies
+node_modules
+
+# Build outputs
+dist
+.output
+.vinxi
+coverage
+
+# Lock files
+pnpm-lock.yaml
+
+# Python backend (has its own formatting)
+apps/ai
+
+# Generated files
+*.min.js
+*.min.css

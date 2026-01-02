@@ -233,18 +233,26 @@ This document outlines the next steps for developing TBot from the current scaff
 When resuming development, start here:
 
 ```bash
-# 1. Start the dev server
-pnpm dev:web
+# 1. Make sure Docker is running
 
-# 2. In another terminal, start AI backend (when needed)
-cd apps/ai && uv run langgraph dev
+# 2. Start everything with one command
+pnpm dev:all
 
 # 3. Open http://localhost:5173
+```
+
+Or start services individually:
+
+```bash
+pnpm dev:web    # Web frontend
+pnpm dev:ai     # AI backend
+pnpm db:start   # Database
 ```
 
 ### Recommended Next Task
 
 **Start with Phase 1.2 - Landing Page** because:
+
 1. It's visually satisfying to see progress
 2. Doesn't require external API setup
 3. Sets the foundation for auth flow
@@ -254,15 +262,15 @@ cd apps/ai && uv run langgraph dev
 
 ## Files to Reference
 
-| Task | Key Files |
-|------|-----------|
-| Auth | `apps/web/src/lib/supabase.ts` |
-| Routing | `apps/web/src/routes/*.tsx` |
-| Styling | `apps/web/src/styles/variables.css` |
-| AI Graph | `apps/ai/src/graph/therapy.py` |
-| AI Nodes | `apps/ai/src/nodes/*/node.py` |
-| DB Schema | `database/migrations/*.sql` |
-| Types | `packages/shared/src/types/*.ts` |
+| Task      | Key Files                           |
+| --------- | ----------------------------------- |
+| Auth      | `apps/web/src/lib/supabase.ts`      |
+| Routing   | `apps/web/src/routes/*.tsx`         |
+| Styling   | `apps/web/src/styles/variables.css` |
+| AI Graph  | `apps/ai/src/graph/therapy.py`      |
+| AI Nodes  | `apps/ai/src/nodes/*/node.py`       |
+| DB Schema | `database/migrations/*.sql`         |
+| Types     | `packages/shared/src/types/*.ts`    |
 
 ---
 
@@ -277,4 +285,4 @@ cd apps/ai && uv run langgraph dev
 
 ---
 
-*Last updated: December 30, 2024*
+_Last updated: December 30, 2024_

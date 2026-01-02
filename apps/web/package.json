@@ -15,7 +15,8 @@
     "@tanstack/react-router": "^1.144.0",
     "@tanstack/react-start": "^1.145.3",
     "react": "^19.2.3",
-    "react-dom": "^19.2.3"
+    "react-dom": "^19.2.3",
+    "zod": "^4.3.4"
   },
   "devDependencies": {
     "@types/react": "^19.0.2",

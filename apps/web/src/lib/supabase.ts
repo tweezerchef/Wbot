@@ -15,6 +15,7 @@
    ============================================================================ */
 
 import { createClient } from '@supabase/supabase-js';
+import type { Database } from '@tbot/shared';
 
 /* ----------------------------------------------------------------------------
    Environment Variables
@@ -41,15 +42,15 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
    ---------------------------------------------------------------------------- */
 if (!supabaseUrl) {
   throw new Error(
-    'Missing VITE_SUPABASE_URL environment variable. '
-    + 'Add it to your .env file or deployment environment.',
+    'Missing VITE_SUPABASE_URL environment variable. ' +
+      'Add it to your .env file or deployment environment.'
   );
 }
 
 if (!supabaseAnonKey) {
   throw new Error(
-    'Missing VITE_SUPABASE_ANON_KEY environment variable. '
-    + 'Add it to your .env file or deployment environment.',
+    'Missing VITE_SUPABASE_ANON_KEY environment variable. ' +
+      'Add it to your .env file or deployment environment.'
   );
 }
 
@@ -64,7 +65,7 @@ if (!supabaseAnonKey) {
    - auth.autoRefreshToken: Automatically refreshes JWT before expiry
    - auth.detectSessionInUrl: Handles OAuth callback URLs
    ---------------------------------------------------------------------------- */
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
   auth: {
     // Persist the session across page reloads
     persistSession: true,

@@ -6,6 +6,7 @@
 // ============================================================================
 
 import { createRouter } from '@tanstack/react-router';
+
 import { routeTree } from './routeTree.gen';
 
 // Create the router factory function
@@ -20,12 +21,13 @@ export function getRouter() {
 }
 
 // Create a router instance for type inference
-const router = getRouter();
+// Prefixed with _ to indicate it's only used for type extraction
+const _router = getRouter();
 
 // Type registration for TypeScript support
 // This enables type-safe routing throughout the app
 declare module '@tanstack/react-router' {
   interface Register {
-    router: typeof router;
+    router: typeof _router;
   }
 }
