@@ -15,10 +15,10 @@
     "format:check": "prettier --check .",
     "deps:install": "./scripts/install-deps.sh",
     "clean": "turbo clean",
-    "db:start": "cd database && pnpm exec supabase start",
-    "db:stop": "cd database && pnpm exec supabase stop",
-    "db:reset": "cd database && pnpm exec supabase db reset",
-    "db:generate-types": "cd database && pnpm exec supabase gen types typescript --local > ../packages/shared/src/types/database.ts",
+    "db:start": "pnpm exec supabase start",
+    "db:stop": "pnpm exec supabase stop",
+    "db:reset": "pnpm exec supabase db reset",
+    "db:generate-types": "pnpm exec supabase gen types typescript --local > packages/shared/src/types/database.ts",
     "prepare": "husky"
   },
   "devDependencies": {

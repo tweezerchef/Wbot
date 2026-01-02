@@ -6,7 +6,7 @@ The primary node for generating AI responses in the wellness conversation.
 
 This node:
 1. Takes the current conversation state
-2. Builds a personalized system prompt with user context
+2. Builds a personalized system prompt with user context and memories
 3. Calls the LLM to generate a response
 4. Returns the response to be added to the message history
 
@@ -19,6 +19,7 @@ from langchain_core.messages import SystemMessage
 
 from src.graph.state import WellnessState
 from src.llm.providers import create_llm
+from src.memory.store import Memory, format_memories_for_prompt
 from src.prompts.wellness_system import WELLNESS_SYSTEM_PROMPT
 from src.utils.user_context import format_user_context
 
@@ -88,6 +89,26 @@ async def generate_response(state: WellnessState) -> dict:
     # Convert user context into readable text for the system prompt
     # This transforms structured preferences into natural language
     context_str = format_user_context(user_context)
+
+    # Extract and format retrieved memories (if any)
+    # These come from the retrieve_memories node that runs before this
+    retrieved_memories = state.get("retrieved_memories", [])
+    if retrieved_memories:
+        # Convert dicts back to Memory objects for formatting
+        memories = [
+            Memory(
+                id=m["id"],
+                user_message=m["user_message"],
+                ai_response=m["ai_response"],
+                similarity=m["similarity"],
+                created_at="",  # Not needed for formatting
+                metadata={},
+            )
+            for m in retrieved_memories
+        ]
+        memory_context = format_memories_for_prompt(memories)
+        # Append memory context to user context
+        context_str = context_str + "\n\n" + memory_context if context_str else memory_context
 
     # Create the system message with personalized context
     # The WELLNESS_SYSTEM_PROMPT has a {user_context} placeholder

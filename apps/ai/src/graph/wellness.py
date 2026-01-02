@@ -4,15 +4,19 @@ Wellness Conversation Graph
 ============================================================================
 The main LangGraph graph definition for Wbot's wellness chatbot.
 
-Graph Structure (Current - Simple):
-    START -> generate_response -> END
+Graph Structure (Current - With Memory):
+    START -> retrieve_memories -> generate_response -> store_memory -> END
+
+    - retrieve_memories: Semantic search for relevant past conversations (~50ms)
+    - generate_response: Streams AI response to user in real-time
+    - store_memory: Stores conversation pair after streaming completes
 
 Graph Structure (Future - With Activities):
-    START -> detect_activity -> [routing decision]
-        -> generate_response -> END
-        -> breathing_exercise -> END
-        -> meditation_guidance -> END
-        -> journaling_prompt -> END
+    START -> retrieve_memories -> detect_activity -> [routing decision]
+        -> generate_response -> store_memory -> END
+        -> breathing_exercise -> store_memory -> END
+        -> meditation_guidance -> store_memory -> END
+        -> journaling_prompt -> store_memory -> END
 
 This file defines the graph structure and compiles it for deployment.
 The compiled `graph` is exported for use by LangGraph Deploy.
@@ -23,16 +27,18 @@ from langgraph.graph import END, StateGraph
 
 from src.graph.state import WellnessState
 from src.nodes.generate_response import generate_response
+from src.nodes.retrieve_memories import retrieve_memories
+from src.nodes.store_memory import store_memory_node
 
 
 def build_graph() -> StateGraph:
     """
-    Constructs the wellness conversation graph.
+    Constructs the wellness conversation graph with memory support.
 
-    Current implementation is simple:
-    - Receives user message
-    - Generates AI response
-    - Returns
+    Current implementation:
+    1. Retrieves relevant memories from past conversations
+    2. Generates AI response with memory context
+    3. Stores the conversation pair for future retrieval
 
     Future implementation will include:
     - Activity detection routing
@@ -50,7 +56,17 @@ def build_graph() -> StateGraph:
              │
              ▼
     ┌─────────────────────┐
-    │  generate_response  │
+    │  retrieve_memories  │  ← Fast DB query (~50ms)
+    └──────────┬──────────┘
+               │
+               ▼
+    ┌─────────────────────┐
+    │  generate_response  │  ← Streams tokens to user
+    └──────────┬──────────┘
+               │
+               ▼
+    ┌─────────────────────┐
+    │    store_memory     │  ← After stream completes
     └──────────┬──────────┘
                │
                ▼
@@ -67,19 +83,31 @@ def build_graph() -> StateGraph:
     # -------------------------------------------------------------------------
     # Each node is a function that processes state and returns updates
 
+    # Memory retrieval - searches for relevant past conversations
+    builder.add_node("retrieve_memories", retrieve_memories)
+
     # Main response generation - the core of the conversation
     builder.add_node("generate_response", generate_response)
+
+    # Memory storage - persists the conversation for future retrieval
+    builder.add_node("store_memory", store_memory_node)
 
     # -------------------------------------------------------------------------
     # Define Edges (Flow)
     # -------------------------------------------------------------------------
     # Edges connect nodes and define the execution order
 
-    # Entry point: when a message arrives, go to generate_response
-    builder.set_entry_point("generate_response")
+    # Entry point: first retrieve relevant memories
+    builder.set_entry_point("retrieve_memories")
 
-    # After generating a response, end the turn
-    builder.add_edge("generate_response", END)
+    # After retrieving memories, generate the response
+    builder.add_edge("retrieve_memories", "generate_response")
+
+    # After generating response (streaming complete), store the memory
+    builder.add_edge("generate_response", "store_memory")
+
+    # After storing memory, end the turn
+    builder.add_edge("store_memory", END)
 
     # -------------------------------------------------------------------------
     # Compile and Return

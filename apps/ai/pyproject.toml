@@ -32,6 +32,9 @@ dependencies = [
     # Google Gemini - Secondary/experimental LLM
     # Useful for testing and comparing model outputs
     "langchain-google-genai>=2.0.8",
+    # Google GenAI SDK - For Gemini embeddings (memory system)
+    # Used by src/memory/embeddings.py
+    "google-genai>=1.0.0",
     # -------------------------------------------------------------------------
     # LangGraph - Stateful Agent Framework
     # -------------------------------------------------------------------------

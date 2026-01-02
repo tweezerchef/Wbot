@@ -1,31 +1,6 @@
 export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
 
 export type Database = {
-  graphql_public: {
-    Tables: {
-      [_ in never]: never;
-    };
-    Views: {
-      [_ in never]: never;
-    };
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json;
-          operationName?: string;
-          query?: string;
-          variables?: Json;
-        };
-        Returns: Json;
-      };
-    };
-    Enums: {
-      [_ in never]: never;
-    };
-    CompositeTypes: {
-      [_ in never]: never;
-    };
-  };
   public: {
     Tables: {
       conversations: {
@@ -53,6 +28,57 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: 'conversations_user_id_fkey';
+            columns: ['user_id'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      memories: {
+        Row: {
+          ai_response: string;
+          combined_text: string;
+          conversation_id: string | null;
+          created_at: string | null;
+          embedding: unknown;
+          id: string;
+          metadata: Json | null;
+          user_id: string;
+          user_message: string;
+        };
+        Insert: {
+          ai_response: string;
+          combined_text: string;
+          conversation_id?: string | null;
+          created_at?: string | null;
+          embedding?: unknown;
+          id?: string;
+          metadata?: Json | null;
+          user_id: string;
+          user_message: string;
+        };
+        Update: {
+          ai_response?: string;
+          combined_text?: string;
+          conversation_id?: string | null;
+          created_at?: string | null;
+          embedding?: unknown;
+          id?: string;
+          metadata?: Json | null;
+          user_id?: string;
+          user_message?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'memories_conversation_id_fkey';
+            columns: ['conversation_id'];
+            isOneToOne: false;
+            referencedRelation: 'conversations';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'memories_user_id_fkey';
             columns: ['user_id'];
             isOneToOne: false;
             referencedRelation: 'profiles';
@@ -124,7 +150,22 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
-      [_ in never]: never;
+      search_memories: {
+        Args: {
+          p_embedding: unknown;
+          p_limit?: number;
+          p_similarity_threshold?: number;
+          p_user_id: string;
+        };
+        Returns: {
+          ai_response: string;
+          created_at: string;
+          id: string;
+          metadata: Json;
+          similarity: number;
+          user_message: string;
+        }[];
+      };
     };
     Enums: {
       [_ in never]: never;
@@ -251,9 +292,6 @@ export type CompositeTypes<
     : never;
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {},
   },
