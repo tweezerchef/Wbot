@@ -7,6 +7,7 @@
 
 import { createRouter } from '@tanstack/react-router';
 
+import { NotFound } from './components/NotFound/NotFound';
 import { routeTree } from './routeTree.gen';
 
 // Create the router factory function
@@ -17,6 +18,8 @@ export function getRouter() {
     routeTree,
     // Default preload strategy - preload on hover for faster navigation
     defaultPreload: 'intent',
+    // Custom 404 component for unmatched routes
+    defaultNotFoundComponent: NotFound,
   });
 }
 

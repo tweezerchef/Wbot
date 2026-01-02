@@ -34,7 +34,7 @@ import { Client } from '@langchain/langgraph-sdk';
 // In development: Local LangGraph server (usually http://localhost:8123)
 // In production: Your LangGraph Deploy URL from LangGraph Cloud
 const LANGGRAPH_URL =
-  (import.meta.env.VITE_LANGGRAPH_API_URL as string | undefined) ?? 'http://localhost:8123';
+  (import.meta.env.VITE_LANGGRAPH_API_URL as string | undefined) ?? 'http://localhost:2024';
 
 // The name of the graph to invoke (defined in apps/ai)
 // This matches the graph name in langgraph.json
@@ -66,6 +66,21 @@ export type StreamEvent =
   | { type: 'error'; error: string }
   // Stream started (useful for loading states)
   | { type: 'start' };
+
+/* ----------------------------------------------------------------------------
+   LangGraph Stream Types
+   ---------------------------------------------------------------------------- */
+
+/** Message format from LangGraph stream */
+interface LangGraphMessage {
+  role?: string;
+  type?: string;
+  content?: string;
+  id?: string;
+}
+
+/** Data format for messages/partial events */
+type LangGraphMessagesData = LangGraphMessage[];
 
 /* ----------------------------------------------------------------------------
    AI Client Class
@@ -166,26 +181,44 @@ export class AIClient {
         streamMode: 'messages',
       });
 
+      // Track the accumulated response for incremental streaming
+      let lastContent = '';
+
+      // Helper to check if a message is from the assistant
+      const isAssistantMessage = (msg: LangGraphMessage): boolean =>
+        msg.role === 'assistant' || msg.role === 'ai' || msg.type === 'ai';
+
       // Process each chunk from the stream
       for await (const chunk of stream) {
-        // The chunk structure depends on the graph's output
-        // We handle the common patterns here
+        // Debug: Log all events to understand the stream structure
+        // eslint-disable-next-line no-console
+        console.log('Stream event:', chunk.event, JSON.stringify(chunk.data));
 
-        // Check if this is a message chunk with content
+        // Handle message streaming events
         if (chunk.event === 'messages/partial') {
-          // Extract the latest assistant message content
-          const messages = chunk.data as unknown as { role: string; content: string }[];
-          const lastMessage = messages.at(-1);
-
-          if (lastMessage?.role === 'assistant' && lastMessage.content) {
-            yield { type: 'token', content: lastMessage.content };
+          const data = chunk.data as LangGraphMessagesData;
+          if (Array.isArray(data) && data.length > 0) {
+            // Get the last message (most recent assistant response)
+            const lastMsg = data.at(-1);
+            if (lastMsg && isAssistantMessage(lastMsg)) {
+              const content = lastMsg.content ?? '';
+              if (content && content !== lastContent) {
+                yield { type: 'token', content };
+                lastContent = content;
+              }
+            }
           }
         }
 
-        // Check for completion
+        // Check for completion events
         if (chunk.event === 'messages/complete') {
           yield { type: 'done' };
         }
+      }
+
+      // If we received content but no explicit 'done' event, signal completion
+      if (lastContent) {
+        yield { type: 'done' };
       }
     } catch (error) {
       // Handle and report errors

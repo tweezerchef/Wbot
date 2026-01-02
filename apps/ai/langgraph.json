@@ -7,6 +7,6 @@
   "python_version": "3.11",
   "dependencies": ["."],
   "auth": {
-    "path": "./src/auth.py:verify_token"
+    "path": "./src/auth.py:auth"
   }
 }

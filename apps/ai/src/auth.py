@@ -10,10 +10,10 @@ can access the AI.
 
 Flow:
 1. Client includes Supabase access token in Authorization header
-2. LangGraph calls verify_token() with the request
+2. LangGraph calls the @auth.authenticate handler with request headers
 3. We validate the token against Supabase
-4. If valid, we return the user ID for request context
-5. If invalid, we raise an exception to reject the request
+4. If valid, we return user info (identity is required)
+5. If invalid, we raise an HTTPException to reject the request
 
 Security considerations:
 - Tokens are short-lived and automatically refreshed by Supabase
@@ -23,22 +23,27 @@ Security considerations:
 """
 
 import os
-from typing import Any
 
-from supabase import Client, create_client
+from langgraph_sdk import Auth
+from supabase import acreate_client
+from supabase._async.client import AsyncClient
 
 from src.env import load_monorepo_dotenv
 
 # Load environment variables from monorepo root `.env` (if present)
 load_monorepo_dotenv()
 
+# Create the Auth instance that LangGraph will use
+# This is exported and referenced in langgraph.json
+auth = Auth()
 
-def get_supabase_client() -> Client:
+
+async def get_supabase_client() -> AsyncClient:
     """
-    Creates a Supabase client for auth validation.
+    Creates an async Supabase client for auth validation.
 
     Returns:
-        Supabase client instance configured with project URL and service key.
+        Async Supabase client instance configured with project URL and service key.
 
     Raises:
         ValueError: If required environment variables are missing.
@@ -46,6 +51,7 @@ def get_supabase_client() -> Client:
     Note:
         We use the SERVICE_KEY (not anon key) because we need to validate
         tokens on behalf of any user, not just the current session.
+        We use the async client to avoid blocking the event loop in ASGI.
     """
     url = os.getenv("SUPABASE_URL")
     key = os.getenv("SUPABASE_SERVICE_KEY")
@@ -64,73 +70,80 @@ def get_supabase_client() -> Client:
             "service_role key"
         )
 
-    return create_client(url, key)
+    return await acreate_client(url, key)
 
 
-async def verify_token(request: dict[str, Any]) -> dict[str, Any]:
+@auth.authenticate
+async def verify_token(authorization: str | None) -> Auth.types.MinimalUserDict:
     """
-    Validates a Supabase JWT token from the request.
+    Validates a Supabase JWT token from the Authorization header.
 
-    This function is called by LangGraph Deploy for every incoming request.
-    It's configured in langgraph.json under the "auth" section.
+    This function is decorated with @auth.authenticate, making it the
+    authentication handler for all LangGraph API requests.
 
     Args:
-        request: The incoming request object from LangGraph.
-                 Contains headers, body, and other request metadata.
-                 The Authorization header should be: "Bearer <supabase_token>"
+        authorization: The Authorization header value (e.g., "Bearer <token>").
+                       LangGraph extracts this from request headers automatically.
 
     Returns:
-        A dict containing authenticated user info:
-        {
-            "user_id": "uuid-of-the-user",
-            "email": "user@example.com",  # if available
-            "preferences": {...}  # user preferences from profile
-        }
+        A MinimalUserDict containing authenticated user info.
+        The "identity" field is required by LangGraph.
+        Additional fields are available in the graph via langgraph_auth_user.
 
     Raises:
-        Exception: If token is missing, invalid, or expired.
-                   LangGraph will return a 401 Unauthorized response.
+        Auth.exceptions.HTTPException: If token is missing, invalid, or expired.
+                                       LangGraph returns a 401 Unauthorized response.
 
     Example:
         # Client sends request with header:
         # Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 
         # This function validates and returns:
-        # {"user_id": "123e4567-e89b-12d3-a456-426614174000", ...}
+        # {"identity": "123e4567-e89b-12d3-a456-426614174000", ...}
     """
-    # Extract the Authorization header
-    headers = request.get("headers", {})
-    auth_header = headers.get("authorization", headers.get("Authorization", ""))
+    # Validate header is present
+    if not authorization:
+        raise Auth.exceptions.HTTPException(
+            status_code=401,
+            detail="Missing Authorization header. Expected: 'Bearer <supabase_access_token>'",
+        )
 
     # Validate header format: "Bearer <token>"
-    if not auth_header.startswith("Bearer "):
-        raise ValueError(
-            "Missing or invalid Authorization header. "
-            "Expected format: 'Bearer <supabase_access_token>'"
+    if not authorization.startswith("Bearer "):
+        raise Auth.exceptions.HTTPException(
+            status_code=401,
+            detail="Invalid Authorization header format. Expected: 'Bearer <token>'",
         )
 
     # Extract the token (remove "Bearer " prefix)
-    token = auth_header[7:]
+    token = authorization[7:]
 
     if not token:
-        raise ValueError("Empty token provided in Authorization header")
+        raise Auth.exceptions.HTTPException(
+            status_code=401,
+            detail="Empty token provided in Authorization header",
+        )
 
-    # Create Supabase client for validation
-    supabase = get_supabase_client()
+    # Create async Supabase client for validation
+    # Using async client to avoid blocking the event loop in ASGI
+    supabase = await get_supabase_client()
 
     try:
         # Validate the token and get the user
         # This calls Supabase's auth API to verify the JWT
-        user_response = supabase.auth.get_user(token)
+        user_response = await supabase.auth.get_user(token)
 
         if not user_response or not user_response.user:
-            raise ValueError("Token validation failed: no user returned")
+            raise Auth.exceptions.HTTPException(
+                status_code=401,
+                detail="Token validation failed: no user returned",
+            )
 
         user = user_response.user
 
         # Fetch user's profile and preferences from our profiles table
         # This gives the AI context about the user's goals and preferences
-        profile_response = (
+        profile_response = await (
             supabase.table("profiles")
             .select("display_name, preferences")
             .eq("id", user.id)
@@ -141,17 +154,25 @@ async def verify_token(request: dict[str, Any]) -> dict[str, Any]:
         profile = profile_response.data if profile_response.data else {}
 
         # Return authenticated user context
-        # This data is available to the graph for personalization
+        # "identity" is required by LangGraph Auth
+        # Additional fields are available in the graph via langgraph_auth_user
         return {
-            "user_id": user.id,
+            "identity": user.id,  # Required field for LangGraph Auth
             "email": user.email,
             "display_name": profile.get("display_name"),
             "preferences": profile.get("preferences", {}),
         }
+
+    except Auth.exceptions.HTTPException:
+        # Re-raise our own exceptions as-is
+        raise
 
     except Exception as e:
         # Log the error for debugging (don't expose details to client)
         print(f"Token validation error: {e}")
 
         # Raise a generic error to avoid leaking information
-        raise ValueError("Authentication failed. Please sign in again.") from e
+        raise Auth.exceptions.HTTPException(
+            status_code=401,
+            detail="Authentication failed. Please sign in again.",
+        ) from e

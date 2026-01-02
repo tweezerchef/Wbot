@@ -48,3 +48,6 @@ coverage/
 # Vite temporary files
 app.config.timestamp_*.js
 supabase/.branches/
+
+# LangGraph local API cache
+.langgraph_api/

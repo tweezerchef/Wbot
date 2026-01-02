@@ -24,6 +24,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 
 import { createAIClient, type Message } from '../../../lib/ai-client';
+import { supabase } from '../../../lib/supabase';
 
 import styles from './ChatPage.module.css';
 
@@ -99,13 +100,30 @@ export function ChatPage() {
     setStreamingContent('');
 
     try {
-      // TODO: Get actual auth token from Supabase session
-      // For now, using a placeholder token for development
-      const authToken = 'dev-token';
+      // Get the current session from Supabase
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session) {
+        // User is not authenticated, show error
+        const errorMessage: Message = {
+          id: `error-${String(Date.now())}`,
+          role: 'system',
+          content: 'Please sign in to continue.',
+          createdAt: new Date(),
+        };
+        setMessages((prev) => [...prev, errorMessage]);
+        setIsLoading(false);
+        return;
+      }
+
+      // Use the Supabase access token for LangGraph authentication
+      const authToken = session.access_token;
 
       // TODO: Get or create conversation ID from Supabase
-      // For now, using a placeholder conversation ID
-      const conversationId = 'dev-conversation';
+      // For now, using the user's ID as a simple conversation identifier
+      const conversationId = session.user.id;
 
       // Create AI client and stream the response
       const client = createAIClient(authToken);
@@ -115,8 +133,9 @@ export function ChatPage() {
       for await (const event of client.streamMessage(messageText, conversationId)) {
         switch (event.type) {
           case 'token':
-            // Append token to streaming content
-            fullResponse += event.content;
+            // Update streaming content with full response (not appending)
+            // LangGraph sends accumulated content, not deltas
+            fullResponse = event.content;
             setStreamingContent(fullResponse);
             break;
 

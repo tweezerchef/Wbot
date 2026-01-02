@@ -250,7 +250,7 @@ export function SignupPage() {
     try {
       if (isSignUp) {
         // Sign up with email/password
-        const { error: signUpError } = await supabase.auth.signUp({
+        const { data, error: signUpError } = await supabase.auth.signUp({
           email,
           password,
         });
@@ -259,7 +259,12 @@ export function SignupPage() {
           throw signUpError;
         }
 
-        // After sign up, move to onboarding questions
+        // Verify session was created (requires email confirmation to be disabled)
+        if (!data.session) {
+          throw new Error('Unable to create session. Please check your email or try again.');
+        }
+
+        // Session exists, proceed to onboarding questions
         setStep(0);
       } else {
         // Sign in with email/password
@@ -374,13 +379,17 @@ export function SignupPage() {
     setIsLoading(true);
 
     try {
-      // Get current user
+      // Use getSession() instead of getUser() - checks localStorage first (more reliable)
       const {
-        data: { user },
-      } = await supabase.auth.getUser();
+        data: { session },
+      } = await supabase.auth.getSession();
 
-      if (!user) {
-        throw new Error('No authenticated user');
+      if (!session?.user) {
+        // Session lost - redirect back to auth step
+        setStep('auth');
+        setError('Your session expired. Please sign in again.');
+        setIsLoading(false);
+        return;
       }
 
       // Update the user's profile with their preferences
@@ -390,7 +399,7 @@ export function SignupPage() {
           preferences,
           updated_at: new Date().toISOString(),
         })
-        .eq('id', user.id);
+        .eq('id', session.user.id);
 
       if (updateError) {
         throw updateError;
