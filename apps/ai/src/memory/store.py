@@ -147,23 +147,27 @@ def save_messages(
         Uses synchronous Supabase client since this is a fire-and-forget operation.
         Errors are logged but don't fail the conversation flow.
     """
-    supabase = get_supabase_client()
+    try:
+        supabase = get_supabase_client()
 
-    # Insert both messages in a single batch
-    messages = [
-        {
-            "conversation_id": conversation_id,
-            "role": "user",
-            "content": user_message,
-        },
-        {
-            "conversation_id": conversation_id,
-            "role": "assistant",
-            "content": ai_response,
-        },
-    ]
+        # Insert both messages in a single batch
+        messages = [
+            {
+                "conversation_id": conversation_id,
+                "role": "user",
+                "content": user_message,
+            },
+            {
+                "conversation_id": conversation_id,
+                "role": "assistant",
+                "content": ai_response,
+            },
+        ]
 
-    supabase.table("messages").insert(messages).execute()
+        supabase.table("messages").insert(messages).execute()
+    except Exception as e:
+        # Fire-and-forget: log but don't raise
+        print(f"[memory] Failed to save messages: {e}")
 
 
 async def search_memories(
