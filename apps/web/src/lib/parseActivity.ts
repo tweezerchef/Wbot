@@ -35,18 +35,91 @@ const breathingActivitySchema = z.object({
   introduction: z.string(),
 });
 
+/** Schema for Wim Hof Method technique configuration */
+const wimHofTechniqueSchema = z.object({
+  id: z.literal('wim_hof'),
+  name: z.string(),
+  type: z.literal('wim_hof'),
+  description: z.string(),
+  best_for: z.array(z.string()),
+  rounds: z.number(),
+  breaths_per_round: z.number(),
+  breath_tempo_ms: z.number(),
+  retention_target_seconds: z.number(),
+  recovery_pause_seconds: z.number(),
+  inhale_hold_seconds: z.number(),
+});
+
+/** Schema for Wim Hof activity data */
+const wimHofActivitySchema = z.object({
+  type: z.literal('activity'),
+  activity: z.literal('breathing_wim_hof'),
+  status: z.enum(['ready', 'in_progress', 'complete']),
+  technique: wimHofTechniqueSchema,
+  introduction: z.string(),
+  is_first_time: z.boolean(),
+});
+
+/** Schema for meditation track configuration */
+const meditationTrackSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  type: z.enum([
+    'body_scan',
+    'loving_kindness',
+    'breathing_focus',
+    'sleep',
+    'anxiety_relief',
+    'daily_mindfulness',
+  ]),
+  durationSeconds: z.number(),
+  durationPreset: z.enum(['short', 'medium', 'long']),
+  description: z.string(),
+  audioUrl: z.string(),
+  narrator: z.string().optional(),
+  language: z.string(),
+  bestFor: z.array(z.string()),
+  attribution: z.string().optional(),
+});
+
+/** Schema for meditation activity data */
+const meditationActivitySchema = z.object({
+  type: z.literal('activity'),
+  activity: z.literal('meditation'),
+  status: z.enum(['ready', 'in_progress', 'complete']),
+  track: meditationTrackSchema,
+  introduction: z.string(),
+});
+
 /** Union of all activity types */
 const activityDataSchema = z.discriminatedUnion('activity', [
   breathingActivitySchema,
-  // Future: meditationActivitySchema, journalingActivitySchema
+  wimHofActivitySchema,
+  meditationActivitySchema,
+  // Future: journalingActivitySchema
 ]);
 
 // -----------------------------------------------------------------------------
 // Types
 // -----------------------------------------------------------------------------
 
+/** Inferred type for breathing technique configuration */
+export type BreathingTechnique = z.infer<typeof breathingTechniqueSchema>;
+
 /** Inferred type for breathing activity data */
 export type BreathingActivityData = z.infer<typeof breathingActivitySchema>;
+
+/** Inferred type for Wim Hof technique configuration */
+export type WimHofTechnique = z.infer<typeof wimHofTechniqueSchema>;
+
+/** Inferred type for Wim Hof activity data */
+export type WimHofActivityData = z.infer<typeof wimHofActivitySchema>;
+
+/** Inferred type for meditation track configuration */
+export type MeditationTrack = z.infer<typeof meditationTrackSchema>;
+
+/** Inferred type for meditation activity data */
+export type MeditationActivityData = z.infer<typeof meditationActivitySchema>;
 
 /** Inferred type for any activity data */
 export type ActivityData = z.infer<typeof activityDataSchema>;

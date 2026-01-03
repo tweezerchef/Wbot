@@ -5,12 +5,17 @@
 // configurations from AI message content.
 // ============================================================================
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+/* eslint-disable @typescript-eslint/no-unsafe-call */
+
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+
 import {
   parseActivityContent,
   hasActivityContent,
   extractTextContent,
   type BreathingActivityData,
+  type WimHofActivityData,
 } from './parseActivity';
 
 // -----------------------------------------------------------------------------
@@ -26,7 +31,7 @@ const validBreathingActivity: BreathingActivityData = {
     id: 'box',
     name: 'Box Breathing',
     durations: [4, 4, 4, 4],
-    phases: ['inhale', 'hold', 'exhale', 'hold'],
+    phases: ['inhale', 'holdIn', 'exhale', 'holdOut'],
     description: 'A calming technique used by Navy SEALs',
     cycles: 4,
   },
@@ -34,11 +39,7 @@ const validBreathingActivity: BreathingActivityData = {
 };
 
 // Create a message with activity markers
-const createActivityMessage = (
-  textBefore: string,
-  activity: object,
-  textAfter: string
-): string => {
+const createActivityMessage = (textBefore: string, activity: object, textAfter: string): string => {
   return `${textBefore}[ACTIVITY_START]${JSON.stringify(activity)}[ACTIVITY_END]${textAfter}`;
 };
 
@@ -47,11 +48,6 @@ const createActivityMessage = (
 // -----------------------------------------------------------------------------
 
 describe('parseActivityContent', () => {
-  // Suppress console.warn during tests (expected for error cases)
-  beforeEach(() => {
-    vi.spyOn(console, 'warn').mockImplementation(() => {});
-  });
-
   describe('when content contains valid activity', () => {
     it('extracts activity from marked content', () => {
       const content = createActivityMessage(
@@ -109,16 +105,18 @@ describe('parseActivityContent', () => {
       const content = createActivityMessage('', validBreathingActivity, '');
       const result = parseActivityContent(content);
 
-      // Type assertion since we know it's a breathing activity
-      const activity = result.activity as BreathingActivityData;
+      // Verify activity exists before accessing properties
+      expect(result.activity).not.toBeNull();
+      const activity = result.activity;
+      if (!activity) {
+        return;
+      }
 
       expect(activity.technique.id).toBe('box');
       expect(activity.technique.name).toBe('Box Breathing');
       expect(activity.technique.durations).toEqual([4, 4, 4, 4]);
       expect(activity.technique.cycles).toBe(4);
-      expect(activity.introduction).toBe(
-        "Let's try some box breathing to help you relax."
-      );
+      expect(activity.introduction).toBe("Let's try some box breathing to help you relax.");
     });
   });
 
@@ -162,6 +160,15 @@ describe('parseActivityContent', () => {
   });
 
   describe('when content has invalid JSON', () => {
+    // Suppress console.warn during these tests (expected for error cases)
+    beforeEach(() => {
+      vi.spyOn(console, 'warn').mockImplementation(vi.fn());
+    });
+
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
     it('handles malformed JSON gracefully', () => {
       const content = '[ACTIVITY_START]{not valid json}[ACTIVITY_END]';
 
@@ -251,11 +258,7 @@ describe('parseActivityContent', () => {
     });
 
     it('handles nested markers (uses first pair)', () => {
-      const content = createActivityMessage(
-        '[ACTIVITY_START]nested',
-        validBreathingActivity,
-        ''
-      );
+      const content = createActivityMessage('[ACTIVITY_START]nested', validBreathingActivity, '');
 
       // The outer markers should be used
       const result = parseActivityContent(content);
@@ -286,8 +289,7 @@ describe('parseActivityContent', () => {
 
 describe('hasActivityContent', () => {
   it('returns true when both markers are present', () => {
-    const content =
-      'Some text [ACTIVITY_START]{"data":"here"}[ACTIVITY_END] more text';
+    const content = 'Some text [ACTIVITY_START]{"data":"here"}[ACTIVITY_END] more text';
 
     expect(hasActivityContent(content)).toBe(true);
   });
@@ -342,11 +344,7 @@ describe('extractTextContent', () => {
   });
 
   it('returns only before text when no after text', () => {
-    const content = createActivityMessage(
-      'Only before. ',
-      validBreathingActivity,
-      ''
-    );
+    const content = createActivityMessage('Only before. ', validBreathingActivity, '');
 
     const result = extractTextContent(content);
 
@@ -354,11 +352,7 @@ describe('extractTextContent', () => {
   });
 
   it('returns only after text when no before text', () => {
-    const content = createActivityMessage(
-      '',
-      validBreathingActivity,
-      ' Only after.'
-    );
+    const content = createActivityMessage('', validBreathingActivity, ' Only after.');
 
     const result = extractTextContent(content);
 
@@ -384,5 +378,204 @@ describe('extractTextContent', () => {
     // The parsing extracts textBefore as empty and textAfter as empty
     // because the JSON is invalid but markers are found
     expect(result).toBe('');
+  });
+});
+
+// -----------------------------------------------------------------------------
+// Wim Hof Activity Parsing Tests
+// -----------------------------------------------------------------------------
+
+const validWimHofActivity: WimHofActivityData = {
+  type: 'activity',
+  activity: 'breathing_wim_hof',
+  status: 'ready',
+  technique: {
+    id: 'wim_hof',
+    name: 'Wim Hof Method',
+    type: 'wim_hof',
+    description: 'Rapid breathing followed by retention',
+    best_for: ['energy boost', 'immune support'],
+    rounds: 3,
+    breaths_per_round: 30,
+    breath_tempo_ms: 1500,
+    retention_target_seconds: 90,
+    recovery_pause_seconds: 15,
+    inhale_hold_seconds: 15,
+  },
+  introduction: 'Welcome to the Wim Hof Method!',
+  is_first_time: true,
+};
+
+describe('parseActivityContent - Wim Hof', () => {
+  describe('when content contains valid Wim Hof activity', () => {
+    it('extracts Wim Hof activity from marked content', () => {
+      const content = createActivityMessage(
+        "Let's try the Wim Hof Method. ",
+        validWimHofActivity,
+        ' Let me know how you feel!'
+      );
+
+      const result = parseActivityContent(content);
+
+      expect(result.hasActivity).toBe(true);
+      expect(result.activity).not.toBeNull();
+      expect(result.activity?.activity).toBe('breathing_wim_hof');
+      expect(result.activity?.type).toBe('activity');
+    });
+
+    it('parses Wim Hof technique data correctly', () => {
+      const content = createActivityMessage('', validWimHofActivity, '');
+      const result = parseActivityContent(content);
+
+      expect(result.activity).not.toBeNull();
+      const activity = result.activity;
+      if (activity?.activity !== 'breathing_wim_hof') {
+        fail('Expected Wim Hof activity');
+        return;
+      }
+
+      expect(activity.technique.id).toBe('wim_hof');
+      expect(activity.technique.type).toBe('wim_hof');
+      expect(activity.technique.name).toBe('Wim Hof Method');
+      expect(activity.technique.rounds).toBe(3);
+      expect(activity.technique.breaths_per_round).toBe(30);
+      expect(activity.technique.retention_target_seconds).toBe(90);
+      expect(activity.introduction).toBe('Welcome to the Wim Hof Method!');
+      expect(activity.is_first_time).toBe(true);
+    });
+
+    it('validates all required Wim Hof fields', () => {
+      const content = createActivityMessage('', validWimHofActivity, '');
+      const result = parseActivityContent(content);
+
+      const activity = result.activity;
+      if (activity?.activity !== 'breathing_wim_hof') {
+        fail('Expected Wim Hof activity');
+        return;
+      }
+
+      // Required fields
+      expect(activity.technique.rounds).toBeTypeOf('number');
+      expect(activity.technique.breaths_per_round).toBeTypeOf('number');
+      expect(activity.technique.breath_tempo_ms).toBeTypeOf('number');
+      expect(activity.technique.retention_target_seconds).toBeTypeOf('number');
+      expect(activity.technique.recovery_pause_seconds).toBeTypeOf('number');
+      expect(activity.technique.inhale_hold_seconds).toBeTypeOf('number');
+      expect(activity.is_first_time).toBeTypeOf('boolean');
+    });
+  });
+
+  describe('when Wim Hof activity has invalid schema', () => {
+    // Suppress console.warn
+    beforeEach(() => {
+      vi.spyOn(console, 'warn').mockImplementation(vi.fn());
+    });
+
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it('rejects Wim Hof with wrong id', () => {
+      const invalidActivity = {
+        ...validWimHofActivity,
+        technique: {
+          ...validWimHofActivity.technique,
+          id: 'not_wim_hof', // Should be 'wim_hof'
+        },
+      };
+      const content = createActivityMessage('', invalidActivity, '');
+
+      const result = parseActivityContent(content);
+
+      expect(result.hasActivity).toBe(false);
+      expect(result.activity).toBeNull();
+    });
+
+    it('rejects Wim Hof with wrong type', () => {
+      const invalidActivity = {
+        ...validWimHofActivity,
+        technique: {
+          ...validWimHofActivity.technique,
+          type: 'continuous', // Should be 'wim_hof'
+        },
+      };
+      const content = createActivityMessage('', invalidActivity, '');
+
+      const result = parseActivityContent(content);
+
+      expect(result.hasActivity).toBe(false);
+    });
+
+    it('rejects Wim Hof with missing required fields', () => {
+      const invalidActivity = {
+        ...validWimHofActivity,
+        technique: {
+          id: 'wim_hof',
+          name: 'Wim Hof Method',
+          type: 'wim_hof',
+          // Missing other required fields
+        },
+      };
+      const content = createActivityMessage('', invalidActivity, '');
+
+      const result = parseActivityContent(content);
+
+      expect(result.hasActivity).toBe(false);
+    });
+
+    it('rejects Wim Hof with invalid rounds type', () => {
+      const invalidActivity = {
+        ...validWimHofActivity,
+        technique: {
+          ...validWimHofActivity.technique,
+          rounds: '3', // Should be number
+        },
+      };
+      const content = createActivityMessage('', invalidActivity, '');
+
+      const result = parseActivityContent(content);
+
+      expect(result.hasActivity).toBe(false);
+    });
+
+    it('rejects Wim Hof without is_first_time', () => {
+      const { is_first_time: _is_first_time, ...activityWithoutFlag } = validWimHofActivity;
+      const content = createActivityMessage('', activityWithoutFlag, '');
+
+      const result = parseActivityContent(content);
+
+      expect(result.hasActivity).toBe(false);
+    });
+  });
+
+  describe('discriminated union behavior', () => {
+    it('accepts breathing activity', () => {
+      const content = createActivityMessage('', validBreathingActivity, '');
+      const result = parseActivityContent(content);
+
+      expect(result.hasActivity).toBe(true);
+      expect(result.activity?.activity).toBe('breathing');
+    });
+
+    it('accepts Wim Hof activity', () => {
+      const content = createActivityMessage('', validWimHofActivity, '');
+      const result = parseActivityContent(content);
+
+      expect(result.hasActivity).toBe(true);
+      expect(result.activity?.activity).toBe('breathing_wim_hof');
+    });
+
+    it('rejects unknown activity type', () => {
+      const unknownActivity = {
+        type: 'activity',
+        activity: 'meditation', // Not yet supported
+        status: 'ready',
+      };
+      const content = createActivityMessage('', unknownActivity, '');
+
+      const result = parseActivityContent(content);
+
+      expect(result.hasActivity).toBe(false);
+    });
   });
 });
