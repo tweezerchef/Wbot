@@ -62,6 +62,39 @@
   --color-error: #ef4444;
   --color-error-light: #fee2e2;
 
+  /* --------------------------------------------------------------------------
+     BREATHING EXERCISE / WELLNESS COLORS
+     --------------------------------------------------------------------------
+     A curated palette for meditation and breathing exercises.
+     Colors chosen for their calming, grounding properties.
+     -------------------------------------------------------------------------- */
+
+  /* Phase colors - Each phase has its own emotional resonance */
+  --color-breath-inhale: #7ec8e3; /* Sky blue - expansive, openness */
+  --color-breath-inhale-light: #bfe4f1;
+  --color-breath-inhale-glow: rgba(126, 200, 227, 0.4);
+
+  --color-breath-hold: #9b8fd4; /* Soft lavender - stillness, calm */
+  --color-breath-hold-light: #cdc7e9;
+  --color-breath-hold-glow: rgba(155, 143, 212, 0.35);
+
+  --color-breath-exhale: #7ed4a6; /* Sage green - release, grounding */
+  --color-breath-exhale-light: #bfebd3;
+  --color-breath-exhale-glow: rgba(126, 212, 166, 0.35);
+
+  /* Wellness accent colors */
+  --color-wellness-dawn: #f8b4a9; /* Soft coral - warmth, awakening */
+  --color-wellness-sunset: #e6a87c; /* Warm amber - peace, transition */
+  --color-wellness-ocean: #6bb3d9; /* Ocean blue - depth, rhythm */
+  --color-wellness-forest: #6b9e7d; /* Forest green - nature, renewal */
+  --color-wellness-cloud: #e8eef2; /* Soft gray-blue - lightness */
+
+  /* Exercise UI colors */
+  --color-exercise-bg: linear-gradient(135deg, #f5f7fa 0%, #e4ecf5 100%);
+  --color-exercise-card: rgba(255, 255, 255, 0.9);
+  --color-exercise-progress: var(--color-breath-inhale);
+  --color-exercise-progress-track: var(--color-neutral-200);
+
   /* Background colors */
   --color-background: #ffffff;
   --color-background-secondary: var(--color-neutral-50);

@@ -21,12 +21,30 @@
    - Conversation history loaded on mount
    ============================================================================ */
 
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { getRouteApi, useNavigate } from '@tanstack/react-router';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 
 import { createAIClient, type Message } from '../../../lib/ai-client';
+import { createConversation, loadMessages, touchConversation } from '../../../lib/conversations';
+import { parseActivityContent } from '../../../lib/parseActivity';
 import { supabase } from '../../../lib/supabase';
+import { BreathingExercise, type BreathingTechnique } from '../../BreathingExercise';
+import {
+  MenuIcon,
+  CloseIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  NewChatIcon,
+  LogoutIcon,
+} from '../../buttons';
+import { ConversationHistory } from '../../ConversationHistory';
 
 import styles from './ChatPage.module.css';
+
+/* ----------------------------------------------------------------------------
+   Route API for accessing loader data
+   ---------------------------------------------------------------------------- */
+const routeApi = getRouteApi('/chat');
 
 /* ----------------------------------------------------------------------------
    Chat Page Component
@@ -43,8 +61,14 @@ import styles from './ChatPage.module.css';
  * The chat fills the entire viewport for an immersive experience.
  */
 export function ChatPage() {
-  // Message state - array of messages in the conversation
-  const [messages, setMessages] = useState<Message[]>([]);
+  // Get initial data from route loader (most recent conversation)
+  const loaderData = routeApi.useLoaderData();
+
+  // Navigation for redirects (e.g., after logout)
+  const navigate = useNavigate();
+
+  // Message state - initialized from loader data
+  const [messages, setMessages] = useState<Message[]>(loaderData.messages);
 
   // Current message being streamed from AI (partial content)
   const [streamingContent, setStreamingContent] = useState<string>('');
@@ -54,6 +78,18 @@ export function ChatPage() {
 
   // Input field value
   const [inputValue, setInputValue] = useState('');
+
+  // Current conversation ID - initialized from loader data
+  const [conversationId, setConversationId] = useState<string | null>(loaderData.conversationId);
+
+  // Sidebar open/closed state
+  // Default: closed on mobile, open on desktop (768px+)
+  const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth >= 768;
+    }
+    return false;
+  });
 
   // Reference to the message container for auto-scrolling
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -121,16 +157,19 @@ export function ChatPage() {
       // Use the Supabase access token for LangGraph authentication
       const authToken = session.access_token;
 
-      // TODO: Get or create conversation ID from Supabase
-      // For now, using the user's ID as a simple conversation identifier
-      const conversationId = session.user.id;
+      // Get or create conversation ID (lazy creation on first message)
+      let currentConversationId = conversationId;
+      if (!currentConversationId) {
+        currentConversationId = await createConversation(session.user.id);
+        setConversationId(currentConversationId);
+      }
 
       // Create AI client and stream the response
       const client = createAIClient(authToken);
       let fullResponse = '';
 
       // Stream the AI response
-      for await (const event of client.streamMessage(messageText, conversationId)) {
+      for await (const event of client.streamMessage(messageText, currentConversationId)) {
         switch (event.type) {
           case 'token':
             // Update streaming content with full response (not appending)
@@ -149,6 +188,11 @@ export function ChatPage() {
             };
             setMessages((prev) => [...prev, assistantMessage]);
             setStreamingContent('');
+
+            // Update conversation timestamp for "most recent" ordering
+            if (currentConversationId) {
+              void touchConversation(currentConversationId);
+            }
             break;
           }
 
@@ -196,97 +240,278 @@ export function ChatPage() {
   };
 
   /* --------------------------------------------------------------------------
+     Sidebar Handlers
+     -------------------------------------------------------------------------- */
+
+  /**
+   * Handle logout - signs user out via Supabase.
+   * Navigation will be handled by auth state change in the router.
+   */
+  const handleLogout = async () => {
+    try {
+      await supabase.auth.signOut();
+      // Redirect to home page after successful logout
+      void navigate({ to: '/' });
+    } catch (error) {
+      console.error('Logout failed:', error);
+    }
+  };
+
+  /**
+   * Handle new conversation - clears current messages and resets state.
+   * Closes sidebar on mobile for better UX.
+   */
+  const handleNewConversation = async () => {
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session) {
+        return;
+      }
+
+      // Create a new conversation in the database
+      const newId = await createConversation(session.user.id);
+      setConversationId(newId);
+
+      // Clear local state
+      setMessages([]);
+      setStreamingContent('');
+      setInputValue('');
+
+      // Close sidebar on mobile (but keep open on desktop)
+      if (typeof window !== 'undefined' && window.innerWidth < 768) {
+        setIsSidebarOpen(false);
+      }
+
+      inputRef.current?.focus();
+    } catch (error) {
+      console.error('Failed to create new conversation:', error);
+    }
+  };
+
+  /**
+   * Handle switching to a different conversation.
+   * Loads the conversation's messages and updates state.
+   */
+  const handleSelectConversation = async (selectedConversationId: string) => {
+    // Don't reload if already viewing this conversation
+    if (selectedConversationId === conversationId) {
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+
+      // Load messages for the selected conversation
+      const loadedMessages = await loadMessages(selectedConversationId);
+
+      // Update state
+      setConversationId(selectedConversationId);
+      setMessages(loadedMessages);
+      setStreamingContent('');
+      setInputValue('');
+
+      // Close sidebar on mobile
+      if (typeof window !== 'undefined' && window.innerWidth < 768) {
+        setIsSidebarOpen(false);
+      }
+
+      inputRef.current?.focus();
+    } catch (error) {
+      console.error('Failed to load conversation:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  /* --------------------------------------------------------------------------
+     Escape Key Handler - closes sidebar
+     -------------------------------------------------------------------------- */
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isSidebarOpen) {
+        setIsSidebarOpen(false);
+      }
+    };
+    document.addEventListener('keydown', handleEscape);
+    return () => {
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [isSidebarOpen]);
+
+  /* --------------------------------------------------------------------------
      Render
      -------------------------------------------------------------------------- */
   return (
     <div className={styles.container}>
-      {/* Minimal header - just branding */}
-      <header className={styles.header}>
-        <h1 className={styles.logo}>Wbot</h1>
-      </header>
-
-      {/* Message list - scrollable area */}
-      <div className={styles.messages}>
-        {/* Welcome message when empty */}
-        {messages.length === 0 && !streamingContent && (
-          <div className={styles.welcome}>
-            <p className={styles.welcomeText}>
-              Hello! I'm here to support you. Feel free to share what's on your mind, and we can
-              explore breathing exercises, meditation, or journaling together.
-            </p>
-          </div>
-        )}
-
-        {/* Render each message */}
-        {messages.map((message) => (
-          <MessageBubble key={message.id} message={message} />
-        ))}
-
-        {/* Show streaming content as it arrives */}
-        {streamingContent && (
-          <MessageBubble
-            message={{
-              id: 'streaming',
-              role: 'assistant',
-              content: streamingContent,
-              createdAt: new Date(),
-            }}
-            isStreaming
-          />
-        )}
-
-        {/* Loading indicator when waiting for first token */}
-        {isLoading && !streamingContent && (
-          <div className={styles.loadingIndicator}>
-            <span className={styles.dot} />
-            <span className={styles.dot} />
-            <span className={styles.dot} />
-          </div>
-        )}
-
-        {/* Invisible element to scroll to */}
-        <div ref={messagesEndRef} />
-      </div>
-
-      {/* Input area - fixed at bottom */}
-      <div className={styles.inputArea}>
-        <input
-          ref={inputRef}
-          type="text"
-          className={styles.input}
-          placeholder="Type a message..."
-          value={inputValue}
-          onChange={(e) => {
-            setInputValue(e.target.value);
-          }}
-          onKeyDown={handleKeyDown}
-          disabled={isLoading}
-          aria-label="Message input"
-        />
-        <button
-          className={styles.sendButton}
+      {/* Overlay - closes sidebar when clicked (mobile only) */}
+      {isSidebarOpen && (
+        <div
+          className={styles.overlay}
           onClick={() => {
-            void handleSendMessage();
+            setIsSidebarOpen(false);
           }}
-          disabled={!inputValue.trim() || isLoading}
-          aria-label="Send message"
+          aria-hidden="true"
+        />
+      )}
+
+      {/* Sidebar navigation */}
+      <aside className={`${styles.sidebar} ${isSidebarOpen ? styles.sidebarOpen : ''}`}>
+        {/* Collapse button - desktop only */}
+        <button
+          className={styles.collapseButton}
+          onClick={() => {
+            setIsSidebarOpen(false);
+          }}
+          aria-label="Collapse sidebar"
         >
-          {/* Simple arrow icon */}
-          <svg
-            width="24"
-            height="24"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <line x1="22" y1="2" x2="11" y2="13" />
-            <polygon points="22 2 15 22 11 13 2 9 22 2" />
-          </svg>
+          <ChevronLeftIcon />
         </button>
+
+        {/* Navigation buttons */}
+        <nav className={styles.sidebarNav}>
+          <button className={styles.sidebarButton} onClick={() => void handleNewConversation()}>
+            <NewChatIcon />
+            <span>New Conversation</span>
+          </button>
+
+          {/* Conversation History */}
+          <ConversationHistory
+            currentConversationId={conversationId}
+            onSelectConversation={(id) => void handleSelectConversation(id)}
+            onCloseSidebar={() => {
+              setIsSidebarOpen(false);
+            }}
+          />
+        </nav>
+
+        {/* Footer with logout */}
+        <div className={styles.sidebarFooter}>
+          <button className={styles.sidebarButton} onClick={() => void handleLogout()}>
+            <LogoutIcon />
+            <span>Logout</span>
+          </button>
+        </div>
+      </aside>
+
+      {/* Main chat area */}
+      <div className={styles.chatMain}>
+        {/* Header with menu toggle */}
+        <header className={styles.header}>
+          {/* Mobile: hamburger menu toggle */}
+          <button
+            className={styles.menuButton}
+            onClick={() => {
+              setIsSidebarOpen(!isSidebarOpen);
+            }}
+            aria-label={isSidebarOpen ? 'Close menu' : 'Open menu'}
+            aria-expanded={isSidebarOpen}
+          >
+            {isSidebarOpen ? <CloseIcon /> : <MenuIcon />}
+          </button>
+
+          {/* Desktop: expand button (only when sidebar is collapsed) */}
+          {!isSidebarOpen && (
+            <button
+              className={styles.expandButton}
+              onClick={() => {
+                setIsSidebarOpen(true);
+              }}
+              aria-label="Expand sidebar"
+            >
+              <ChevronRightIcon />
+            </button>
+          )}
+
+          <h1 className={styles.logo}>Wbot</h1>
+        </header>
+
+        {/* Message list - scrollable area */}
+        <div className={styles.messages}>
+          {/* Welcome message when empty */}
+          {messages.length === 0 && !streamingContent && (
+            <div className={styles.welcome}>
+              <p className={styles.welcomeText}>
+                Hello! I'm here to support you. Feel free to share what's on your mind, and we can
+                explore breathing exercises, meditation, or journaling together.
+              </p>
+            </div>
+          )}
+
+          {/* Render each message */}
+          {messages.map((message) => (
+            <MessageBubble key={message.id} message={message} />
+          ))}
+
+          {/* Show streaming content as it arrives */}
+          {streamingContent && (
+            <MessageBubble
+              message={{
+                id: 'streaming',
+                role: 'assistant',
+                content: streamingContent,
+                createdAt: new Date(),
+              }}
+              isStreaming
+            />
+          )}
+
+          {/* Loading indicator when waiting for first token */}
+          {isLoading && !streamingContent && (
+            <div className={styles.loadingIndicator}>
+              <span className={styles.dot} />
+              <span className={styles.dot} />
+              <span className={styles.dot} />
+            </div>
+          )}
+
+          {/* Invisible element to scroll to */}
+          <div ref={messagesEndRef} />
+        </div>
+
+        {/* Input area - fixed at bottom */}
+        <div className={styles.inputArea}>
+          <input
+            ref={inputRef}
+            type="text"
+            className={styles.input}
+            placeholder="Type a message..."
+            value={inputValue}
+            onChange={(e) => {
+              setInputValue(e.target.value);
+            }}
+            onKeyDown={handleKeyDown}
+            disabled={isLoading}
+            aria-label="Message input"
+          />
+          <button
+            className={styles.sendButton}
+            onClick={() => {
+              void handleSendMessage();
+            }}
+            disabled={!inputValue.trim() || isLoading}
+            aria-label="Send message"
+          >
+            {/* Simple arrow icon */}
+            <svg
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <line x1="22" y1="2" x2="11" y2="13" />
+              <polygon points="22 2 15 22 11 13 2 9 22 2" />
+            </svg>
+          </button>
+        </div>
       </div>
+      {/* End chatMain */}
     </div>
   );
 }
@@ -308,10 +533,18 @@ interface MessageBubbleProps {
  * - assistant: Left-aligned, neutral background
  * - system: Centered, muted styling
  *
- * Future: This component will also render inline activities
- * (breathing, meditation, journal) when the AI triggers them.
+ * For assistant messages, parses content for embedded activities
+ * (breathing exercises) and renders interactive components inline.
  */
 function MessageBubble({ message, isStreaming = false }: MessageBubbleProps) {
+  // Parse message content for embedded activities (only for assistant messages)
+  const parsedContent = useMemo(() => {
+    if (message.role !== 'assistant') {
+      return null;
+    }
+    return parseActivityContent(message.content);
+  }, [message.content, message.role]);
+
   // Determine CSS classes based on role
   const bubbleClass = [
     styles.bubble,
@@ -323,6 +556,38 @@ function MessageBubble({ message, isStreaming = false }: MessageBubbleProps) {
     .filter(Boolean)
     .join(' ');
 
+  // Handle exercise completion
+  const handleExerciseComplete = useCallback(() => {
+    // TODO: Notify the AI that the exercise completed for follow-up message
+  }, []);
+
+  // Render breathing exercise inline if detected
+  if (parsedContent?.hasActivity && parsedContent.activity?.activity === 'breathing') {
+    const activity = parsedContent.activity;
+    // Convert the parsed technique to the expected format
+    const technique: BreathingTechnique = {
+      id: activity.technique.id,
+      name: activity.technique.name,
+      durations: activity.technique.durations,
+      description: activity.technique.description,
+      cycles: activity.technique.cycles,
+    };
+
+    return (
+      <div className={styles.messageRow}>
+        <div className={`${styles.bubble} ${styles.bubbleAssistant} ${styles.bubbleActivity}`}>
+          {/* Render breathing exercise component */}
+          <BreathingExercise
+            technique={technique}
+            introduction={activity.introduction}
+            onComplete={handleExerciseComplete}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  // Standard text message rendering
   return (
     <div className={`${styles.messageRow} ${message.role === 'user' ? styles.messageRowUser : ''}`}>
       <div className={bubbleClass}>
