@@ -45,6 +45,14 @@ The chatbot is the PRIMARY interface - activities render inside the chat, not as
 - **USE** the shared types from `@wbot/shared` for database entities
 - Generate database types with `pnpm db:generate-types` after schema changes
 
+### Library Preferences
+
+- **ALWAYS** prefer TanStack libraries over alternatives:
+  - TanStack Query over Zustand/Redux for state management
+  - TanStack Router (already in use via TanStack Start)
+  - TanStack Table for data tables (if needed)
+- This ensures consistency with the TanStack Start architecture
+
 ### When Uncertain
 
 - Search the web for current best practices (libraries update frequently)
