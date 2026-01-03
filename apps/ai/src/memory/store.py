@@ -127,6 +127,45 @@ async def store_memory(
     return result.data[0]["id"]
 
 
+def save_messages(
+    conversation_id: str,
+    user_message: str,
+    ai_response: str,
+) -> None:
+    """
+    Saves user and AI messages to the messages table.
+
+    This persists the raw conversation for history retrieval and display.
+    Called after each AI response to maintain full conversation history.
+
+    Args:
+        conversation_id: The conversation this message belongs to
+        user_message: The user's message content
+        ai_response: The AI's response content
+
+    Note:
+        Uses synchronous Supabase client since this is a fire-and-forget operation.
+        Errors are logged but don't fail the conversation flow.
+    """
+    supabase = get_supabase_client()
+
+    # Insert both messages in a single batch
+    messages = [
+        {
+            "conversation_id": conversation_id,
+            "role": "user",
+            "content": user_message,
+        },
+        {
+            "conversation_id": conversation_id,
+            "role": "assistant",
+            "content": ai_response,
+        },
+    ]
+
+    supabase.table("messages").insert(messages).execute()
+
+
 async def search_memories(
     user_id: str,
     query: str,
@@ -244,3 +283,40 @@ def format_memories_for_prompt(memories: list[Memory], max_chars: int = 2000) ->
     )
 
     return "\n".join(lines)
+
+
+def generate_title_if_needed(conversation_id: str) -> str | None:
+    """
+    Generates a title for a conversation if one doesn't exist.
+
+    Calls the database RPC function to auto-generate a title from the
+    first user message. Truncates to 50 characters with ellipsis.
+
+    This should be called after the first message pair is saved to ensure
+    the conversation has a meaningful title for display in history.
+
+    Args:
+        conversation_id: The conversation UUID to generate title for
+
+    Returns:
+        The generated title, or None if already exists or no messages yet
+
+    Example:
+        >>> title = generate_title_if_needed("uuid-here")
+        >>> print(title)  # "I've been feeling stressed about..."
+    """
+    if not conversation_id:
+        return None
+
+    try:
+        supabase = get_supabase_client()
+        result = supabase.rpc(
+            "generate_conversation_title",
+            {"p_conversation_id": conversation_id},
+        ).execute()
+
+        return result.data
+    except Exception as e:
+        # Log but don't fail - title is not critical
+        print(f"[store] Error generating title: {e}")
+        return None

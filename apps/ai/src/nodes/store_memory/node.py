@@ -6,8 +6,9 @@ Stores the conversation pair as a memory after generating a response.
 
 This node:
 1. Extracts the latest user message and AI response
-2. Stores them as a memory with an embedding
-3. Returns without modifying state (side-effect only)
+2. Saves them to the messages table (for conversation history)
+3. Stores them as a memory with an embedding (for semantic search)
+4. Returns without modifying state (side-effect only)
 
 Position in graph: Runs AFTER generate_response (after streaming completes)
 Execution: Fire-and-forget (errors logged, don't block response delivery)
@@ -15,23 +16,27 @@ Execution: Fire-and-forget (errors logged, don't block response delivery)
 """
 
 from langchain_core.messages import AIMessage, HumanMessage
+from langchain_core.runnables import RunnableConfig
 
 from src.graph.state import WellnessState
-from src.memory.store import store_memory
+from src.memory.store import generate_title_if_needed, save_messages, store_memory
 
 
-async def store_memory_node(state: WellnessState) -> dict:
+async def store_memory_node(state: WellnessState, config: RunnableConfig) -> dict:
     """
     Stores the latest conversation pair as a memory.
 
     Extracts the most recent user message + AI response pair from the
-    conversation and stores it with an embedding for future retrieval.
+    conversation and:
+    1. Saves to messages table (for conversation history retrieval)
+    2. Stores with embedding (for semantic search)
 
     This is a side-effect node that doesn't modify state - it just
-    persists the conversation to the memory store.
+    persists the conversation to the database.
 
     Args:
         state: Current conversation state after response generation
+        config: LangGraph config containing thread_id (conversation_id)
 
     Returns:
         Empty dict (no state changes, side-effect only)
@@ -48,6 +53,10 @@ async def store_memory_node(state: WellnessState) -> dict:
     if not user_id:
         # No user ID means can't store memory
         return {}
+
+    # Get conversation_id from thread_id in config
+    configurable = config.get("configurable", {})
+    conversation_id = configurable.get("thread_id")
 
     # Get the messages
     messages = state.get("messages", [])
@@ -72,15 +81,29 @@ async def store_memory_node(state: WellnessState) -> dict:
         # No complete pair found
         return {}
 
-    # Store the memory (fire-and-forget pattern)
-    # Errors are logged but don't fail the conversation
+    # Save to messages table (for conversation history)
+    # Only if we have a valid conversation_id
+    if conversation_id:
+        try:
+            save_messages(
+                conversation_id=conversation_id,
+                user_message=user_message,
+                ai_response=ai_response,
+            )
+            # Generate a title for the conversation if one doesn't exist
+            # This ensures conversations have meaningful titles in history
+            generate_title_if_needed(conversation_id)
+        except Exception as e:
+            print(f"[store_memory] Error saving messages: {e}")
+
+    # Store the memory with embedding (for semantic search)
+    # Fire-and-forget pattern - errors logged but don't fail the conversation
     try:
         await store_memory(
             user_id=user_id,
             user_message=user_message,
             ai_response=ai_response,
-            # Could extract conversation_id from state if available
-            conversation_id=None,
+            conversation_id=conversation_id,
             metadata={
                 "source": "wellness_chat",
             },
