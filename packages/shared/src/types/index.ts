@@ -7,5 +7,7 @@
  */
 
 export * from './api';
+export * from './breathing';
 export * from './database';
+export * from './meditation';
 export * from './preferences';
