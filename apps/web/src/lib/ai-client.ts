@@ -234,8 +234,9 @@ export class AIClient {
           // Pass the user's message to the graph
           messages: [{ role: 'user', content: message }],
         },
-        // Stream mode: 'messages' gives us token-by-token output
-        streamMode: 'messages',
+        // Stream modes: 'messages' for token-by-token output,
+        // 'updates' for graph events including interrupts
+        streamMode: ['messages', 'updates'],
       });
 
       // Track the accumulated response for incremental streaming
@@ -282,6 +283,12 @@ export class AIClient {
                 continue;
               }
 
+              // Filter out detect_activity structured output JSON
+              // This is internal routing data, not user-facing content
+              if (content.includes('"detected_activity"') && content.includes('"confidence"')) {
+                continue;
+              }
+
               if (content && content !== lastContent) {
                 yield { type: 'token', content };
                 lastContent = content;
@@ -291,7 +298,28 @@ export class AIClient {
         }
 
         // Check for completion events
+        // Process content from messages/complete that may not have been in messages/partial
         if (chunk.event === 'messages/complete') {
+          const data = chunk.data as LangGraphMessagesData;
+          if (Array.isArray(data) && data.length > 0) {
+            const lastMsg = data.at(-1);
+            if (lastMsg && isAssistantMessage(lastMsg)) {
+              const content = extractTextContent(lastMsg.content);
+
+              // Skip filtered content
+              const trimmedContent = content.trim().toLowerCase();
+              if (
+                !TECHNIQUE_IDS.includes(trimmedContent) &&
+                !(content.includes('"detected_activity"') && content.includes('"confidence"'))
+              ) {
+                // Only yield if we have new content not already yielded via messages/partial
+                if (content && content !== lastContent) {
+                  yield { type: 'token', content };
+                  lastContent = content;
+                }
+              }
+            }
+          }
           yield { type: 'done' };
         }
       }
@@ -403,7 +431,9 @@ export class AIClient {
         command: {
           resume: resumeData,
         },
-        streamMode: 'messages',
+        // Stream modes: 'messages' for token-by-token output,
+        // 'updates' for graph events including interrupts
+        streamMode: ['messages', 'updates'],
       });
 
       let lastContent = '';
@@ -428,6 +458,11 @@ export class AIClient {
                 continue;
               }
 
+              // Filter out detect_activity structured output JSON
+              if (content.includes('"detected_activity"') && content.includes('"confidence"')) {
+                continue;
+              }
+
               if (content && content !== lastContent) {
                 yield { type: 'token', content };
                 lastContent = content;
@@ -436,7 +471,29 @@ export class AIClient {
           }
         }
 
+        // Check for completion events
+        // Process content from messages/complete that may not have been in messages/partial
         if (chunk.event === 'messages/complete') {
+          const data = chunk.data as LangGraphMessagesData;
+          if (Array.isArray(data) && data.length > 0) {
+            const lastMsg = data.at(-1);
+            if (lastMsg && isAssistantMessage(lastMsg)) {
+              const content = extractTextContent(lastMsg.content);
+
+              // Skip filtered content
+              const trimmedContent = content.trim().toLowerCase();
+              if (
+                !TECHNIQUE_IDS.includes(trimmedContent) &&
+                !(content.includes('"detected_activity"') && content.includes('"confidence"'))
+              ) {
+                // Only yield if we have new content not already yielded via messages/partial
+                if (content && content !== lastContent) {
+                  yield { type: 'token', content };
+                  lastContent = content;
+                }
+              }
+            }
+          }
           yield { type: 'done' };
         }
       }
