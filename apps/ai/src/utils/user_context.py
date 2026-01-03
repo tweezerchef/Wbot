@@ -16,10 +16,8 @@ in the conversation.
 ============================================================================
 """
 
-from typing import Any
 
-
-def format_user_context(context: dict[str, Any] | None) -> str:
+def format_user_context(context: dict[str, object] | None) -> str:
     """
     Formats user context into a readable string for the system prompt.
 
@@ -80,13 +78,13 @@ def format_user_context(context: dict[str, Any] | None) -> str:
 # =============================================================================
 
 
-def _add_display_name(lines: list[str], context: dict[str, Any]) -> None:
+def _add_display_name(lines: list[str], context: dict[str, object]) -> None:
     """Adds the user's display name if available."""
     if name := context.get("display_name"):
         lines.append(f"The user's name is {name}.")
 
 
-def _add_current_feeling(lines: list[str], preferences: dict[str, Any]) -> None:
+def _add_current_feeling(lines: list[str], preferences: dict[str, object]) -> None:
     """Adds context about how the user was feeling at signup."""
     feeling_map = {
         "great": "feeling great and exploring the app out of curiosity",
@@ -102,7 +100,7 @@ def _add_current_feeling(lines: list[str], preferences: dict[str, Any]) -> None:
         lines.append(f"When they signed up, they were {description}.")
 
 
-def _add_primary_goal(lines: list[str], preferences: dict[str, Any]) -> None:
+def _add_primary_goal(lines: list[str], preferences: dict[str, object]) -> None:
     """Adds the user's main goal for using the app."""
     goal_map = {
         "stress_anxiety": "managing stress and anxiety",
@@ -119,7 +117,7 @@ def _add_primary_goal(lines: list[str], preferences: dict[str, Any]) -> None:
         lines.append(f"Their main goal is {description}.")
 
 
-def _add_challenges(lines: list[str], preferences: dict[str, Any]) -> None:
+def _add_challenges(lines: list[str], preferences: dict[str, object]) -> None:
     """Adds the challenges the user faces."""
     challenge_map = {
         "racing_thoughts": "racing thoughts",
@@ -141,7 +139,7 @@ def _add_challenges(lines: list[str], preferences: dict[str, Any]) -> None:
         lines.append(f"They struggle with: {', '.join(challenge_names)}.")
 
 
-def _add_communication_style(lines: list[str], preferences: dict[str, Any]) -> None:
+def _add_communication_style(lines: list[str], preferences: dict[str, object]) -> None:
     """Adds the user's preferred communication style."""
     style_map = {
         "direct": "direct, to-the-point communication",
@@ -155,7 +153,7 @@ def _add_communication_style(lines: list[str], preferences: dict[str, Any]) -> N
         lines.append(f"They prefer {description}.")
 
 
-def _add_support_type(lines: list[str], preferences: dict[str, Any]) -> None:
+def _add_support_type(lines: list[str], preferences: dict[str, object]) -> None:
     """Adds what type of support the user finds most helpful."""
     support_map = {
         "listening": "someone to listen without judgment",
@@ -170,7 +168,7 @@ def _add_support_type(lines: list[str], preferences: dict[str, Any]) -> None:
         lines.append(f"They find it most helpful when they receive {description}.")
 
 
-def _add_preferred_activities(lines: list[str], preferences: dict[str, Any]) -> None:
+def _add_preferred_activities(lines: list[str], preferences: dict[str, object]) -> None:
     """Adds the activities the user is interested in."""
     activity_map = {
         "chat": "talking through their thoughts",
@@ -190,7 +188,7 @@ def _add_preferred_activities(lines: list[str], preferences: dict[str, Any]) -> 
         lines.append(f"They're interested in: {', '.join(activity_names)}.")
 
 
-def _add_experience_level(lines: list[str], preferences: dict[str, Any]) -> None:
+def _add_experience_level(lines: list[str], preferences: dict[str, object]) -> None:
     """Adds the user's experience with wellness apps."""
     experience_map = {
         "first_time": "This is their first time using a wellness app or exploring these topics.",
@@ -205,7 +203,7 @@ def _add_experience_level(lines: list[str], preferences: dict[str, Any]) -> None
         lines.append(description)
 
 
-def _add_session_length(lines: list[str], preferences: dict[str, Any]) -> None:
+def _add_session_length(lines: list[str], preferences: dict[str, object]) -> None:
     """Adds how much time the user has for sessions."""
     length_map = {
         "few_minutes": "They only have a few minutes per session, so keep interactions focused.",
