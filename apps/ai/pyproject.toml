@@ -56,6 +56,7 @@ dependencies = [
     # Data validation and serialization
     "pydantic>=2.10.4",
     "langgraph-cli[inmem]>=0.4.11",
+    "redis>=7.1.0",
 ]
 
 # Development dependencies (installed with `uv sync --dev`)

@@ -18,13 +18,13 @@ Classification outputs:
 """
 
 import logging
-from typing import Literal, Optional
+from typing import Literal
 
 from langchain_core.messages import HumanMessage
-from langchain_core.pydantic_v1 import BaseModel, Field
+from pydantic import BaseModel, Field
 
 from src.graph.state import WellnessState
-from src.llm.providers import create_llm
+from src.llm.providers import ModelTier, create_llm
 
 # Set up logging for this node
 logger = logging.getLogger(__name__)
@@ -43,7 +43,7 @@ class ActivityDetection(BaseModel):
     ensures reliable, typed responses from the LLM.
     """
 
-    detected_activity: Optional[Literal["breathing", "meditation", "journaling"]] = (
+    detected_activity: Literal["breathing", "meditation", "journaling"] | None = (
         Field(
             default=None,
             description="The type of wellness activity detected, or None if normal conversation",
@@ -154,7 +154,7 @@ async def detect_activity_intent(state: WellnessState) -> dict:
 
     # Create structured LLM
     try:
-        llm = create_llm(temperature=0.2, max_tokens=200)
+        llm = create_llm(tier=ModelTier.FAST, temperature=0.2, max_tokens=200)
         structured_llm = llm.with_structured_output(ActivityDetection)
 
         # Format the detection prompt

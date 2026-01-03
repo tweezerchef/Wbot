@@ -22,6 +22,7 @@ from typing import Any
 
 from supabase import Client, create_client
 
+from src.memory.cache import cache_embedding, get_cached_embedding
 from src.memory.embeddings import format_memory_text, generate_embedding
 
 
@@ -195,8 +196,11 @@ async def search_memories(
         >>> for m in memories:
         ...     print(f"{m.similarity:.2f}: {m.user_message[:50]}...")
     """
-    # Generate embedding for the query
-    query_embedding = await generate_embedding(query)
+    # Try to get cached embedding first, fall back to generating
+    query_embedding = await get_cached_embedding(user_id, query)
+    if query_embedding is None:
+        query_embedding = await generate_embedding(query)
+        await cache_embedding(user_id, query, query_embedding)
 
     # Call the Supabase RPC function
     supabase = get_supabase_client()

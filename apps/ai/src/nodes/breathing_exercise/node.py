@@ -26,7 +26,7 @@ from langchain_core.messages import AIMessage, HumanMessage
 from langgraph.types import interrupt
 
 from src.graph.state import WellnessState
-from src.llm.providers import create_llm
+from src.llm.providers import ModelTier, create_llm
 
 # Set up logging for this node
 logger = logging.getLogger(__name__)
@@ -122,7 +122,7 @@ Respond with ONLY the technique ID (one of: box, relaxing_478, coherent, deep_ca
 """
 
     try:
-        llm = create_llm(temperature=0.3, max_tokens=50)
+        llm = create_llm(tier=ModelTier.FAST, temperature=0.3, max_tokens=50)
         response = await llm.ainvoke([HumanMessage(content=selection_prompt)])
         technique_id = str(response.content).strip().lower()
 

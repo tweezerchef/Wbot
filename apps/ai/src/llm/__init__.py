@@ -2,6 +2,6 @@
 LLM module - Language model configuration and creation.
 """
 
-from src.llm.providers import create_llm, LLMProvider
+from src.llm.providers import ModelTier, create_llm
 
-__all__ = ["create_llm", "LLMProvider"]
+__all__ = ["ModelTier", "create_llm"]

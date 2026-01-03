@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "turbo dev",
-    "dev:all": "concurrently -n web,ai,db -c blue,green,yellow \"pnpm dev:web\" \"pnpm dev:ai\" \"pnpm db:start\"",
+    "dev:all": "concurrently -n web,ai,db,redis -c blue,green,yellow,red \"pnpm dev:web\" \"pnpm dev:ai\" \"pnpm db:start\" \"pnpm redis:start\"",
     "dev:web": "turbo dev --filter=@wbot/web",
     "dev:ai": "cd apps/ai && uv run langgraph dev",
     "build": "turbo build",
@@ -25,6 +25,9 @@
     "db:new": "pnpm exec supabase migration new",
     "db:generate-types": "pnpm exec supabase gen types typescript --local > packages/shared/src/types/database.ts",
     "db:link": "pnpm exec supabase link",
+    "redis:start": "docker run -d --name wbot-redis -p 6379:6379 redis:alpine && echo 'Redis started on localhost:6379'",
+    "redis:stop": "docker stop wbot-redis && docker rm wbot-redis && echo 'Redis stopped'",
+    "redis:status": "docker ps --filter name=wbot-redis --format '{{.Status}}' || echo 'Redis not running'",
     "prepare": "husky"
   },
   "devDependencies": {

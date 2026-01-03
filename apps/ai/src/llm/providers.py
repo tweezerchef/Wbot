@@ -2,25 +2,15 @@
 ============================================================================
 LLM Provider Configuration
 ============================================================================
-Configures and creates language model instances.
+Configures and creates language model instances with tier-based selection.
 
-Supported providers:
-- Anthropic (Claude) - Primary model for wellness conversations
-- Google (Gemini) - Alternative/experimental model
-
-The provider can be selected via:
-1. Environment variable (LLM_PROVIDER)
-2. Explicit parameter to create_llm()
+Model tiers:
+- FAST: Gemini 3 Flash Preview - for routing, classification, simple tasks
+- STANDARD: Claude Haiku 4.5 - for complex responses, conversation
 
 Model selection rationale:
-- Claude: Known for nuanced, empathetic responses; good at following
-  complex instructions; strong at maintaining conversation context
-- Gemini: Fast responses; good for experimentation; different style
-
-Both models are configured with:
-- Moderate temperature (0.7) for natural, varied responses
-- Reasonable token limits for chat
-- Streaming enabled for real-time output
+- Gemini 3 Flash: High-speed model ideal for quick decisions and routing
+- Claude Haiku 4.5: Nuanced, empathetic responses with good instruction following
 ============================================================================
 """
 
@@ -30,82 +20,63 @@ from enum import Enum
 from langchain_core.language_models.chat_models import BaseChatModel
 
 
-class LLMProvider(Enum):
+class ModelTier(Enum):
     """
-    Supported LLM providers.
+    Model tiers for different use cases.
 
-    Use these values when selecting a provider explicitly
-    or setting the LLM_PROVIDER environment variable.
+    FAST: Use for routing, classification, and simple tasks.
+          Currently uses Gemini 3 Flash Preview.
+
+    STANDARD: Use for complex responses and main conversation.
+              Currently uses Claude Haiku 4.5.
     """
 
-    ANTHROPIC = "anthropic"
-    GOOGLE = "google"
+    FAST = "fast"
+    STANDARD = "standard"
 
 
 def create_llm(
-    provider: LLMProvider | None = None,
+    tier: ModelTier = ModelTier.STANDARD,
     temperature: float = 0.7,
     max_tokens: int = 1024,
 ) -> BaseChatModel:
     """
-    Creates a language model instance.
+    Creates a language model instance based on the specified tier.
 
     Args:
-        provider: Which LLM provider to use. If None, reads from
-                  LLM_PROVIDER environment variable (default: anthropic).
+        tier: Which model tier to use.
+              FAST for routing/simple tasks (Gemini 3 Flash).
+              STANDARD for complex responses (Claude Haiku 4.5).
 
         temperature: Controls randomness in responses.
                      0.0 = deterministic, 1.0 = very random.
-                     0.7 is a good balance for natural conversation.
 
         max_tokens: Maximum tokens in the response.
-                    1024 is reasonable for chat responses.
 
     Returns:
-        A LangChain chat model configured for the specified provider.
-
-    Raises:
-        ValueError: If the provider is not recognized.
-        ImportError: If the provider's package is not installed.
+        A LangChain chat model configured for the specified tier.
 
     Example:
-        # Use default provider (from env or anthropic)
+        # Use default (STANDARD) for conversation responses
         llm = create_llm()
 
-        # Explicitly use Gemini
-        llm = create_llm(provider=LLMProvider.GOOGLE)
-
-        # Custom settings
-        llm = create_llm(temperature=0.3, max_tokens=2048)
+        # Use FAST for routing and classification
+        llm = create_llm(tier=ModelTier.FAST, temperature=0.2)
     """
-    # Determine which provider to use
-    if provider is None:
-        provider_str = os.getenv("LLM_PROVIDER", "anthropic").lower()
-        try:
-            provider = LLMProvider(provider_str)
-        except ValueError:
-            raise ValueError(
-                f"Unknown LLM_PROVIDER: '{provider_str}'. "
-                f"Valid options: {[p.value for p in LLMProvider]}"
-            ) from None
-
-    # Create the appropriate model
-    if provider == LLMProvider.ANTHROPIC:
-        return _create_anthropic_model(temperature, max_tokens)
-    elif provider == LLMProvider.GOOGLE:
+    if tier == ModelTier.FAST:
         return _create_google_model(temperature, max_tokens)
     else:
-        raise ValueError(f"Unsupported provider: {provider}")
+        return _create_anthropic_model(temperature, max_tokens)
 
 
 def _create_anthropic_model(temperature: float, max_tokens: int) -> BaseChatModel:
     """
-    Creates an Anthropic Claude model instance.
+    Creates an Anthropic Claude Haiku 4.5 model instance.
 
-    Uses Claude 3.5 Sonnet as the default model:
+    Used for complex responses and main conversation:
     - Excellent at nuanced, empathetic conversation
     - Strong instruction following
-    - Good balance of capability and cost
+    - Fast and cost-effective
 
     Requires: ANTHROPIC_API_KEY environment variable
     """
@@ -119,22 +90,19 @@ def _create_anthropic_model(temperature: float, max_tokens: int) -> BaseChatMode
         )
 
     return ChatAnthropic(
-        # Claude 3.5 Sonnet - good balance of quality and speed
-        model="claude-sonnet-4-20250514",
+        model="claude-haiku-4-5-20251001",
         temperature=temperature,
         max_tokens=max_tokens,
-        # API key is read from environment automatically
-        # but we validate it exists above for better error messages
     )
 
 
 def _create_google_model(temperature: float, max_tokens: int) -> BaseChatModel:
     """
-    Creates a Google Gemini model instance.
+    Creates a Google Gemini 3 Flash Preview model instance.
 
-    Uses Gemini 1.5 Flash as the default model:
-    - Fast response times
-    - Good for experimentation
+    Used for routing, classification, and simple tasks:
+    - Very fast response times
+    - Excellent for quick decisions
     - Cost-effective
 
     Requires: GOOGLE_API_KEY environment variable
@@ -149,9 +117,7 @@ def _create_google_model(temperature: float, max_tokens: int) -> BaseChatModel:
         )
 
     return ChatGoogleGenerativeAI(
-        # Gemini 1.5 Flash - fast and capable
-        model="gemini-2.0-flash-exp",
+        model="gemini-3-flash-preview",
         temperature=temperature,
         max_output_tokens=max_tokens,
-        # API key is read from environment automatically
     )

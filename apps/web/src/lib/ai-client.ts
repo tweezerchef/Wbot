@@ -71,12 +71,44 @@ export type StreamEvent =
    LangGraph Stream Types
    ---------------------------------------------------------------------------- */
 
+/** Content block format (used by some LLM providers like Gemini) */
+interface ContentBlock {
+  type: string;
+  text?: string;
+  index?: number;
+}
+
 /** Message format from LangGraph stream */
 interface LangGraphMessage {
   role?: string;
   type?: string;
-  content?: string;
+  content?: string | ContentBlock[];
   id?: string;
+}
+
+/**
+ * Extracts text content from a message.
+ * Handles both string content (Claude) and array content blocks (Gemini).
+ */
+function extractTextContent(content: string | ContentBlock[] | undefined): string {
+  if (!content) {
+    return '';
+  }
+
+  // If it's already a string, return it
+  if (typeof content === 'string') {
+    return content;
+  }
+
+  // If it's an array of content blocks, extract text from text blocks
+  if (Array.isArray(content)) {
+    return content
+      .filter((block) => block.type === 'text' && block.text)
+      .map((block) => block.text)
+      .join('');
+  }
+
+  return '';
 }
 
 /** Data format for messages/partial events */
@@ -201,7 +233,8 @@ export class AIClient {
             // Get the last message (most recent assistant response)
             const lastMsg = data.at(-1);
             if (lastMsg && isAssistantMessage(lastMsg)) {
-              const content = lastMsg.content ?? '';
+              // Extract text content, handling both string and array formats
+              const content = extractTextContent(lastMsg.content);
               if (content && content !== lastContent) {
                 yield { type: 'token', content };
                 lastContent = content;
