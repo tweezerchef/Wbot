@@ -51,3 +51,4 @@ supabase/.branches/
 
 # LangGraph local API cache
 .langgraph_api/
+tmp/
