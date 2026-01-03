@@ -59,13 +59,30 @@ wbot/
 │   │   │   │   ├── index.tsx   # Landing page
 │   │   │   │   ├── signup.tsx  # Onboarding flow
 │   │   │   │   └── chat.tsx    # Main chat interface
+│   │   │   ├── components/     # Reusable UI components
+│   │   │   │   ├── pages/      # Page-level components
+│   │   │   │   │   ├── ChatPage/
+│   │   │   │   │   ├── LandingPage/
+│   │   │   │   │   └── SignupPage/
+│   │   │   │   ├── BreathingExercise/  # Interactive breathing activity
+│   │   │   │   │   ├── BreathingExercise.tsx
+│   │   │   │   │   ├── BreathingAnimation.tsx
+│   │   │   │   │   ├── useBreathingAudio.ts
+│   │   │   │   │   └── useBreathingLoop.ts
+│   │   │   │   ├── ConversationHistory/  # Sidebar conversation panel
+│   │   │   │   ├── buttons/    # Icon button components
+│   │   │   │   └── NotFound/
 │   │   │   ├── lib/            # Utility modules
 │   │   │   │   ├── supabase.ts # Supabase client
-│   │   │   │   └── ai-client.ts# LangGraph SDK client
+│   │   │   │   ├── ai-client.ts# LangGraph SDK client
+│   │   │   │   ├── conversations.ts    # Conversation CRUD
+│   │   │   │   ├── conversationHistory.ts  # History utilities
+│   │   │   │   └── parseActivity.ts    # Activity parsing
 │   │   │   ├── styles/         # Global styles
 │   │   │   │   ├── globals.css # CSS reset & base styles
 │   │   │   │   └── variables.css # Design tokens
 │   │   │   └── router.tsx      # Router configuration
+│   │   ├── public/audio/       # Audio assets for activities
 │   │   ├── vite.config.ts
 │   │   ├── tsconfig.json
 │   │   └── package.json
@@ -80,14 +97,21 @@ wbot/
 │       │   │   ├── breathing_exercise/
 │       │   │   ├── meditation_guidance/
 │       │   │   ├── journaling_prompt/
-│       │   │   └── detect_activity/
+│       │   │   ├── detect_activity/
+│       │   │   ├── retrieve_memories/  # Semantic memory retrieval
+│       │   │   └── store_memory/       # Memory persistence
+│       │   ├── memory/         # Semantic memory system
+│       │   │   ├── cache.py    # Redis embedding cache
+│       │   │   ├── embeddings.py # Vector embeddings
+│       │   │   └── store.py    # Memory storage
 │       │   ├── prompts/
 │       │   │   └── wellness_system.py
 │       │   ├── llm/
 │       │   │   └── providers.py # Claude + Gemini setup
 │       │   ├── utils/
 │       │   │   └── user_context.py
-│       │   └── auth.py         # Supabase token validation
+│       │   ├── auth.py         # Supabase token validation
+│       │   └── env.py          # Environment configuration
 │       ├── langgraph.json      # LangGraph Deploy config
 │       ├── pyproject.toml
 │       └── .env.example
@@ -298,6 +322,8 @@ The AI backend uses a LangGraph state machine with these nodes:
 | `breathing_exercise`  | Generates guided breathing instructions          |
 | `meditation_guidance` | Provides meditation guidance                     |
 | `journaling_prompt`   | Creates reflective journaling prompts            |
+| `retrieve_memories`   | Retrieves relevant context from semantic memory  |
+| `store_memory`        | Persists important information to memory store   |
 
 ## Deployment
 

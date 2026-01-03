@@ -70,20 +70,37 @@ The chatbot is the PRIMARY interface - activities render inside the chat, not as
 apps/
 ├── web/src/
 │   ├── routes/          # File-based routing (one file per route)
-│   ├── components/      # Reusable UI components (create as needed)
+│   ├── components/      # Reusable UI components
+│   │   ├── pages/       # Page-level components (ChatPage, LandingPage, SignupPage)
+│   │   ├── BreathingExercise/  # Interactive breathing activity
+│   │   ├── ConversationHistory/  # Sidebar conversation panel
+│   │   ├── buttons/     # Icon button components
 │   │   └── ComponentName/
 │   │       ├── ComponentName.tsx
 │   │       └── ComponentName.module.css
-│   ├── hooks/           # Custom React hooks
 │   ├── lib/             # Utility modules and clients
+│   │   ├── supabase.ts  # Supabase client
+│   │   ├── ai-client.ts # LangGraph SDK client
+│   │   ├── conversations.ts     # Conversation CRUD
+│   │   ├── conversationHistory.ts  # History utilities
+│   │   └── parseActivity.ts     # Activity parsing
 │   ├── styles/          # Global styles and CSS variables
 │   └── types/           # TypeScript type definitions
 │
 ├── ai/src/
-│   ├── graph/           # LangGraph definitions
+│   ├── graph/           # LangGraph definitions (state.py, wellness.py)
 │   ├── nodes/           # One folder per node
-│   │   └── node_name/
-│   │       └── node.py
+│   │   ├── generate_response/   # Main response generation
+│   │   ├── detect_activity/     # Activity detection
+│   │   ├── breathing_exercise/  # Breathing activity
+│   │   ├── meditation_guidance/ # Meditation activity
+│   │   ├── journaling_prompt/   # Journaling activity
+│   │   ├── retrieve_memories/   # Semantic memory retrieval
+│   │   └── store_memory/        # Memory persistence
+│   ├── memory/          # Semantic memory system
+│   │   ├── cache.py     # Redis embedding cache
+│   │   ├── embeddings.py  # Vector embeddings
+│   │   └── store.py     # Memory storage
 │   ├── prompts/         # System prompts and templates
 │   ├── llm/             # LLM provider configurations
 │   └── utils/           # Utility functions
@@ -151,6 +168,7 @@ export function MessageBubble({ content, role }: MessageBubbleProps) {
 - **Runtime**: Python 3.11+
 - **Framework**: LangGraph + LangChain
 - **LLM**: Anthropic Claude (primary), Google Gemini (experimental)
+- **Memory**: Semantic memory with vector embeddings + Redis cache
 - **Package Manager**: uv
 - **Linting**: Ruff
 
@@ -242,18 +260,23 @@ SUPABASE_SERVICE_KEY=     # Service role key (server only)
 
 ## Key Files Reference
 
-| Purpose         | File Path                                |
-| --------------- | ---------------------------------------- |
-| Root layout     | `apps/web/src/routes/__root.tsx`         |
-| Router config   | `apps/web/src/router.tsx`                |
-| Supabase client | `apps/web/src/lib/supabase.ts`           |
-| CSS variables   | `apps/web/src/styles/variables.css`      |
-| AI graph        | `apps/ai/src/graph/wellness.py`          |
-| Graph state     | `apps/ai/src/graph/state.py`             |
-| System prompt   | `apps/ai/src/prompts/wellness_system.py` |
-| DB migrations   | `database/migrations/*.sql`              |
-| Shared types    | `packages/shared/src/types/*.ts`         |
-| Roadmap         | `ROADMAP.md`                             |
+| Purpose            | File Path                                    |
+| ------------------ | -------------------------------------------- |
+| Root layout        | `apps/web/src/routes/__root.tsx`             |
+| Router config      | `apps/web/src/router.tsx`                    |
+| Chat page          | `apps/web/src/components/pages/ChatPage/`    |
+| Breathing activity | `apps/web/src/components/BreathingExercise/` |
+| Conversations      | `apps/web/src/lib/conversations.ts`          |
+| Supabase client    | `apps/web/src/lib/supabase.ts`               |
+| AI client          | `apps/web/src/lib/ai-client.ts`              |
+| CSS variables      | `apps/web/src/styles/variables.css`          |
+| AI graph           | `apps/ai/src/graph/wellness.py`              |
+| Graph state        | `apps/ai/src/graph/state.py`                 |
+| Memory system      | `apps/ai/src/memory/`                        |
+| System prompt      | `apps/ai/src/prompts/wellness_system.py`     |
+| DB migrations      | `database/migrations/*.sql`                  |
+| Shared types       | `packages/shared/src/types/*.ts`             |
+| Roadmap            | `ROADMAP.md`                                 |
 
 ---
 
@@ -278,7 +301,21 @@ SUPABASE_SERVICE_KEY=     # Service role key (server only)
 1. Create folder in `apps/ai/src/nodes/node_name/`
 2. Create `node.py` with the node function
 3. Register node in `apps/ai/src/graph/wellness.py`
-4. Add placeholder console.log for routing validation during development
+4. Reference existing nodes for patterns:
+   - `generate_response/` - Claude integration with streaming
+   - `retrieve_memories/` - Semantic memory retrieval
+   - `breathing_exercise/` - Activity generation
+
+### Adding a New Interactive Activity
+
+1. Create component folder in `apps/web/src/components/ActivityName/`
+2. Reference `BreathingExercise/` for patterns:
+   - Main component with activity logic
+   - Animation component (if needed)
+   - Custom hooks for audio/timing
+   - CSS module for styling
+3. Create corresponding node in `apps/ai/src/nodes/activity_name/`
+4. Update `parseActivity.ts` to handle the new activity type
 
 ### Adding Database Tables
 
@@ -401,12 +438,14 @@ if (!result.success) {
 
 ## When Starting a New Session
 
-1. Read `ROADMAP.md` to understand current progress
+1. Read `ROADMAP.md` to understand current progress (Phases 1-3 complete, Phase 4 in progress)
 2. Check for any uncommitted changes with `git status`
 3. Run `pnpm install` to ensure dependencies are current
-4. Start dev server with `pnpm dev:web`
+4. Start dev server with `pnpm dev:all` (or `pnpm dev:web` for frontend only)
 5. Ask user which task to work on
 
 ---
 
 _This file helps Claude Code understand the project conventions and constraints._
+
+_Last updated: January 2, 2025_

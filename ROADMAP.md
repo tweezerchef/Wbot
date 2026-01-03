@@ -1,41 +1,47 @@
 # Wbot Development Roadmap
 
-This document outlines the next steps for developing Wbot from the current scaffolding to a fully functional wellness chatbot.
+This document outlines the development progress and next steps for Wbot.
 
 ---
 
 ## Current State (Completed)
 
 - [x] Monorepo structure with pnpm workspaces + Turborepo
-- [x] TanStack Start web app scaffolding
-- [x] Python LangGraph AI backend scaffolding
-- [x] Supabase database migrations
+- [x] TanStack Start web app with React 19
+- [x] Python LangGraph AI backend with Claude integration
+- [x] Supabase database with RLS policies
 - [x] Shared TypeScript types package
-- [x] Environment configuration
-- [x] Dev server running successfully
+- [x] Full authentication flow (Email + Google OAuth)
+- [x] Chat interface with streaming responses
+- [x] Conversation management with collapsible sidebar
+- [x] Message persistence and auto-generated titles
+- [x] Semantic memory system with vector embeddings
+- [x] Redis embedding cache for performance
+- [x] Interactive breathing exercise with audio
+- [x] Full-text search for conversation history
 
 ---
 
-## Phase 1: Core Authentication Flow
+## Phase 1: Core Authentication Flow ✅
 
 **Goal:** Users can sign up, log in, and access the chat interface.
 
 ### Tasks
 
-- [ ] **1.1 Supabase Project Setup**
+- [x] **1.1 Supabase Project Setup**
   - Create production Supabase project
   - Run database migrations
   - Enable Email auth provider
   - Configure Google OAuth provider
   - Set up redirect URLs for OAuth
 
-- [ ] **1.2 Landing Page (`/`)**
+- [x] **1.2 Landing Page (`/`)**
   - Design hero section with app value proposition
   - Add "Get Started" and "Sign In" buttons
   - Implement session check to redirect authenticated users to `/chat`
   - Mobile-responsive layout
 
-- [ ] **1.3 Sign Up Flow (`/signup`)**
+- [x] **1.3 Sign Up Flow (`/signup`)**
   - Implement the 8-question onboarding wizard
   - Each question as a step with multiple-choice buttons
   - Progress indicator
@@ -43,13 +49,13 @@ This document outlines the next steps for developing Wbot from the current scaff
   - Google OAuth button integration
   - Redirect to `/chat` after completion
 
-- [ ] **1.4 Sign In Flow**
+- [x] **1.4 Sign In Flow**
   - Email/password sign in form
   - Google OAuth sign in
   - "Forgot password" flow
   - Error handling and validation
 
-- [ ] **1.5 Auth State Management**
+- [x] **1.5 Auth State Management**
   - Create auth context/hook for session management
   - Protected route wrapper for `/chat`
   - Auto-redirect unauthenticated users
@@ -57,37 +63,37 @@ This document outlines the next steps for developing Wbot from the current scaff
 
 ---
 
-## Phase 2: Chat Interface
+## Phase 2: Chat Interface ✅
 
 **Goal:** Users can have conversations with the AI wellness companion.
 
 ### Tasks
 
-- [ ] **2.1 Chat UI Components**
+- [x] **2.1 Chat UI Components**
   - Message bubble component (user vs assistant styling)
   - Message list with auto-scroll
   - Input area with send button
   - Typing indicator while AI responds
   - Full-screen mobile layout
 
-- [ ] **2.2 Chat Route (`/chat`)**
+- [x] **2.2 Chat Route (`/chat`)**
   - Load user profile and preferences
   - Create or resume conversation
   - Display conversation history
   - Handle new message submission
 
-- [ ] **2.3 LangGraph Integration**
+- [x] **2.3 LangGraph Integration**
   - Connect to LangGraph API via SDK
   - Implement SSE streaming for responses
   - Handle connection errors gracefully
   - Pass user context to AI
 
-- [ ] **2.4 Message Persistence**
+- [x] **2.4 Message Persistence**
   - Save messages to Supabase `messages` table
   - Load conversation history on page load
   - Optimistic UI updates
 
-- [ ] **2.5 Conversation Management**
+- [x] **2.5 Conversation Management**
   - Create new conversation
   - List past conversations (sidebar or menu)
   - Switch between conversations
@@ -95,50 +101,55 @@ This document outlines the next steps for developing Wbot from the current scaff
 
 ---
 
-## Phase 3: AI Backend Implementation
+## Phase 3: AI Backend Implementation ✅
 
 **Goal:** The AI provides meaningful wellness responses.
 
 ### Tasks
 
-- [ ] **3.1 Generate Response Node**
+- [x] **3.1 Generate Response Node**
   - Implement Claude integration
   - System prompt with wellness guidelines
   - Include user preferences in context
   - Conversation memory management
   - Response streaming
 
-- [ ] **3.2 Activity Detection Node**
+- [x] **3.2 Activity Detection Node**
   - Detect when user might benefit from an activity
   - Keywords/intent detection
   - Suggest appropriate activity type
   - Let user accept or decline
 
-- [ ] **3.3 LangGraph State Management**
+- [x] **3.3 LangGraph State Management**
   - Define complete WellnessState schema
   - Implement state persistence
   - Handle conversation checkpoints
 
-- [ ] **3.4 Error Handling**
+- [x] **3.4 Semantic Memory System**
+  - Vector embeddings for context retrieval
+  - Redis embedding cache
+  - Memory storage and retrieval nodes
+
+- [x] **3.5 Error Handling**
   - Graceful fallbacks for API failures
   - Rate limiting handling
   - User-friendly error messages
 
 ---
 
-## Phase 4: Interactive Activities
+## Phase 4: Interactive Activities (In Progress)
 
 **Goal:** Users can do guided activities within the chat.
 
 ### Tasks
 
-- [ ] **4.1 Activity UI Framework**
+- [x] **4.1 Activity UI Framework**
   - Activity container component (renders inside chat)
   - Activity header with title and close button
   - Progress indicator for multi-step activities
   - Completion celebration
 
-- [ ] **4.2 Breathing Exercise**
+- [x] **4.2 Breathing Exercise**
   - Visual breathing guide (expand/contract animation)
   - Customizable breath patterns (4-7-8, box breathing, etc.)
   - Audio cues (optional)
@@ -249,28 +260,37 @@ pnpm dev:ai     # AI backend
 pnpm db:start   # Database
 ```
 
-### Recommended Next Task
+### Recommended Next Tasks
 
-**Start with Phase 1.2 - Landing Page** because:
+**Continue with Phase 4 - Interactive Activities:**
 
-1. It's visually satisfying to see progress
-2. Doesn't require external API setup
-3. Sets the foundation for auth flow
-4. Good for getting familiar with the codebase
+1. **4.3 Meditation Guidance** - Build on breathing exercise patterns
+2. **4.4 Journaling Prompts** - Leverage existing AI integration
+3. **4.5 Activity History** - Track user progress
+
+**Or move to Phase 5 - Polish:**
+
+1. Add loading states and skeletons
+2. Improve error boundaries
+3. Accessibility audit
 
 ---
 
 ## Files to Reference
 
-| Task      | Key Files                           |
-| --------- | ----------------------------------- |
-| Auth      | `apps/web/src/lib/supabase.ts`      |
-| Routing   | `apps/web/src/routes/*.tsx`         |
-| Styling   | `apps/web/src/styles/variables.css` |
-| AI Graph  | `apps/ai/src/graph/wellness.py`     |
-| AI Nodes  | `apps/ai/src/nodes/*/node.py`       |
-| DB Schema | `database/migrations/*.sql`         |
-| Types     | `packages/shared/src/types/*.ts`    |
+| Task          | Key Files                                    |
+| ------------- | -------------------------------------------- |
+| Auth          | `apps/web/src/lib/supabase.ts`               |
+| Routing       | `apps/web/src/routes/*.tsx`                  |
+| Chat UI       | `apps/web/src/components/pages/ChatPage/`    |
+| Activities    | `apps/web/src/components/BreathingExercise/` |
+| Conversations | `apps/web/src/lib/conversations.ts`          |
+| Styling       | `apps/web/src/styles/variables.css`          |
+| AI Graph      | `apps/ai/src/graph/wellness.py`              |
+| AI Nodes      | `apps/ai/src/nodes/*/node.py`                |
+| Memory System | `apps/ai/src/memory/`                        |
+| DB Schema     | `database/migrations/*.sql`                  |
+| Types         | `packages/shared/src/types/*.ts`             |
 
 ---
 
@@ -281,8 +301,9 @@ pnpm db:start   # Database
 - Use CSS Modules for component styles
 - Add comments explaining what things do
 - Use Anthropic Claude as primary LLM, Gemini as experimental
-- All placeholder nodes currently just console.log for routing validation
+- Semantic memory uses vector embeddings with Redis caching
+- Conversation history supports full-text search
 
 ---
 
-_Last updated: December 30, 2024_
+_Last updated: January 2, 2025_
