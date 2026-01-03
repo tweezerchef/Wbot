@@ -10,6 +10,12 @@ import type { MeditationSessionData, MeditationTrack, MeditationType } from '@wb
 // Re-export shared types for convenience
 export type { MeditationSessionData, MeditationTrack, MeditationType };
 
+/** Available ambient sound types for meditation */
+export type AmbientSoundType = 'none' | 'ocean' | 'rain' | 'forest';
+
+/** Mood rating scale (1-5) */
+export type MoodRating = 1 | 2 | 3 | 4 | 5;
+
 /** Playback state of the meditation */
 export type MeditationPlaybackState = 'idle' | 'loading' | 'playing' | 'paused' | 'complete';
 
@@ -61,6 +67,19 @@ export interface MeditationPlayerProps {
   volume: number;
   /** Set volume */
   onVolumeChange: (volume: number) => void;
+  /** Ambient sound controls (optional) */
+  ambientControls?: {
+    /** Current ambient sound type */
+    sound: AmbientSoundType;
+    /** Ambient volume (0-1) */
+    volume: number;
+    /** Whether ambient is playing */
+    isPlaying: boolean;
+    /** Change ambient sound */
+    onSoundChange: (sound: AmbientSoundType) => void;
+    /** Change ambient volume */
+    onVolumeChange: (volume: number) => void;
+  };
 }
 
 /** Audio settings for meditation playback */
