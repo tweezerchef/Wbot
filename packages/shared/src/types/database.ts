@@ -94,6 +94,7 @@ export type Database = {
           id: string;
           metadata: Json | null;
           role: string;
+          search_vector: unknown;
         };
         Insert: {
           content: string;
@@ -102,6 +103,7 @@ export type Database = {
           id?: string;
           metadata?: Json | null;
           role: string;
+          search_vector?: unknown;
         };
         Update: {
           content?: string;
@@ -110,6 +112,7 @@ export type Database = {
           id?: string;
           metadata?: Json | null;
           role?: string;
+          search_vector?: unknown;
         };
         Relationships: [
           {
@@ -150,6 +153,35 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      generate_conversation_title: {
+        Args: { p_conversation_id: string };
+        Returns: string;
+      };
+      get_conversations_with_preview: {
+        Args: { p_limit?: number; p_offset?: number; p_user_id: string };
+        Returns: {
+          created_at: string;
+          id: string;
+          last_message_at: string;
+          last_message_content: string;
+          last_message_role: string;
+          message_count: number;
+          title: string;
+          updated_at: string;
+        }[];
+      };
+      search_conversations_keyword: {
+        Args: { p_limit?: number; p_query: string; p_user_id: string };
+        Returns: {
+          conversation_id: string;
+          conversation_title: string;
+          created_at: string;
+          message_content: string;
+          message_id: string;
+          message_role: string;
+          rank: number;
+        }[];
+      };
       search_memories: {
         Args: {
           p_embedding: unknown;
