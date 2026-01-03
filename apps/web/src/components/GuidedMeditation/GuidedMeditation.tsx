@@ -5,10 +5,12 @@
 
    Features:
    - Audio playback with progress tracking
-   - Visual meditation indicator (breathing animation)
+   - Visual meditation animation (orb, rings, or gradient)
+   - Ambient sound mixer (ocean, rain, forest)
+   - Before/after mood tracking
    - Pause/resume/stop controls
    - Progress bar with seeking
-   - Volume control
+   - Dual volume controls (meditation + ambient)
    - Completion celebration
    - Session data tracking for analytics
 
@@ -17,21 +19,31 @@
    ============================================================================ */
 
 import type { MeditationSessionData } from '@wbot/shared';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import styles from './GuidedMeditation.module.css';
 import { MeditationPlayer } from './MeditationPlayer';
-import type { GuidedMeditationProps } from './types';
+import { MeditationVisual } from './MeditationVisual';
+import { MoodCheck } from './MoodCheck';
+import { getMoodLabel } from './moodHelpers';
+import type { AmbientSoundType, GuidedMeditationProps, MoodRating } from './types';
+import { useAmbientMixer } from './useAmbientMixer';
 import { useMeditationAudio } from './useMeditationAudio';
+
+/** UI states for the meditation flow */
+type UIState = 'mood_before' | 'idle' | 'playing' | 'mood_after' | 'complete';
 
 /**
  * Main guided meditation component
  *
  * Provides a complete guided meditation experience including:
  * - Introduction message from AI
+ * - Before meditation mood check (optional)
  * - Start button to begin meditation
- * - Audio player with controls
- * - Visual breathing indicator during playback
+ * - Visual animation during playback
+ * - Ambient sound mixer
+ * - Audio player with dual controls
+ * - After meditation mood check
  * - Completion message with session stats
  */
 export function GuidedMeditation({
@@ -39,24 +51,42 @@ export function GuidedMeditation({
   introduction,
   onComplete,
   onStop,
+  enableAmbient = true,
 }: GuidedMeditationProps) {
-  const [showCompletion, setShowCompletion] = useState(false);
+  // UI state management
+  const [uiState, setUIState] = useState<UIState>('idle');
+
+  // Mood tracking
+  const [moodBefore, setMoodBefore] = useState<MoodRating | undefined>(undefined);
+  const [moodAfter, setMoodAfter] = useState<MoodRating | undefined>(undefined);
+
+  // Session tracking
   const sessionStartTimeRef = useRef<number | null>(null);
   const listenedDurationRef = useRef(0);
 
-  // Handle meditation completion
-  const handleComplete = useCallback(() => {
-    setShowCompletion(true);
+  // Ambient mixer hook
+  const {
+    settings: ambientSettings,
+    isPlaying: isAmbientPlaying,
+    play: playAmbient,
+    stop: stopAmbient,
+    fadeOut: fadeOutAmbient,
+    setVolume: setAmbientVolume,
+    setSound: setAmbientSound,
+  } = useAmbientMixer({
+    enabled: enableAmbient,
+    volume: 0.3,
+    sound: 'ocean',
+  });
 
-    const sessionData: MeditationSessionData = {
-      trackId: track.id,
-      listenedDuration: listenedDurationRef.current,
-      totalDuration: track.durationSeconds,
-      completedFully: true,
-    };
+  // Handle meditation completion (from audio ended)
+  const handleAudioComplete = useCallback(() => {
+    // Fade out ambient sound
+    fadeOutAmbient(2);
 
-    onComplete?.(sessionData);
-  }, [track, onComplete]);
+    // Show mood after check
+    setUIState('mood_after');
+  }, [fadeOutAmbient]);
 
   // Track time updates for session data
   const handleTimeUpdate = useCallback((currentTime: number) => {
@@ -66,50 +96,178 @@ export function GuidedMeditation({
   // Initialize the audio player
   const { state, volume, play, pause, stop, seek, setVolume } = useMeditationAudio({
     audioUrl: track.audioUrl,
-    onEnded: handleComplete,
+    onEnded: handleAudioComplete,
     onTimeUpdate: handleTimeUpdate,
   });
+
+  // Build session data helper
+  const buildSessionData = useCallback(
+    (completedFully: boolean): MeditationSessionData => ({
+      trackId: track.id,
+      listenedDuration: listenedDurationRef.current,
+      totalDuration: track.durationSeconds,
+      completedFully,
+      stoppedAtPercent: completedFully
+        ? 100
+        : (listenedDurationRef.current / track.durationSeconds) * 100,
+      moodBefore,
+      moodAfter,
+    }),
+    [track, moodBefore, moodAfter]
+  );
 
   // Handle starting the meditation
   const handleStart = useCallback(() => {
     sessionStartTimeRef.current = Date.now();
     listenedDurationRef.current = 0;
+    setUIState('playing');
     void play();
-  }, [play]);
 
-  // Wrapper for play that voids the promise (for event handlers)
+    // Start ambient sound if enabled
+    if (enableAmbient && ambientSettings.sound !== 'none') {
+      void playAmbient();
+    }
+  }, [play, enableAmbient, ambientSettings.sound, playAmbient]);
+
+  // Wrapper for play (resume) that voids the promise
   const handlePlay = useCallback(() => {
     void play();
-  }, [play]);
+    // Resume ambient if it was playing
+    if (enableAmbient && ambientSettings.sound !== 'none' && !isAmbientPlaying) {
+      void playAmbient();
+    }
+  }, [play, enableAmbient, ambientSettings.sound, isAmbientPlaying, playAmbient]);
+
+  // Handle pause
+  const handlePause = useCallback(() => {
+    pause();
+  }, [pause]);
 
   // Handle stop button
   const handleStop = useCallback(() => {
     stop();
+    stopAmbient();
+    setUIState('idle');
+
+    const sessionData = buildSessionData(false);
+    onStop?.(sessionData);
+  }, [stop, stopAmbient, buildSessionData, onStop]);
+
+  // Handle starting a new meditation after completion
+  const handleRestart = useCallback(() => {
+    setUIState('idle');
+    setMoodBefore(undefined);
+    setMoodAfter(undefined);
+    sessionStartTimeRef.current = Date.now();
+    listenedDurationRef.current = 0;
+  }, []);
+
+  // Handle mood before selection
+  const handleMoodBeforeSelect = useCallback((mood: MoodRating) => {
+    setMoodBefore(mood);
+    setUIState('idle');
+  }, []);
+
+  // Handle mood before skip
+  const handleMoodBeforeSkip = useCallback(() => {
+    setUIState('idle');
+  }, []);
+
+  // Handle mood after selection
+  const handleMoodAfterSelect = useCallback(
+    (mood: MoodRating) => {
+      setMoodAfter(mood);
+      setUIState('complete');
+
+      const sessionData: MeditationSessionData = {
+        trackId: track.id,
+        listenedDuration: listenedDurationRef.current,
+        totalDuration: track.durationSeconds,
+        completedFully: true,
+        moodBefore,
+        moodAfter: mood,
+      };
+
+      onComplete?.(sessionData);
+    },
+    [track, moodBefore, onComplete]
+  );
+
+  // Handle mood after skip
+  const handleMoodAfterSkip = useCallback(() => {
+    setUIState('complete');
 
     const sessionData: MeditationSessionData = {
       trackId: track.id,
       listenedDuration: listenedDurationRef.current,
       totalDuration: track.durationSeconds,
-      completedFully: false,
-      stoppedAtPercent: (listenedDurationRef.current / track.durationSeconds) * 100,
+      completedFully: true,
+      moodBefore,
+      moodAfter: undefined,
     };
 
-    onStop?.(sessionData);
-  }, [stop, track, onStop]);
+    onComplete?.(sessionData);
+  }, [track, moodBefore, onComplete]);
 
-  // Handle starting a new meditation after completion
-  const handleRestart = useCallback(() => {
-    setShowCompletion(false);
-    sessionStartTimeRef.current = Date.now();
-    listenedDurationRef.current = 0;
-    void play();
-  }, [play]);
+  // Handle ambient sound change
+  const handleAmbientSoundChange = useCallback(
+    (sound: AmbientSoundType) => {
+      setAmbientSound(sound);
+    },
+    [setAmbientSound]
+  );
+
+  // Handle ambient volume change
+  const handleAmbientVolumeChange = useCallback(
+    (vol: number) => {
+      setAmbientVolume(vol);
+    },
+    [setAmbientVolume]
+  );
+
+  // Cleanup ambient on unmount
+  useEffect(() => {
+    return () => {
+      stopAmbient();
+    };
+  }, [stopAmbient]);
 
   // Calculate duration display
   const durationMinutes = Math.round(track.durationSeconds / 60);
 
+  // Render mood before check
+  if (uiState === 'mood_before') {
+    return (
+      <div className={styles.container}>
+        <MoodCheck
+          label="How are you feeling right now?"
+          onSelect={handleMoodBeforeSelect}
+          onSkip={handleMoodBeforeSkip}
+          allowSkip
+        />
+      </div>
+    );
+  }
+
+  // Render mood after check
+  if (uiState === 'mood_after') {
+    return (
+      <div className={styles.container}>
+        <div className={styles.visualContainer}>
+          <MeditationVisual playbackState="complete" variant="orb" size={120} />
+        </div>
+        <MoodCheck
+          label="How do you feel after the meditation?"
+          onSelect={handleMoodAfterSelect}
+          onSkip={handleMoodAfterSkip}
+          allowSkip
+        />
+      </div>
+    );
+  }
+
   // Render completion state
-  if (showCompletion) {
+  if (uiState === 'complete') {
     return (
       <div className={styles.container}>
         <div className={styles.completionContainer}>
@@ -131,6 +289,14 @@ export function GuidedMeditation({
             You completed a {durationMinutes}-minute {track.name.toLowerCase()} meditation. Take a
             moment to notice how you feel.
           </p>
+
+          {/* Mood change display */}
+          {moodBefore && moodAfter && (
+            <p className={styles.completionMessage}>
+              Mood: {getMoodLabel(moodBefore)} → {getMoodLabel(moodAfter)}
+            </p>
+          )}
+
           <div className={styles.buttonGroup}>
             <button
               className={`${styles.button} ${styles.buttonSecondary}`}
@@ -145,7 +311,7 @@ export function GuidedMeditation({
   }
 
   // Render idle state (before starting)
-  if (state.playbackState === 'idle' && state.currentTime === 0) {
+  if (uiState === 'idle' && state.playbackState === 'idle' && state.currentTime === 0) {
     return (
       <div className={styles.container}>
         {/* Introduction from AI */}
@@ -170,7 +336,7 @@ export function GuidedMeditation({
 
         {/* Start button */}
         <button className={`${styles.button} ${styles.buttonStart}`} onClick={handleStart}>
-          Start Meditation
+          Begin Meditation
         </button>
 
         {/* Attribution */}
@@ -179,21 +345,12 @@ export function GuidedMeditation({
     );
   }
 
-  // Render active meditation state
+  // Render active meditation state (playing/paused/loading)
   return (
     <div className={styles.container}>
-      {/* Visual breathing indicator during meditation */}
+      {/* Visual animation during meditation */}
       <div className={styles.visualContainer}>
-        <div
-          className={`${styles.breathingCircle} ${state.playbackState === 'playing' ? styles.breathingActive : ''}`}
-        >
-          <div className={styles.breathingInner}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-              <circle cx="12" cy="12" r="10" />
-              <path d="M12 6v6l4 2" />
-            </svg>
-          </div>
-        </div>
+        <MeditationVisual playbackState={state.playbackState} variant="orb" size={140} />
         <p className={styles.statusText}>
           {state.playbackState === 'playing'
             ? 'Breathe and relax...'
@@ -210,11 +367,22 @@ export function GuidedMeditation({
         state={state}
         track={track}
         onPlay={handlePlay}
-        onPause={pause}
+        onPause={handlePause}
         onStop={handleStop}
         onSeek={seek}
         volume={volume}
         onVolumeChange={setVolume}
+        ambientControls={
+          enableAmbient
+            ? {
+                sound: ambientSettings.sound,
+                volume: ambientSettings.volume,
+                isPlaying: isAmbientPlaying,
+                onSoundChange: handleAmbientSoundChange,
+                onVolumeChange: handleAmbientVolumeChange,
+              }
+            : undefined
+        }
       />
 
       {/* Attribution */}
