@@ -1,0 +1,214 @@
+/* ============================================================================
+   Conversation History Component Styles
+   ============================================================================ */
+
+.container {
+  margin-top: var(--spacing-sm);
+}
+
+/* ----------------------------------------------------------------------------
+   Toggle Button
+   ---------------------------------------------------------------------------- */
+.toggleButton {
+  width: 100%;
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-md);
+  color: var(--color-text-primary);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
+  text-align: left;
+  transition: background-color var(--transition-fast);
+  cursor: pointer;
+  background: transparent;
+  border: none;
+}
+
+.toggleButton:hover {
+  background-color: var(--color-primary-light);
+}
+
+.toggleButton:active {
+  transform: scale(0.98);
+}
+
+/* Chevron rotation when expanded */
+.toggleButton svg:last-child {
+  margin-left: auto;
+  transition: transform var(--transition-fast);
+}
+
+.toggleButton.expanded svg:last-child {
+  transform: rotate(180deg);
+}
+
+/* ----------------------------------------------------------------------------
+   Panel
+   ---------------------------------------------------------------------------- */
+.panel {
+  margin-top: var(--spacing-xs);
+  padding: var(--spacing-sm);
+  background-color: var(--color-background-alt);
+  border-radius: var(--radius-md);
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+/* ----------------------------------------------------------------------------
+   Search
+   ---------------------------------------------------------------------------- */
+.searchContainer {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-md);
+  background-color: var(--color-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-full);
+  margin-bottom: var(--spacing-sm);
+}
+
+.searchContainer svg {
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+.searchInput {
+  flex: 1;
+  border: none;
+  background: transparent;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  outline: none;
+  min-width: 0;
+}
+
+.searchInput::placeholder {
+  color: var(--color-text-muted);
+}
+
+.searchSpinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--color-neutral-300);
+  border-top-color: var(--color-primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ----------------------------------------------------------------------------
+   Conversation List
+   ---------------------------------------------------------------------------- */
+.list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+}
+
+/* ----------------------------------------------------------------------------
+   Conversation Item
+   ---------------------------------------------------------------------------- */
+.conversationItem {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: var(--spacing-sm) var(--spacing-md);
+  text-align: left;
+  border-radius: var(--radius-md);
+  transition: background-color var(--transition-fast);
+  cursor: pointer;
+  position: relative;
+  background: transparent;
+  border: none;
+  color: var(--color-text-primary);
+}
+
+.conversationItem:hover {
+  background-color: var(--color-surface);
+}
+
+.conversationItem.active {
+  background-color: var(--color-primary-light);
+}
+
+.itemTitle {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
+  padding-right: 50px; /* Space for time/badge */
+}
+
+.itemPreview {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
+}
+
+.itemTime {
+  position: absolute;
+  top: var(--spacing-sm);
+  right: var(--spacing-sm);
+  font-size: 10px;
+  color: var(--color-text-muted);
+}
+
+.searchBadge {
+  position: absolute;
+  top: var(--spacing-sm);
+  right: var(--spacing-sm);
+  font-size: 10px;
+  padding: 2px 6px;
+  background-color: var(--color-primary-light);
+  color: var(--color-primary);
+  border-radius: var(--radius-sm);
+}
+
+/* ----------------------------------------------------------------------------
+   States
+   ---------------------------------------------------------------------------- */
+.emptyState,
+.loadingState {
+  padding: var(--spacing-md);
+  text-align: center;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.loadMoreButton {
+  width: 100%;
+  padding: var(--spacing-sm);
+  text-align: center;
+  color: var(--color-primary);
+  font-size: var(--font-size-sm);
+  border-radius: var(--radius-md);
+  transition: background-color var(--transition-fast);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+
+.loadMoreButton:hover {
+  background-color: var(--color-primary-light);
+}

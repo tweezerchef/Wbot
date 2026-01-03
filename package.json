@@ -18,7 +18,13 @@
     "db:start": "pnpm exec supabase start",
     "db:stop": "pnpm exec supabase stop",
     "db:reset": "pnpm exec supabase db reset",
+    "db:push": "pnpm exec supabase db push",
+    "db:push:remote": "pnpm exec supabase db push --linked",
+    "db:status": "pnpm exec supabase migration list",
+    "db:diff": "pnpm exec supabase db diff --use-migra",
+    "db:new": "pnpm exec supabase migration new",
     "db:generate-types": "pnpm exec supabase gen types typescript --local > packages/shared/src/types/database.ts",
+    "db:link": "pnpm exec supabase link",
     "prepare": "husky"
   },
   "devDependencies": {
