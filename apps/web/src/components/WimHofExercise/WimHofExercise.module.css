@@ -1,0 +1,388 @@
+/* ============================================================================
+   WimHofExercise Component Styles
+   ============================================================================ */
+
+.container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-lg);
+  padding: var(--spacing-xl);
+  background: var(--color-exercise-card, var(--color-background));
+  border-radius: var(--radius-lg);
+  max-width: 500px;
+  margin: 0 auto;
+}
+
+/* Technique Information */
+.techniqueName {
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  margin: 0;
+  text-align: center;
+}
+
+.introduction {
+  font-size: var(--font-size-base);
+  color: var(--color-text-secondary);
+  line-height: 1.6;
+  text-align: center;
+  white-space: pre-line;
+  margin: 0;
+}
+
+.techniqueInfo {
+  text-align: center;
+  padding: var(--spacing-md);
+  background: var(--color-neutral-100);
+  border-radius: var(--radius-md);
+  width: 100%;
+}
+
+.techniquePattern {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-primary);
+  margin: 0 0 var(--spacing-xs) 0;
+}
+
+.techniqueDescription {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  margin: 0;
+}
+
+/* Safety Notice */
+.safetyNotice {
+  display: flex;
+  gap: var(--spacing-md);
+  padding: var(--spacing-md);
+  background: var(--color-warning-light, #fff3cd);
+  border: 1px solid var(--color-warning, #ffc107);
+  border-radius: var(--radius-md);
+  width: 100%;
+  font-size: var(--font-size-sm);
+}
+
+.warningIcon {
+  width: 24px;
+  height: 24px;
+  color: var(--color-warning, #ffc107);
+  flex-shrink: 0;
+}
+
+.safetyList {
+  margin: var(--spacing-xs) 0 0 0;
+  padding-left: var(--spacing-lg);
+  list-style: disc;
+}
+
+.safetyList li {
+  margin: var(--spacing-xs) 0;
+}
+
+/* Mode Selector */
+.modeSelector {
+  width: 100%;
+}
+
+.modeToggle {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  user-select: none;
+}
+
+.modeToggle input[type='checkbox'] {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+}
+
+/* Round Progress */
+.roundProgress {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--color-neutral-100);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+}
+
+.roundIndicator {
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-primary);
+}
+
+.phaseIndicator {
+  color: var(--color-text-secondary);
+}
+
+/* Animation Container */
+.animationContainer {
+  position: relative;
+  width: 240px;
+  height: 240px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: var(--spacing-lg) 0;
+}
+
+.breathCircle {
+  position: absolute;
+  width: 180px;
+  height: 180px;
+  border-radius: var(--radius-full);
+  background: radial-gradient(
+    circle,
+    var(--color-primary) 0%,
+    var(--color-primary-hover) 50%,
+    transparent 75%
+  );
+  box-shadow: 0 0 60px rgba(74, 157, 154, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.3s ease;
+}
+
+.circleContent {
+  text-align: center;
+  color: white;
+}
+
+/* Breath Counter */
+.breathCounter {
+  font-size: var(--font-size-4xl);
+  font-weight: var(--font-weight-bold);
+  font-variant-numeric: tabular-nums;
+  display: flex;
+  align-items: baseline;
+  gap: var(--spacing-xs);
+}
+
+.currentBreath {
+  color: #ffd700;
+}
+
+.breathSeparator {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: var(--font-size-2xl);
+}
+
+.totalBreaths {
+  color: rgba(255, 255, 255, 0.8);
+  font-size: var(--font-size-xl);
+}
+
+/* Retention Display */
+.retentionDisplay {
+  text-align: center;
+}
+
+.stopwatch {
+  font-size: var(--font-size-4xl);
+  font-weight: var(--font-weight-bold);
+  font-variant-numeric: tabular-nums;
+  color: white;
+  margin-bottom: var(--spacing-xs);
+}
+
+.targetHint {
+  font-size: var(--font-size-sm);
+  color: rgba(255, 255, 255, 0.7);
+}
+
+/* Controls */
+.controls {
+  display: flex;
+  gap: var(--spacing-md);
+  width: 100%;
+  justify-content: center;
+}
+
+.button {
+  padding: var(--spacing-sm) var(--spacing-lg);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  background: var(--color-neutral-200);
+  color: var(--color-text-primary);
+}
+
+.button:hover {
+  background: var(--color-neutral-300);
+  transform: translateY(-1px);
+}
+
+.button:active {
+  transform: translateY(0);
+}
+
+.buttonStart {
+  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-hover));
+  color: white;
+  padding: var(--spacing-md) var(--spacing-2xl);
+  font-size: var(--font-size-lg);
+  box-shadow: 0 4px 15px rgba(74, 157, 154, 0.3);
+}
+
+.buttonStart:hover {
+  box-shadow: 0 6px 20px rgba(74, 157, 154, 0.4);
+}
+
+.buttonPrimary {
+  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-hover));
+  color: white;
+  box-shadow: 0 4px 15px rgba(74, 157, 154, 0.3);
+}
+
+.buttonPrimary:hover {
+  box-shadow: 0 6px 20px rgba(74, 157, 154, 0.4);
+}
+
+.buttonSecondary {
+  background: var(--color-neutral-200);
+  color: var(--color-text-primary);
+}
+
+.buttonSecondary:hover {
+  background: var(--color-neutral-300);
+}
+
+.hint {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  text-align: center;
+  font-style: italic;
+  margin: 0;
+}
+
+/* Completion State */
+.completionContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-lg);
+  text-align: center;
+  padding: var(--spacing-xl);
+}
+
+.completionIcon {
+  width: 64px;
+  height: 64px;
+  color: var(--color-success, #22c55e);
+  animation: scaleIn 0.5s ease-out;
+}
+
+@keyframes scaleIn {
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.completionTitle {
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  margin: 0;
+}
+
+.completionMessage {
+  font-size: var(--font-size-base);
+  color: var(--color-text-secondary);
+  margin: 0;
+}
+
+/* Stats Grid */
+.statsGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--spacing-md);
+  width: 100%;
+  margin: var(--spacing-md) 0;
+}
+
+.statCard {
+  padding: var(--spacing-md);
+  background: var(--color-neutral-100);
+  border-radius: var(--radius-md);
+  text-align: center;
+}
+
+.statLabel {
+  display: block;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  margin-bottom: var(--spacing-xs);
+}
+
+.statValue {
+  display: block;
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Responsive */
+@media (max-width: 480px) {
+  .container {
+    padding: var(--spacing-lg);
+  }
+
+  .animationContainer {
+    width: 200px;
+    height: 200px;
+  }
+
+  .breathCircle {
+    width: 150px;
+    height: 150px;
+  }
+
+  .breathCounter {
+    font-size: var(--font-size-3xl);
+  }
+
+  .stopwatch {
+    font-size: var(--font-size-3xl);
+  }
+
+  .statsGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Accessibility */
+@media (prefers-reduced-motion: reduce) {
+  .completionIcon {
+    animation: none;
+  }
+
+  .breathCircle {
+    transition: none;
+  }
+
+  .button {
+    transition: none;
+  }
+}
