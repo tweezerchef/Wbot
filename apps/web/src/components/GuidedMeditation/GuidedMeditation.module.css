@@ -1,0 +1,555 @@
+/* ============================================================================
+   Guided Meditation Styles
+   ============================================================================
+   Calming, wellness-focused styles for the guided meditation component.
+   Features soothing colors, gentle animations, and accessibility support.
+   ============================================================================ */
+
+/* --------------------------------------------------------------------------
+   Container & Layout
+   -------------------------------------------------------------------------- */
+
+.container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: var(--spacing-lg);
+  background: var(--color-exercise-card);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  max-width: 400px;
+  margin: var(--spacing-md) auto;
+}
+
+.introduction {
+  text-align: center;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-relaxed);
+  margin-bottom: var(--spacing-lg);
+  max-width: 320px;
+}
+
+/* --------------------------------------------------------------------------
+   Track Info Card (Idle State)
+   -------------------------------------------------------------------------- */
+
+.trackCard {
+  display: flex;
+  gap: var(--spacing-md);
+  padding: var(--spacing-md);
+  background: var(--color-neutral-50);
+  border-radius: var(--radius-md);
+  width: 100%;
+  margin-bottom: var(--spacing-lg);
+}
+
+.trackIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  background: linear-gradient(
+    135deg,
+    var(--color-wellness-lavender) 0%,
+    var(--color-wellness-sage) 100%
+  );
+  border-radius: var(--radius-md);
+  flex-shrink: 0;
+}
+
+.trackIcon svg {
+  width: 24px;
+  height: 24px;
+  color: white;
+}
+
+.trackInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.trackName {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  margin: 0 0 var(--spacing-xs) 0;
+}
+
+.trackMeta {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  margin: 0 0 var(--spacing-sm) 0;
+}
+
+.trackDescription {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  line-height: var(--line-height-relaxed);
+  margin: 0;
+}
+
+/* --------------------------------------------------------------------------
+   Visual Container (Playing State)
+   -------------------------------------------------------------------------- */
+
+.visualContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin: var(--spacing-lg) 0;
+}
+
+.breathingCircle {
+  position: relative;
+  width: 120px;
+  height: 120px;
+  border-radius: var(--radius-full);
+  background: linear-gradient(
+    135deg,
+    var(--color-wellness-lavender) 0%,
+    var(--color-wellness-sage) 100%
+  );
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 40px rgba(138, 137, 196, 0.3);
+  transition:
+    transform 4s ease-in-out,
+    box-shadow 4s ease-in-out;
+}
+
+.breathingActive {
+  animation: gentleBreath 8s ease-in-out infinite;
+}
+
+@keyframes gentleBreath {
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 40px rgba(138, 137, 196, 0.3);
+  }
+  50% {
+    transform: scale(1.1);
+    box-shadow: 0 0 60px rgba(138, 137, 196, 0.5);
+  }
+}
+
+.breathingInner {
+  width: 60px;
+  height: 60px;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.breathingInner svg {
+  width: 32px;
+  height: 32px;
+  color: var(--color-wellness-lavender);
+}
+
+.statusText {
+  margin-top: var(--spacing-md);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-secondary);
+  letter-spacing: 0.05em;
+}
+
+/* --------------------------------------------------------------------------
+   Audio Player
+   -------------------------------------------------------------------------- */
+
+.player {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+/* Progress bar */
+.progressContainer {
+  width: 100%;
+  padding: var(--spacing-sm) 0;
+  cursor: pointer;
+}
+
+.progressTrack {
+  position: relative;
+  height: 6px;
+  background: var(--color-exercise-progress-track);
+  border-radius: var(--radius-full);
+  overflow: visible;
+}
+
+.progressFill {
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    var(--color-wellness-lavender) 0%,
+    var(--color-wellness-sage) 100%
+  );
+  border-radius: var(--radius-full);
+  transition: width 0.1s linear;
+}
+
+.progressThumb {
+  position: absolute;
+  top: 50%;
+  width: 14px;
+  height: 14px;
+  background: white;
+  border: 2px solid var(--color-wellness-lavender);
+  border-radius: var(--radius-full);
+  transform: translate(-50%, -50%);
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.1s ease;
+}
+
+.progressContainer:hover .progressThumb {
+  transform: translate(-50%, -50%) scale(1.2);
+}
+
+/* Time display */
+.timeDisplay {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: var(--spacing-xs);
+  font-size: var(--font-size-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.currentTime {
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-medium);
+}
+
+.separator {
+  color: var(--color-text-muted);
+}
+
+.totalTime {
+  color: var(--color-text-muted);
+}
+
+/* Controls */
+.controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-md);
+}
+
+.controlButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border: none;
+  border-radius: var(--radius-full);
+  background: var(--color-neutral-100);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.controlButton:hover:not(:disabled) {
+  background: var(--color-neutral-200);
+  transform: scale(1.05);
+}
+
+.controlButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.controlButton svg {
+  width: 20px;
+  height: 20px;
+}
+
+.playButton {
+  width: 56px;
+  height: 56px;
+  background: linear-gradient(
+    135deg,
+    var(--color-wellness-lavender) 0%,
+    var(--color-wellness-sage) 100%
+  );
+  color: white;
+  box-shadow: 0 4px 15px rgba(138, 137, 196, 0.4);
+}
+
+.playButton:hover:not(:disabled) {
+  background: linear-gradient(
+    135deg,
+    var(--color-wellness-lavender) 0%,
+    var(--color-wellness-sage) 100%
+  );
+  box-shadow: 0 6px 20px rgba(138, 137, 196, 0.5);
+}
+
+.playButton svg {
+  width: 24px;
+  height: 24px;
+}
+
+.spinnerIcon {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Volume control */
+.volumeContainer {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.volumeButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: color var(--transition-fast);
+}
+
+.volumeButton:hover {
+  color: var(--color-text-secondary);
+}
+
+.volumeButton svg {
+  width: 20px;
+  height: 20px;
+}
+
+.volumeSlider {
+  width: 80px;
+  height: 4px;
+  appearance: none;
+  background: var(--color-neutral-200);
+  border-radius: var(--radius-full);
+  outline: none;
+}
+
+.volumeSlider::-webkit-slider-thumb {
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  background: var(--color-wellness-lavender);
+  border-radius: var(--radius-full);
+  cursor: pointer;
+}
+
+.volumeSlider::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  background: var(--color-wellness-lavender);
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  border: none;
+}
+
+/* Narrator credit */
+.narrator {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  text-align: center;
+  margin-top: var(--spacing-sm);
+}
+
+/* --------------------------------------------------------------------------
+   Button Styles
+   -------------------------------------------------------------------------- */
+
+.button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-sm) var(--spacing-lg);
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.buttonStart {
+  padding: var(--spacing-md) var(--spacing-xl);
+  font-size: var(--font-size-lg);
+  background: linear-gradient(
+    135deg,
+    var(--color-wellness-lavender) 0%,
+    var(--color-wellness-sage) 100%
+  );
+  color: white;
+  box-shadow: 0 4px 15px rgba(138, 137, 196, 0.4);
+  margin-bottom: var(--spacing-md);
+}
+
+.buttonStart:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(138, 137, 196, 0.5);
+}
+
+.buttonSecondary {
+  background: var(--color-neutral-100);
+  color: var(--color-text-secondary);
+}
+
+.buttonSecondary:hover {
+  background: var(--color-neutral-200);
+}
+
+.buttonGroup {
+  display: flex;
+  gap: var(--spacing-md);
+  margin-top: var(--spacing-lg);
+}
+
+/* --------------------------------------------------------------------------
+   Attribution
+   -------------------------------------------------------------------------- */
+
+.attribution {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  text-align: center;
+  line-height: var(--line-height-relaxed);
+  margin-top: var(--spacing-md);
+  padding-top: var(--spacing-md);
+  border-top: 1px solid var(--color-neutral-100);
+  max-width: 300px;
+}
+
+/* --------------------------------------------------------------------------
+   Completion State
+   -------------------------------------------------------------------------- */
+
+.completionContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: var(--spacing-xl);
+  text-align: center;
+}
+
+.completionIcon {
+  width: 80px;
+  height: 80px;
+  margin-bottom: var(--spacing-lg);
+  color: var(--color-success);
+  animation: scaleIn 0.5s ease-out;
+}
+
+@keyframes scaleIn {
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.completionTitle {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  margin: 0 0 var(--spacing-sm) 0;
+}
+
+.completionMessage {
+  font-size: var(--font-size-base);
+  color: var(--color-text-secondary);
+  line-height: var(--line-height-relaxed);
+  margin: 0;
+  max-width: 280px;
+}
+
+/* --------------------------------------------------------------------------
+   Accessibility - Reduced Motion
+   -------------------------------------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .breathingActive {
+    animation: none;
+  }
+
+  .spinnerIcon {
+    animation: none;
+  }
+
+  .completionIcon {
+    animation: none;
+  }
+
+  .progressFill {
+    transition: none;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Responsive Adjustments
+   -------------------------------------------------------------------------- */
+
+@media (max-width: 480px) {
+  .container {
+    padding: var(--spacing-md);
+    margin: var(--spacing-sm);
+  }
+
+  .trackCard {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+
+  .trackInfo {
+    align-items: center;
+  }
+
+  .breathingCircle {
+    width: 100px;
+    height: 100px;
+  }
+
+  .breathingInner {
+    width: 50px;
+    height: 50px;
+  }
+
+  .breathingInner svg {
+    width: 24px;
+    height: 24px;
+  }
+
+  .volumeSlider {
+    width: 60px;
+  }
+}
