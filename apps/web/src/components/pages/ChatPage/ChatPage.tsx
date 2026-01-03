@@ -43,6 +43,8 @@ import {
   LogoutIcon,
 } from '../../buttons';
 import { ConversationHistory } from '../../ConversationHistory';
+import { GuidedMeditation } from '../../GuidedMeditation';
+import { WimHofExercise } from '../../WimHofExercise';
 
 import styles from './ChatPage.module.css';
 
@@ -683,7 +685,25 @@ function MessageBubble({ message, isStreaming = false }: MessageBubbleProps) {
     // TODO: Notify the AI that the exercise completed for follow-up message
   }, []);
 
-  // Render breathing exercise inline if detected
+  // Render Wim Hof exercise inline if detected
+  if (parsedContent?.hasActivity && parsedContent.activity?.activity === 'breathing_wim_hof') {
+    const activity = parsedContent.activity;
+
+    return (
+      <div className={styles.messageRow}>
+        <div className={`${styles.bubble} ${styles.bubbleAssistant} ${styles.bubbleActivity}`}>
+          <WimHofExercise
+            technique={activity.technique}
+            introduction={activity.introduction}
+            isFirstTime={activity.is_first_time}
+            onComplete={handleExerciseComplete}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  // Render continuous breathing exercise inline if detected
   if (parsedContent?.hasActivity && parsedContent.activity?.activity === 'breathing') {
     const activity = parsedContent.activity;
     // Convert the parsed technique to the expected format
@@ -701,6 +721,23 @@ function MessageBubble({ message, isStreaming = false }: MessageBubbleProps) {
           {/* Render breathing exercise component */}
           <BreathingExercise
             technique={technique}
+            introduction={activity.introduction}
+            onComplete={handleExerciseComplete}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  // Render guided meditation inline if detected
+  if (parsedContent?.hasActivity && parsedContent.activity?.activity === 'meditation') {
+    const activity = parsedContent.activity;
+
+    return (
+      <div className={styles.messageRow}>
+        <div className={`${styles.bubble} ${styles.bubbleAssistant} ${styles.bubbleActivity}`}>
+          <GuidedMeditation
+            track={activity.track}
             introduction={activity.introduction}
             onComplete={handleExerciseComplete}
           />

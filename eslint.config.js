@@ -1,3 +1,6 @@
+// For more info, see https://github.com/storybookjs/eslint-plugin-storybook#configuration-flat-config-format
+import storybook from 'eslint-plugin-storybook';
+
 // ============================================================================
 // ESLint Configuration - Modern Flat Config (ESLint 9+)
 // ============================================================================
@@ -16,13 +19,9 @@ import globals from 'globals';
 
 export default tseslint.config(
   // Base ESLint recommended rules
-  eslint.configs.recommended,
-
-  // TypeScript strict type-checked rules
+  eslint.configs.recommended, // TypeScript strict type-checked rules
   ...tseslint.configs.strictTypeChecked,
-  ...tseslint.configs.stylisticTypeChecked,
-
-  // Global ignores
+  ...tseslint.configs.stylisticTypeChecked, // Global ignores
   {
     ignores: [
       '**/node_modules/**',
@@ -38,9 +37,7 @@ export default tseslint.config(
       // Vite temporary files
       '**/app.config.timestamp_*.js',
     ],
-  },
-
-  // TypeScript/React files configuration
+  }, // TypeScript/React files configuration
   {
     files: ['**/*.{ts,tsx}'],
     languageOptions: {
@@ -132,5 +129,6 @@ export default tseslint.config(
       'jsx-a11y/click-events-have-key-events': 'warn',
       'jsx-a11y/no-static-element-interactions': 'warn',
     },
-  }
+  },
+  storybook.configs['flat/recommended']
 );

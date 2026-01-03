@@ -36,6 +36,89 @@ The chatbot is the PRIMARY interface - activities render inside the chat, not as
 - **NEVER** add unnecessary complexity or over-engineer solutions
 - **NEVER** add features not explicitly requested
 
+### Testing
+
+- **NEVER** change tests to avoid failures - tests reveal bugs that need fixing
+- **ALWAYS** fix code bugs when tests fail, not the tests themselves
+- **ONLY** change failing tests if the issue is actually in the test (incorrect assertions, wrong mocks, etc.)
+- **NEVER** weaken test assertions or add workarounds to make tests pass
+- Failing tests are valuable - they document expected behavior and identify bugs
+
+#### Comprehensive Testing Requirements
+
+When adding new features or components, **ALWAYS** create comprehensive tests:
+
+**1. Unit Tests for Hooks and Utilities**
+
+- Test all hook functions (start, stop, pause, resume, etc.)
+- Test state transitions and edge cases
+- Test with fake timers for time-dependent logic
+- Test error handling and fallbacks
+- Minimum 80% code coverage for new code
+
+**2. Component Tests**
+
+- Test all component states (idle, active, complete, error)
+- Test user interactions (clicks, keyboard events)
+- Test conditional rendering based on props
+- Test accessibility (ARIA labels, keyboard navigation)
+- Test responsive behavior if applicable
+
+**3. Integration Tests**
+
+- Test data flow from backend to frontend
+- Test parsing and validation of API data
+- Test error handling for invalid data
+- Test backward compatibility with existing features
+
+**4. Test Structure**
+
+- Use `describe` blocks to organize related tests
+- Use descriptive test names that explain what is being tested
+- Include setup/teardown in `beforeEach`/`afterEach`
+- Mock external dependencies (API calls, timers, audio)
+- Use factories or mock data for consistency
+
+**5. Storybook Stories**
+
+- Create stories for all major component variations
+- Include interactive test stories with play functions
+- Document props and usage in story descriptions
+- Include edge cases and error states
+- Add visual regression test stories when appropriate
+
+**Example Test Coverage:**
+
+```typescript
+// ✅ Good: Comprehensive test coverage
+describe('useWimHofLoop', () => {
+  describe('initialization', () => {
+    /* ... */
+  });
+  describe('phase transitions', () => {
+    /* ... */
+  });
+  describe('timing', () => {
+    /* ... */
+  });
+  describe('user interactions', () => {
+    /* ... */
+  });
+  describe('edge cases', () => {
+    /* ... */
+  });
+});
+```
+
+**Testing Commands:**
+
+```bash
+pnpm test                    # Run all tests
+pnpm test ComponentName      # Run specific test file
+pnpm test --coverage         # Run with coverage report
+pnpm test --ui               # Interactive test UI
+```
+
 ### TypeScript Typing Rules
 
 - **NEVER** use `any` - define proper types or interfaces
