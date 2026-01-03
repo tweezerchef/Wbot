@@ -24,10 +24,15 @@
 import { getRouteApi, useNavigate } from '@tanstack/react-router';
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 
-import { createAIClient, type Message } from '../../../lib/ai-client';
+import {
+  createAIClient,
+  type Message,
+  type BreathingConfirmationPayload,
+} from '../../../lib/ai-client';
 import { createConversation, loadMessages, touchConversation } from '../../../lib/conversations';
 import { parseActivityContent } from '../../../lib/parseActivity';
 import { supabase } from '../../../lib/supabase';
+import { BreathingConfirmation } from '../../BreathingConfirmation';
 import { BreathingExercise, type BreathingTechnique } from '../../BreathingExercise';
 import {
   MenuIcon,
@@ -90,6 +95,10 @@ export function ChatPage() {
     }
     return false;
   });
+
+  // Interrupt data for HITL (Human-in-the-Loop) confirmation dialogs
+  // When the AI suggests an activity, it pauses for user confirmation
+  const [interruptData, setInterruptData] = useState<BreathingConfirmationPayload | null>(null);
 
   // Reference to the message container for auto-scrolling
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -209,6 +218,16 @@ export function ChatPage() {
             setStreamingContent('');
             break;
           }
+
+          case 'interrupt': {
+            // Graph paused for user confirmation (HITL pattern)
+            // Show the confirmation UI and wait for user decision
+            setInterruptData(event.payload);
+            setStreamingContent('');
+            setIsLoading(false);
+            // Don't refocus input - user should interact with the confirmation
+            return; // Exit the loop, handleBreathingConfirm will resume
+          }
         }
       }
     } catch (error) {
@@ -238,6 +257,89 @@ export function ChatPage() {
       void handleSendMessage();
     }
   };
+
+  /* --------------------------------------------------------------------------
+     Handle Breathing Exercise Confirmation (HITL resume)
+     -------------------------------------------------------------------------- */
+  const handleBreathingConfirm = useCallback(
+    async (decision: 'start' | 'change_technique' | 'not_now', techniqueId?: string) => {
+      // Clear the interrupt UI
+      setInterruptData(null);
+      setIsLoading(true);
+      setStreamingContent('');
+
+      try {
+        // Get session for auth
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+
+        if (!session || !conversationId) {
+          console.error('No session or conversation ID');
+          setIsLoading(false);
+          return;
+        }
+
+        // Resume the graph with user's decision
+        const client = createAIClient(session.access_token);
+        let fullResponse = '';
+
+        for await (const event of client.resumeInterrupt(
+          { decision, technique_id: techniqueId },
+          conversationId
+        )) {
+          switch (event.type) {
+            case 'token':
+              fullResponse = event.content;
+              setStreamingContent(fullResponse);
+              break;
+
+            case 'done': {
+              // Add the activity message to the list
+              const assistantMessage: Message = {
+                id: `assistant-${String(Date.now())}`,
+                role: 'assistant',
+                content: fullResponse,
+                createdAt: new Date(),
+              };
+              setMessages((prev) => [...prev, assistantMessage]);
+              setStreamingContent('');
+
+              // Touch conversation for ordering
+              void touchConversation(conversationId);
+              break;
+            }
+
+            case 'error': {
+              console.error('Resume stream error:', event.error);
+              const errorMessage: Message = {
+                id: `error-${String(Date.now())}`,
+                role: 'system',
+                content: `Sorry, something went wrong: ${event.error}`,
+                createdAt: new Date(),
+              };
+              setMessages((prev) => [...prev, errorMessage]);
+              setStreamingContent('');
+              break;
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Failed to resume graph:', error);
+        const errorMessage: Message = {
+          id: `error-${String(Date.now())}`,
+          role: 'system',
+          content: "Sorry, I couldn't continue. Please try again.",
+          createdAt: new Date(),
+        };
+        setMessages((prev) => [...prev, errorMessage]);
+      } finally {
+        setIsLoading(false);
+        inputRef.current?.focus();
+      }
+    },
+    [conversationId]
+  );
 
   /* --------------------------------------------------------------------------
      Sidebar Handlers
@@ -458,8 +560,26 @@ export function ChatPage() {
             />
           )}
 
+          {/* Breathing exercise confirmation (HITL interrupt) */}
+          {interruptData && (
+            <div className={styles.messageRow}>
+              <div
+                className={`${styles.bubble} ${styles.bubbleAssistant} ${styles.bubbleActivity}`}
+              >
+                <BreathingConfirmation
+                  proposedTechnique={interruptData.proposed_technique}
+                  message={interruptData.message}
+                  availableTechniques={interruptData.available_techniques}
+                  onConfirm={(decision, techniqueId) => {
+                    void handleBreathingConfirm(decision, techniqueId);
+                  }}
+                />
+              </div>
+            </div>
+          )}
+
           {/* Loading indicator when waiting for first token */}
-          {isLoading && !streamingContent && (
+          {isLoading && !streamingContent && !interruptData && (
             <div className={styles.loadingIndicator}>
               <span className={styles.dot} />
               <span className={styles.dot} />
@@ -477,13 +597,15 @@ export function ChatPage() {
             ref={inputRef}
             type="text"
             className={styles.input}
-            placeholder="Type a message..."
+            placeholder={
+              interruptData ? 'Please respond to the prompt above...' : 'Type a message...'
+            }
             value={inputValue}
             onChange={(e) => {
               setInputValue(e.target.value);
             }}
             onKeyDown={handleKeyDown}
-            disabled={isLoading}
+            disabled={isLoading || !!interruptData}
             aria-label="Message input"
           />
           <button
@@ -491,7 +613,7 @@ export function ChatPage() {
             onClick={() => {
               void handleSendMessage();
             }}
-            disabled={!inputValue.trim() || isLoading}
+            disabled={!inputValue.trim() || isLoading || !!interruptData}
             aria-label="Send message"
           >
             {/* Simple arrow icon */}

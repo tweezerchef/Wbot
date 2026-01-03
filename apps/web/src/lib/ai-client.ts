@@ -56,6 +56,25 @@ export interface Message {
   createdAt: Date;
 }
 
+// Breathing technique info from the backend
+export interface BreathingTechniqueInfo {
+  id: string;
+  name: string;
+  description: string;
+  durations: [number, number, number, number];
+  recommended_cycles: number;
+  best_for: string[];
+}
+
+// Payload sent by the backend when an interrupt occurs for breathing confirmation
+export interface BreathingConfirmationPayload {
+  type: 'breathing_confirmation';
+  proposed_technique: BreathingTechniqueInfo;
+  message: string;
+  available_techniques: BreathingTechniqueInfo[];
+  options: ('start' | 'change_technique' | 'not_now')[];
+}
+
 // Events emitted during streaming
 export type StreamEvent =
   // A token of text content from the AI
@@ -65,7 +84,13 @@ export type StreamEvent =
   // An error occurred
   | { type: 'error'; error: string }
   // Stream started (useful for loading states)
-  | { type: 'start' };
+  | { type: 'start' }
+  // Graph paused for human-in-the-loop input (breathing confirmation)
+  | { type: 'interrupt'; payload: BreathingConfirmationPayload };
+
+// Technique IDs that should be filtered from streaming output
+// These are internal LLM responses that shouldn't be shown to users
+const TECHNIQUE_IDS = ['box', 'relaxing_478', 'coherent', 'deep_calm'];
 
 /* ----------------------------------------------------------------------------
    LangGraph Stream Types
@@ -226,6 +251,19 @@ export class AIClient {
         // eslint-disable-next-line no-console
         console.log('Stream event:', chunk.event, JSON.stringify(chunk.data));
 
+        // Check for interrupt events (HITL - Human-in-the-Loop)
+        // This happens when the graph pauses for user confirmation (e.g., breathing technique)
+        const chunkData = chunk.data as Record<string, unknown> | null;
+        if (chunkData && '__interrupt__' in chunkData) {
+          const interruptArray = chunkData.__interrupt__ as { value: unknown }[];
+          if (interruptArray.length > 0) {
+            const interruptPayload = interruptArray[0].value as BreathingConfirmationPayload;
+            yield { type: 'interrupt', payload: interruptPayload };
+            // Stop streaming here - frontend will handle the interrupt and resume
+            return;
+          }
+        }
+
         // Handle message streaming events
         if (chunk.event === 'messages/partial') {
           const data = chunk.data as LangGraphMessagesData;
@@ -235,6 +273,15 @@ export class AIClient {
             if (lastMsg && isAssistantMessage(lastMsg)) {
               // Extract text content, handling both string and array formats
               const content = extractTextContent(lastMsg.content);
+
+              // Filter out technique IDs (internal LLM responses)
+              // These are short single-word responses from technique selection
+              const trimmedContent = content.trim().toLowerCase();
+              if (TECHNIQUE_IDS.includes(trimmedContent)) {
+                // Skip this content - it's an internal LLM response
+                continue;
+              }
+
               if (content && content !== lastContent) {
                 yield { type: 'token', content };
                 lastContent = content;
@@ -318,6 +365,88 @@ export class AIClient {
     } catch {
       // Thread might not exist yet
       return [];
+    }
+  }
+
+  /**
+   * Resumes an interrupted graph after user input (HITL pattern).
+   *
+   * Called after the user responds to a confirmation prompt (e.g., breathing technique).
+   * The graph will resume from where it was paused and continue processing.
+   *
+   * @param resumeData - User's decision and any additional data
+   * @param threadId - The conversation/thread ID
+   * @yields StreamEvent objects as the graph resumes processing
+   *
+   * @example
+   * for await (const event of client.resumeInterrupt(
+   *   { decision: 'start', technique_id: 'box' },
+   *   threadId
+   * )) {
+   *   if (event.type === 'token') {
+   *     updateUI(event.content);
+   *   }
+   * }
+   */
+  async *resumeInterrupt(
+    resumeData: { decision: string; technique_id?: string },
+    threadId: string
+  ): AsyncGenerator<StreamEvent> {
+    yield { type: 'start' };
+
+    try {
+      // Resume the graph with the user's decision
+      // The SDK's stream method with Command(resume=...) pattern
+      const stream = this.client.runs.stream(threadId, GRAPH_NAME, {
+        // Pass the resume data as a Command
+        // This continues the graph from the interrupt point
+        command: {
+          resume: resumeData,
+        },
+        streamMode: 'messages',
+      });
+
+      let lastContent = '';
+
+      const isAssistantMessage = (msg: LangGraphMessage): boolean =>
+        msg.role === 'assistant' || msg.role === 'ai' || msg.type === 'ai';
+
+      for await (const chunk of stream) {
+        // eslint-disable-next-line no-console
+        console.log('Resume stream event:', chunk.event, JSON.stringify(chunk.data));
+
+        if (chunk.event === 'messages/partial') {
+          const data = chunk.data as LangGraphMessagesData;
+          if (Array.isArray(data) && data.length > 0) {
+            const lastMsg = data.at(-1);
+            if (lastMsg && isAssistantMessage(lastMsg)) {
+              const content = extractTextContent(lastMsg.content);
+
+              // Filter out technique IDs
+              const trimmedContent = content.trim().toLowerCase();
+              if (TECHNIQUE_IDS.includes(trimmedContent)) {
+                continue;
+              }
+
+              if (content && content !== lastContent) {
+                yield { type: 'token', content };
+                lastContent = content;
+              }
+            }
+          }
+        }
+
+        if (chunk.event === 'messages/complete') {
+          yield { type: 'done' };
+        }
+      }
+
+      if (lastContent) {
+        yield { type: 'done' };
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      yield { type: 'error', error: errorMessage };
     }
   }
 }
