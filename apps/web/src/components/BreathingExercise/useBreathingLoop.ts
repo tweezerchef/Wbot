@@ -51,12 +51,21 @@ export function useBreathingLoop(
   const queryClient = useQueryClient();
   const [state, setState] = useState<BreathingExerciseState>(() => createInitialState(technique));
 
-  // Refs for timer management
+  // Refs for timer management and technique access
+  const techniqueRef = useRef(technique);
+  const onCompleteRef = useRef(onComplete);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
-  const lastTickRef = useRef<number>(0);
+  const tickIntervalMs = 100; // Tick every 100ms
+
+  // Keep refs up to date
+  useEffect(() => {
+    techniqueRef.current = technique;
+    onCompleteRef.current = onComplete;
+  }, [technique, onComplete]);
 
   /**
    * Clears the exercise timer
+   * Wrapped in useCallback to maintain stable identity for dependency arrays
    */
   const clearTimer = useCallback(() => {
     if (intervalRef.current) {
@@ -66,37 +75,64 @@ export function useBreathingLoop(
   }, []);
 
   /**
-   * Advances to the next phase or cycle
+   * Main timer tick - decrements time and advances phases
+   * Uses refs to access latest values, keeping the function stable
    */
-  const advancePhase = useCallback(() => {
+  const tick = useCallback(() => {
     setState((prev) => {
-      const nextPhaseIndex = (prev.phaseIndex + 1) % 4;
-      const nextPhase = PHASE_ORDER[nextPhaseIndex];
-      const nextPhaseDuration = technique.durations[nextPhaseIndex];
+      if (!prev.isActive || prev.isPaused || prev.isComplete) {
+        return prev;
+      }
 
-      // If we've completed all phases (back to inhale), advance cycle
-      if (nextPhaseIndex === 0) {
-        const nextCycle = prev.currentCycle + 1;
+      // Decrement by fixed tick interval (works with fake timers that don't advance Date.now())
+      const tickSeconds = tickIntervalMs / 1000; // 0.1 seconds
+      const newTimeRemaining = Math.max(0, prev.phaseTimeRemaining - tickSeconds);
 
-        // Check if exercise is complete
-        if (nextCycle > prev.totalCycles) {
-          clearTimer();
-          return {
-            ...prev,
-            isActive: false,
-            isComplete: true,
-          };
+      // Phase complete or zero-duration - advance immediately
+      if (newTimeRemaining <= 0.01 || prev.phaseTotalTime === 0) {
+        // Use 0.01 threshold for floating point
+        // Guard: don't advance if we just entered this phase (prevents rapid multi-advancement)
+        // If current time remaining is very close to total time, we just started this phase
+        const justEnteredPhase = prev.phaseTimeRemaining >= prev.phaseTotalTime * 0.95;
+        if (justEnteredPhase && prev.phaseTotalTime > 0) {
+          // We just entered this phase in a previous tick, don't advance yet
+          // Wait for at least one more tick to confirm we've been here
+          return prev;
         }
 
-        // Skip phases with 0 duration
-        if (nextPhaseDuration === 0) {
-          // Recursively advance (will handle in next tick)
+        // Calculate next phase using ref to avoid closure issues
+        const currentTechnique = techniqueRef.current;
+        let nextPhaseIndex = (prev.phaseIndex + 1) % 4;
+        let nextPhase = PHASE_ORDER[nextPhaseIndex];
+        let nextPhaseDuration = currentTechnique.durations[nextPhaseIndex];
+
+        // Skip consecutive zero-duration phases
+        while (nextPhaseDuration === 0 && nextPhaseIndex !== prev.phaseIndex) {
+          nextPhaseIndex = (nextPhaseIndex + 1) % 4;
+          nextPhase = PHASE_ORDER[nextPhaseIndex];
+          nextPhaseDuration = currentTechnique.durations[nextPhaseIndex];
+        }
+
+        // Check for cycle completion
+        if (nextPhaseIndex === 0) {
+          const nextCycle = prev.currentCycle + 1;
+
+          if (nextCycle > prev.totalCycles) {
+            // Call completion callback using ref
+            onCompleteRef.current?.();
+            return {
+              ...prev,
+              isActive: false,
+              isComplete: true,
+            };
+          }
+
           return {
             ...prev,
             currentPhase: nextPhase,
             phaseIndex: nextPhaseIndex,
-            phaseTimeRemaining: 0,
-            phaseTotalTime: 0,
+            phaseTimeRemaining: nextPhaseDuration,
+            phaseTotalTime: nextPhaseDuration,
             currentCycle: nextCycle,
           };
         }
@@ -107,71 +143,16 @@ export function useBreathingLoop(
           phaseIndex: nextPhaseIndex,
           phaseTimeRemaining: nextPhaseDuration,
           phaseTotalTime: nextPhaseDuration,
-          currentCycle: nextCycle,
         };
       }
 
-      // Skip phases with 0 duration (e.g., no hold in 4-7-8)
-      if (nextPhaseDuration === 0) {
-        return {
-          ...prev,
-          currentPhase: nextPhase,
-          phaseIndex: nextPhaseIndex,
-          phaseTimeRemaining: 0,
-          phaseTotalTime: 0,
-        };
-      }
-
-      return {
-        ...prev,
-        currentPhase: nextPhase,
-        phaseIndex: nextPhaseIndex,
-        phaseTimeRemaining: nextPhaseDuration,
-        phaseTotalTime: nextPhaseDuration,
-      };
-    });
-  }, [technique.durations, clearTimer]);
-
-  /**
-   * Main timer tick - decrements time and advances phases
-   */
-  const tick = useCallback(() => {
-    const now = Date.now();
-    const elapsed = (now - lastTickRef.current) / 1000;
-    lastTickRef.current = now;
-
-    setState((prev) => {
-      if (!prev.isActive || prev.isPaused || prev.isComplete) {
-        return prev;
-      }
-
-      // If current phase has 0 duration, advance immediately
-      if (prev.phaseTotalTime === 0) {
-        return prev; // Will be handled by advancePhase effect
-      }
-
-      const newTimeRemaining = Math.max(0, prev.phaseTimeRemaining - elapsed);
-
-      // Phase complete - advance
-      if (newTimeRemaining <= 0) {
-        return prev; // Will be handled by advancePhase effect
-      }
-
+      // Normal tick - just update time remaining
       return {
         ...prev,
         phaseTimeRemaining: newTimeRemaining,
       };
     });
-  }, []);
-
-  /**
-   * Effect to handle phase advancement when time runs out
-   */
-  useEffect(() => {
-    if (state.isActive && !state.isPaused && !state.isComplete && state.phaseTimeRemaining <= 0) {
-      advancePhase();
-    }
-  }, [state.isActive, state.isPaused, state.isComplete, state.phaseTimeRemaining, advancePhase]);
+  }, []); // Empty dependencies - uses refs for all external values
 
   /**
    * Effect to notify of phase changes
@@ -183,27 +164,39 @@ export function useBreathingLoop(
   }, [state.currentPhase, state.isActive, onPhaseChange]);
 
   /**
-   * Effect to notify of completion
+   * Effect to stop timer when completed
    */
   useEffect(() => {
-    if (state.isComplete && onComplete) {
-      onComplete();
-    }
-  }, [state.isComplete, onComplete]);
-
-  /**
-   * Effect to manage the timer interval
-   */
-  useEffect(() => {
-    if (state.isActive && !state.isPaused && !state.isComplete) {
-      lastTickRef.current = Date.now();
-      intervalRef.current = setInterval(tick, 100); // Update every 100ms for smooth countdown
-    } else {
+    if (state.isComplete) {
       clearTimer();
     }
+  }, [state.isComplete, clearTimer]);
+
+  /**
+   * Effect to manage the timer using setTimeout (more predictable with fake timers)
+   */
+  useEffect(() => {
+    if (!state.isActive || state.isPaused || state.isComplete) {
+      clearTimer();
+      return clearTimer;
+    }
+
+    // Use setTimeout with manual rescheduling instead of setInterval
+    // This ensures only one timer pending at a time (better for fake timers)
+    const scheduleNextTick = () => {
+      intervalRef.current = setTimeout(() => {
+        tick();
+        // Schedule next tick if still active
+        if (intervalRef.current !== null) {
+          scheduleNextTick();
+        }
+      }, tickIntervalMs);
+    };
+
+    scheduleNextTick();
 
     return clearTimer;
-  }, [state.isActive, state.isPaused, state.isComplete, tick, clearTimer]);
+  }, [state.isActive, state.isPaused, state.isComplete, clearTimer, tick]);
 
   /**
    * Starts the breathing exercise
