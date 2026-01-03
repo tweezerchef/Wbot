@@ -4,15 +4,13 @@
  * This component provides a guided meditation experience with audio playback.
  */
 
-/* eslint-disable import/order */
-/* eslint-disable @typescript-eslint/require-await */
-
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 import { GuidedMeditation } from '../GuidedMeditation';
 import type { MeditationTrack } from '../types';
+import { useMeditationAudio } from '../useMeditationAudio';
 
 // Mock useMeditationAudio hook
 vi.mock('../useMeditationAudio', () => ({
@@ -34,8 +32,23 @@ vi.mock('../useMeditationAudio', () => ({
   })),
 }));
 
-// Import the mock after vi.mock
-import { useMeditationAudio } from '../useMeditationAudio';
+// Mock useAmbientMixer hook
+vi.mock('../useAmbientMixer', () => ({
+  useAmbientMixer: vi.fn(() => ({
+    settings: {
+      enabled: true,
+      volume: 0.3,
+      sound: 'ocean',
+    },
+    isPlaying: false,
+    play: vi.fn().mockResolvedValue(undefined),
+    stop: vi.fn(),
+    fadeOut: vi.fn(),
+    setVolume: vi.fn(),
+    setSound: vi.fn(),
+    toggle: vi.fn(),
+  })),
+}));
 
 // Create a test track
 const createTestTrack = (overrides: Partial<MeditationTrack> = {}): MeditationTrack => ({
@@ -74,6 +87,7 @@ describe('GuidedMeditation', () => {
   });
 
   afterEach(() => {
+    cleanup();
     vi.clearAllMocks();
   });
 
@@ -128,7 +142,7 @@ describe('GuidedMeditation', () => {
         wrapper: createWrapper(),
       });
 
-      expect(screen.getByRole('button', { name: /start meditation/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /begin meditation/i })).toBeInTheDocument();
     });
 
     it('calls play when start button is clicked', async () => {
@@ -156,7 +170,7 @@ describe('GuidedMeditation', () => {
         wrapper: createWrapper(),
       });
 
-      const startButton = screen.getByRole('button', { name: /start meditation/i });
+      const startButton = screen.getByRole('button', { name: /begin meditation/i });
       fireEvent.click(startButton);
 
       await waitFor(() => {
@@ -331,7 +345,7 @@ describe('GuidedMeditation', () => {
       // which is triggered by the onEnded callback from useMeditationAudio
     });
 
-    it('shows "Meditate Again" button after completion', async () => {
+    it('shows "Meditate Again" button after completion', () => {
       // Simulate the completion flow by returning complete state
       // and the component having its showCompletion state set to true
       const mockPlay = vi.fn().mockResolvedValue(undefined);
@@ -359,13 +373,13 @@ describe('GuidedMeditation', () => {
         wrapper: createWrapper(),
       });
 
-      // Verify we start with start button
-      expect(screen.getByRole('button', { name: /start meditation/i })).toBeInTheDocument();
+      // Verify we start with begin button
+      expect(screen.getByRole('button', { name: /begin meditation/i })).toBeInTheDocument();
     });
   });
 
   describe('callbacks', () => {
-    it('calls onComplete when meditation completes', async () => {
+    it('shows mood check after meditation completes, then calls onComplete', async () => {
       let onEndedCallback: (() => void) | undefined;
 
       mockUseMeditationAudio.mockImplementation(({ onEnded }) => {
@@ -400,12 +414,21 @@ describe('GuidedMeditation', () => {
         onEndedCallback();
       }
 
+      // After meditation ends, mood check should be shown
+      await waitFor(() => {
+        expect(screen.getByText(/how do you feel after/i)).toBeInTheDocument();
+      });
+
+      // Click skip to complete
+      const skipButton = screen.getByText('Skip');
+      fireEvent.click(skipButton);
+
       await waitFor(() => {
         expect(onComplete).toHaveBeenCalled();
       });
     });
 
-    it('calls onStop when stop button is clicked', async () => {
+    it('calls onStop when stop button is clicked', () => {
       const mockStop = vi.fn();
       mockUseMeditationAudio.mockReturnValue({
         state: {
@@ -438,7 +461,7 @@ describe('GuidedMeditation', () => {
   });
 
   describe('volume control', () => {
-    it('displays volume slider', () => {
+    it('displays meditation volume slider', () => {
       mockUseMeditationAudio.mockReturnValue({
         state: {
           playbackState: 'playing',
@@ -462,10 +485,11 @@ describe('GuidedMeditation', () => {
         wrapper: createWrapper(),
       });
 
-      expect(screen.getByRole('slider', { name: /volume/i })).toBeInTheDocument();
+      // Should have meditation volume slider
+      expect(screen.getByRole('slider', { name: /meditation volume/i })).toBeInTheDocument();
     });
 
-    it('calls setVolume when volume slider changes', () => {
+    it('calls setVolume when meditation volume slider changes', () => {
       const mockSetVolume = vi.fn();
       mockUseMeditationAudio.mockReturnValue({
         state: {
@@ -490,7 +514,7 @@ describe('GuidedMeditation', () => {
         wrapper: createWrapper(),
       });
 
-      const volumeSlider = screen.getByRole('slider', { name: /volume/i });
+      const volumeSlider = screen.getByRole('slider', { name: /meditation volume/i });
       fireEvent.change(volumeSlider, { target: { value: '0.5' } });
 
       expect(mockSetVolume).toHaveBeenCalledWith(0.5);
@@ -498,6 +522,26 @@ describe('GuidedMeditation', () => {
   });
 
   describe('track without optional fields', () => {
+    beforeEach(() => {
+      // Reset to idle state for these tests
+      mockUseMeditationAudio.mockReturnValue({
+        state: {
+          playbackState: 'idle',
+          currentTime: 0,
+          duration: 300,
+          progress: 0,
+          isLoading: false,
+          error: null,
+        },
+        volume: 0.8,
+        play: vi.fn().mockResolvedValue(undefined),
+        pause: vi.fn(),
+        stop: vi.fn(),
+        seek: vi.fn(),
+        setVolume: vi.fn(),
+      });
+    });
+
     it('renders without narrator', () => {
       const track = createTestTrack({ narrator: undefined });
 

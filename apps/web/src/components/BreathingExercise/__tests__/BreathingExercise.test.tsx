@@ -9,8 +9,6 @@
  * - Progress indicator
  */
 
-/* eslint-disable @typescript-eslint/no-unsafe-call */
-
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, cleanup, fireEvent, act } from '@testing-library/react';
 import type { ReactNode } from 'react';

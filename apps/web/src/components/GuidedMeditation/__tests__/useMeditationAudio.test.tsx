@@ -4,54 +4,67 @@
  * This hook manages HTML5 Audio for meditation playback.
  */
 
-/* eslint-disable @typescript-eslint/no-unsafe-function-type */
-/* eslint-disable @typescript-eslint/no-unsafe-call */
-/* eslint-disable @typescript-eslint/require-await */
-
 import { renderHook, act } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 import { useMeditationAudio } from '../useMeditationAudio';
 
-// Mock HTML5 Audio element
-const createMockAudio = () => {
-  const mockAudio = {
-    src: '',
-    volume: 1,
-    currentTime: 0,
-    duration: 300, // 5 minutes
-    paused: true,
-    play: vi.fn().mockResolvedValue(undefined),
-    pause: vi.fn(),
-    load: vi.fn(),
-    addEventListener: vi.fn(),
-    removeEventListener: vi.fn(),
-    error: null as MediaError | null,
-  };
+/** Event handler type for audio events */
+type AudioEventHandler = () => void;
+
+/** Mock audio element type */
+interface MockAudioElement {
+  src: string;
+  volume: number;
+  currentTime: number;
+  duration: number;
+  paused: boolean;
+  play: ReturnType<typeof vi.fn>;
+  pause: ReturnType<typeof vi.fn>;
+  load: ReturnType<typeof vi.fn>;
+  addEventListener: ReturnType<typeof vi.fn>;
+  removeEventListener: ReturnType<typeof vi.fn>;
+  error: MediaError | null;
+}
+
+let mockAudio: MockAudioElement;
+let eventListeners: Map<string, AudioEventHandler>;
+
+// Mock HTML5 Audio element - creates fresh mocks for each instance
+const createMockAudio = (): MockAudioElement => ({
+  src: '',
+  volume: 1,
+  currentTime: 0,
+  duration: 300, // 5 minutes
+  paused: true,
+  play: vi.fn().mockResolvedValue(undefined),
+  pause: vi.fn(),
+  load: vi.fn(),
+  addEventListener: vi.fn(),
+  removeEventListener: vi.fn(),
+  error: null,
+});
+
+// Audio constructor mock - defined as a class-like function
+function MockAudioConstructor(this: MockAudioElement) {
+  mockAudio = createMockAudio();
+  eventListeners = new Map();
+
+  mockAudio.addEventListener = vi.fn((event: string, handler: AudioEventHandler) => {
+    eventListeners.set(event, handler);
+  });
+
+  mockAudio.removeEventListener = vi.fn((event: string) => {
+    eventListeners.delete(event);
+  });
+
+  // Copy properties to `this` for constructor behavior
+  Object.assign(this, mockAudio);
   return mockAudio;
-};
+}
 
-let mockAudio: ReturnType<typeof createMockAudio>;
-let eventListeners: Map<string, Function>;
-
-// Mock Audio constructor
-vi.stubGlobal(
-  'Audio',
-  vi.fn(() => {
-    mockAudio = createMockAudio();
-    eventListeners = new Map();
-
-    mockAudio.addEventListener = vi.fn((event: string, handler: Function) => {
-      eventListeners.set(event, handler);
-    });
-
-    mockAudio.removeEventListener = vi.fn((event: string) => {
-      eventListeners.delete(event);
-    });
-
-    return mockAudio;
-  })
-);
+// Stub global Audio with our constructor
+vi.stubGlobal('Audio', MockAudioConstructor);
 
 // Helper to trigger audio events
 const triggerEvent = (event: string) => {
@@ -63,12 +76,11 @@ const triggerEvent = (event: string) => {
 
 describe('useMeditationAudio', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
     eventListeners = new Map();
   });
 
   afterEach(() => {
-    vi.clearAllMocks();
+    // Don't call vi.clearAllMocks() - it breaks the global stub
   });
 
   describe('initialization', () => {
@@ -122,7 +134,7 @@ describe('useMeditationAudio', () => {
       expect(mockAudio.play).toHaveBeenCalled();
     });
 
-    it('sets loading state before playing', async () => {
+    it('sets loading state before playing', () => {
       const { result } = renderHook(() =>
         useMeditationAudio({ audioUrl: 'https://example.com/test.mp3' })
       );
@@ -137,7 +149,6 @@ describe('useMeditationAudio', () => {
 
     it('handles play errors gracefully', async () => {
       const onError = vi.fn();
-      mockAudio.play = vi.fn().mockRejectedValue(new Error('Playback failed'));
 
       const { result } = renderHook(() =>
         useMeditationAudio({
@@ -145,6 +156,9 @@ describe('useMeditationAudio', () => {
           onError,
         })
       );
+
+      // Override play after mockAudio is created by renderHook
+      mockAudio.play = vi.fn().mockRejectedValue(new Error('Playback failed'));
 
       await act(async () => {
         await result.current.play();
@@ -171,11 +185,12 @@ describe('useMeditationAudio', () => {
 
   describe('stop()', () => {
     it('pauses and resets currentTime', () => {
-      mockAudio.currentTime = 60; // 1 minute in
-
       const { result } = renderHook(() =>
         useMeditationAudio({ audioUrl: 'https://example.com/test.mp3' })
       );
+
+      // Set currentTime after mockAudio is created by renderHook
+      mockAudio.currentTime = 60; // 1 minute in
 
       act(() => {
         result.current.stop();
@@ -202,11 +217,12 @@ describe('useMeditationAudio', () => {
 
   describe('seek()', () => {
     it('sets currentTime based on position (0-1)', () => {
-      mockAudio.duration = 300; // 5 minutes
-
       const { result } = renderHook(() =>
         useMeditationAudio({ audioUrl: 'https://example.com/test.mp3' })
       );
+
+      // Set duration after mockAudio is created by renderHook
+      mockAudio.duration = 300; // 5 minutes
 
       // Simulate metadata loaded so duration is available
       act(() => {
@@ -221,11 +237,12 @@ describe('useMeditationAudio', () => {
     });
 
     it('clamps position to 0-1 range', () => {
-      mockAudio.duration = 300;
-
       const { result } = renderHook(() =>
         useMeditationAudio({ audioUrl: 'https://example.com/test.mp3' })
       );
+
+      // Set duration after mockAudio is created by renderHook
+      mockAudio.duration = 300;
 
       act(() => {
         triggerEvent('loadedmetadata');
@@ -281,7 +298,6 @@ describe('useMeditationAudio', () => {
   describe('audio events', () => {
     it('updates state on loadedmetadata event', () => {
       const onLoaded = vi.fn();
-      mockAudio.duration = 300;
 
       const { result } = renderHook(() =>
         useMeditationAudio({
@@ -289,6 +305,9 @@ describe('useMeditationAudio', () => {
           onLoaded,
         })
       );
+
+      // Set duration after mockAudio is created by renderHook
+      mockAudio.duration = 300;
 
       act(() => {
         triggerEvent('loadedmetadata');
@@ -301,8 +320,6 @@ describe('useMeditationAudio', () => {
 
     it('updates progress on timeupdate event', () => {
       const onTimeUpdate = vi.fn();
-      mockAudio.duration = 300;
-      mockAudio.currentTime = 150; // 50%
 
       const { result } = renderHook(() =>
         useMeditationAudio({
@@ -310,6 +327,10 @@ describe('useMeditationAudio', () => {
           onTimeUpdate,
         })
       );
+
+      // Set properties after mockAudio is created by renderHook
+      mockAudio.duration = 300;
+      mockAudio.currentTime = 150; // 50%
 
       act(() => {
         triggerEvent('timeupdate');

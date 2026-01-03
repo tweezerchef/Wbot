@@ -5,8 +5,6 @@
  * an animated circle with phase-specific styling and accessibility.
  */
 
-/* eslint-disable @typescript-eslint/no-unsafe-call */
-
 import { render, screen, cleanup } from '@testing-library/react';
 import { describe, it, expect, afterEach } from 'vitest';
 
