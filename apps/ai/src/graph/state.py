@@ -14,10 +14,13 @@ and is saved between requests.
 ============================================================================
 """
 
-from typing import Annotated, NotRequired, TypedDict
+from typing import Annotated, Literal, NotRequired, TypedDict
 
 from langchain_core.messages import BaseMessage
 from langgraph.graph.message import add_messages
+
+# Activity types that can be suggested/routed to
+ActivityType = Literal["breathing", "meditation", "journaling"]
 
 
 class WellnessState(TypedDict):
@@ -68,3 +71,20 @@ class WellnessState(TypedDict):
     # Used by generate_response to inject relevant context into the prompt
     # NotRequired because it's only populated during graph execution
     retrieved_memories: NotRequired[list[dict]]
+
+    # -------------------------------------------------------------------------
+    # Activity Routing State
+    # -------------------------------------------------------------------------
+    # These fields support the activity detection and routing system.
+    # When detect_activity identifies an activity opportunity, it sets
+    # suggested_activity, which triggers conditional routing in the graph.
+
+    # Activity suggested by detect_activity node for conditional routing
+    # None means no activity detected, proceed with normal response
+    suggested_activity: NotRequired[ActivityType | None]
+
+    # Tracks whether an exercise was completed (for follow-up messages)
+    exercise_completed: NotRequired[bool]
+
+    # The technique ID if a breathing exercise was performed
+    exercise_technique: NotRequired[str]
