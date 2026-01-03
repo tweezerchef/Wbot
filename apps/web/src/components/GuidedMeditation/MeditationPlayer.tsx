@@ -8,14 +8,23 @@
    - Play/Pause button
    - Stop button
    - Time display (current / total)
-   - Volume control
+   - Meditation volume control
+   - Ambient sound selector and volume control
    - Loading state indicator
    ============================================================================ */
 
 import { useCallback } from 'react';
 
 import styles from './GuidedMeditation.module.css';
-import type { MeditationPlayerProps } from './types';
+import type { AmbientSoundType, MeditationPlayerProps } from './types';
+
+/** Available ambient sound options */
+const AMBIENT_OPTIONS: { value: AmbientSoundType; label: string; icon: string }[] = [
+  { value: 'none', label: 'None', icon: '🔇' },
+  { value: 'ocean', label: 'Ocean', icon: '🌊' },
+  { value: 'rain', label: 'Rain', icon: '🌧️' },
+  { value: 'forest', label: 'Forest', icon: '🌲' },
+];
 
 /**
  * Formats seconds into MM:SS or H:MM:SS format
@@ -49,10 +58,10 @@ export function MeditationPlayer({
   onSeek,
   volume,
   onVolumeChange,
+  ambientControls,
 }: MeditationPlayerProps) {
   const { playbackState, currentTime, duration, progress, isLoading } = state;
   const isPlaying = playbackState === 'playing';
-  const _isPaused = playbackState === 'paused';
   const isComplete = playbackState === 'complete';
 
   // Handle progress bar click/drag for seeking
@@ -87,6 +96,22 @@ export function MeditationPlayer({
       onVolumeChange(parseFloat(e.target.value));
     },
     [onVolumeChange]
+  );
+
+  // Handle ambient volume slider change
+  const handleAmbientVolumeChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      ambientControls?.onVolumeChange(parseFloat(e.target.value));
+    },
+    [ambientControls]
+  );
+
+  // Handle ambient sound selection
+  const handleAmbientSoundChange = useCallback(
+    (e: React.ChangeEvent<HTMLSelectElement>) => {
+      ambientControls?.onSoundChange(e.target.value as AmbientSoundType);
+    },
+    [ambientControls]
   );
 
   // Handle play/pause toggle
@@ -171,14 +196,15 @@ export function MeditationPlayer({
           </svg>
         </button>
 
-        {/* Volume control */}
+        {/* Meditation volume control */}
         <div className={styles.volumeContainer}>
           <button
             className={styles.volumeButton}
             onClick={() => {
               onVolumeChange(volume > 0 ? 0 : 0.8);
             }}
-            aria-label={volume > 0 ? 'Mute' : 'Unmute'}
+            aria-label={volume > 0 ? 'Mute meditation' : 'Unmute meditation'}
+            title="Meditation volume"
           >
             {volume === 0 ? (
               // Muted icon
@@ -210,10 +236,52 @@ export function MeditationPlayer({
             step="0.1"
             value={volume}
             onChange={handleVolumeChange}
-            aria-label="Volume"
+            aria-label="Meditation volume"
           />
         </div>
       </div>
+
+      {/* Ambient sound controls */}
+      {ambientControls && (
+        <div className={styles.ambientControls}>
+          <div className={styles.ambientSelector}>
+            <label htmlFor="ambient-sound" className={styles.ambientLabel}>
+              Ambient:
+            </label>
+            <select
+              id="ambient-sound"
+              className={styles.ambientSelect}
+              value={ambientControls.sound}
+              onChange={handleAmbientSoundChange}
+              aria-label="Select ambient sound"
+            >
+              {AMBIENT_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.icon} {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {ambientControls.sound !== 'none' && (
+            <div className={styles.ambientVolumeContainer}>
+              <span className={styles.ambientVolumeLabel}>
+                {ambientControls.isPlaying ? '🔊' : '🔈'}
+              </span>
+              <input
+                type="range"
+                className={styles.ambientVolumeSlider}
+                min="0"
+                max="1"
+                step="0.1"
+                value={ambientControls.volume}
+                onChange={handleAmbientVolumeChange}
+                aria-label="Ambient volume"
+              />
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Track info */}
       {track.narrator && <p className={styles.narrator}>Guided by {track.narrator}</p>}
