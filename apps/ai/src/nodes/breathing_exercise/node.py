@@ -19,9 +19,9 @@ Supported techniques:
 """
 
 import json
-from typing import Any
+from typing import Literal, TypedDict
 
-from langchain_core.messages import AIMessage, HumanMessage
+from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
 from langgraph.types import interrupt
 
 from src.graph.state import WellnessState
@@ -33,12 +33,66 @@ logger = NodeLogger("breathing_exercise")
 
 
 # -----------------------------------------------------------------------------
+# Type Definitions
+# -----------------------------------------------------------------------------
+
+
+class BreathingTechnique(TypedDict):
+    """Configuration for a breathing exercise technique."""
+
+    id: str
+    name: str
+    durations: list[int]
+    description: str
+    recommended_cycles: int
+    best_for: list[str]
+
+
+class TechniquePhaseData(TypedDict):
+    """Phase data for breathing technique in activity format."""
+
+    id: str
+    name: str
+    durations: list[int]
+    phases: list[Literal["inhale", "holdIn", "exhale", "holdOut"]]
+    description: str
+    cycles: int
+
+
+class ActivityData(TypedDict):
+    """Activity data structure for frontend parsing."""
+
+    type: Literal["activity"]
+    activity: Literal["breathing"]
+    status: Literal["ready"]
+    technique: TechniquePhaseData
+    introduction: str
+
+
+class BreathingConfirmation(TypedDict):
+    """HITL interrupt data for breathing confirmation."""
+
+    type: Literal["breathing_confirmation"]
+    proposed_technique: BreathingTechnique
+    message: str
+    available_techniques: list[BreathingTechnique]
+    options: list[Literal["start", "change_technique", "not_now"]]
+
+
+class UserResponse(TypedDict, total=False):
+    """User's response to breathing confirmation."""
+
+    decision: Literal["start", "change_technique", "not_now"]
+    technique_id: str
+
+
+# -----------------------------------------------------------------------------
 # Breathing Technique Configurations
 # -----------------------------------------------------------------------------
 # Each technique defines its timing pattern [inhale, holdIn, exhale, holdOut]
 # and metadata for display and selection.
 
-BREATHING_TECHNIQUES: dict[str, dict[str, Any]] = {
+BREATHING_TECHNIQUES: dict[str, BreathingTechnique] = {
     "box": {
         "id": "box",
         "name": "Box Breathing",
@@ -79,7 +133,7 @@ BREATHING_TECHNIQUES: dict[str, dict[str, Any]] = {
 # -----------------------------------------------------------------------------
 
 
-def get_last_user_message(messages: list) -> str:
+def get_last_user_message(messages: list[BaseMessage]) -> str:
     """Extract the content of the last human message."""
     for message in reversed(messages):
         if isinstance(message, HumanMessage):
@@ -87,7 +141,7 @@ def get_last_user_message(messages: list) -> str:
     return ""
 
 
-async def select_technique_with_llm(state: WellnessState) -> dict[str, Any]:
+async def select_technique_with_llm(state: WellnessState) -> BreathingTechnique:
     """
     Uses the LLM to analyze conversation context and select the most
     appropriate breathing technique.
@@ -136,14 +190,14 @@ Respond with ONLY the technique ID (one of: box, relaxing_478, coherent, deep_ca
     return BREATHING_TECHNIQUES["box"]
 
 
-def format_exercise_message(technique: dict[str, Any], introduction: str) -> str:
+def format_exercise_message(technique: BreathingTechnique, introduction: str) -> str:
     """
     Formats the exercise configuration as a message with activity markers.
 
     The frontend parses content between [ACTIVITY_START] and [ACTIVITY_END]
     markers to render the interactive breathing exercise component.
     """
-    activity_data = {
+    activity_data: ActivityData = {
         "type": "activity",
         "activity": "breathing",
         "status": "ready",
@@ -167,7 +221,7 @@ def format_exercise_message(technique: dict[str, Any], introduction: str) -> str
 # -----------------------------------------------------------------------------
 
 
-async def run_breathing_exercise(state: WellnessState) -> dict:
+async def run_breathing_exercise(state: WellnessState) -> dict[str, list[AIMessage] | str]:
     """
     Guides the user through a breathing exercise with HITL confirmation.
 
@@ -195,18 +249,17 @@ async def run_breathing_exercise(state: WellnessState) -> dict:
 
     # Step 2: Use HITL interrupt to get user confirmation
     # This pauses the graph and waits for user input
-    user_response = interrupt(
-        {
-            "type": "breathing_confirmation",
-            "proposed_technique": selected_technique,
-            "message": (
-                f"I'd suggest {selected_technique['name']} for you right now. "
-                f"{selected_technique['description']}"
-            ),
-            "available_techniques": list(BREATHING_TECHNIQUES.values()),
-            "options": ["start", "change_technique", "not_now"],
-        }
-    )
+    confirmation_data: BreathingConfirmation = {
+        "type": "breathing_confirmation",
+        "proposed_technique": selected_technique,
+        "message": (
+            f"I'd suggest {selected_technique['name']} for you right now. "
+            f"{selected_technique['description']}"
+        ),
+        "available_techniques": list(BREATHING_TECHNIQUES.values()),
+        "options": ["start", "change_technique", "not_now"],
+    }
+    user_response: UserResponse = interrupt(confirmation_data)
 
     # Step 3: Handle user's decision
     decision = user_response.get("decision", "start")
