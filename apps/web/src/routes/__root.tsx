@@ -19,11 +19,28 @@
 // ============================================================================
 
 /// <reference types="vite/client" />
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { HeadContent, Scripts, createRootRoute } from '@tanstack/react-router';
 import * as React from 'react';
 
 // Import global styles - applies CSS reset and variables
 import '../styles/globals.css';
+
+// ----------------------------------------------------------------------------
+// TanStack Query Client
+// ----------------------------------------------------------------------------
+// Create a stable QueryClient instance for the app.
+// This enables TanStack Query features like caching and state management.
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      // Data stays fresh for 1 minute before refetching
+      staleTime: 60 * 1000,
+      // Don't refetch when window regains focus (prevents jarring UX in chat)
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
 // ----------------------------------------------------------------------------
 // Root Route Definition
@@ -78,22 +95,25 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         <HeadContent />
       </head>
       <body>
-        {/*
-          The app container fills the entire viewport.
-          This is important for mobile full-screen experience.
-          Using dvh (dynamic viewport height) to account for mobile browser chrome.
-        */}
-        <div
-          id="app"
-          style={{
-            minHeight: '100dvh',
-            display: 'flex',
-            flexDirection: 'column',
-          }}
-        >
-          {/* Child routes render here (landing or chat) */}
-          {children}
-        </div>
+        {/* QueryClientProvider enables TanStack Query throughout the app */}
+        <QueryClientProvider client={queryClient}>
+          {/*
+            The app container fills the entire viewport.
+            This is important for mobile full-screen experience.
+            Using dvh (dynamic viewport height) to account for mobile browser chrome.
+          */}
+          <div
+            id="app"
+            style={{
+              minHeight: '100dvh',
+              display: 'flex',
+              flexDirection: 'column',
+            }}
+          >
+            {/* Child routes render here (landing or chat) */}
+            {children}
+          </div>
+        </QueryClientProvider>
 
         {/* TanStack Start scripts for client-side hydration */}
         <Scripts />
