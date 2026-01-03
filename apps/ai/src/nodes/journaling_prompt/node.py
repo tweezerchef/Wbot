@@ -23,7 +23,7 @@ from src.logging_config import NodeLogger
 logger = NodeLogger("journaling_prompt")
 
 
-async def provide_journaling_prompt(state: WellnessState) -> dict:
+async def provide_journaling_prompt(state: WellnessState) -> dict[str, list[AIMessage]]:
     """
     Offers a journaling prompt based on conversation context.
 

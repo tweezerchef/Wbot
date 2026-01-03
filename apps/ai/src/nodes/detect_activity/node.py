@@ -19,7 +19,7 @@ Classification outputs:
 
 from typing import Literal
 
-from langchain_core.messages import HumanMessage
+from langchain_core.messages import BaseMessage, HumanMessage
 from pydantic import BaseModel, Field
 
 from src.graph.state import WellnessState
@@ -64,7 +64,7 @@ class ActivityDetection(BaseModel):
 # -----------------------------------------------------------------------------
 
 
-def get_last_user_message(messages: list) -> str:
+def get_last_user_message(messages: list[BaseMessage]) -> str:
     """Extract the content of the last human message."""
     for message in reversed(messages):
         if isinstance(message, HumanMessage):
@@ -72,7 +72,7 @@ def get_last_user_message(messages: list) -> str:
     return ""
 
 
-def get_recent_context(messages: list, count: int = 3) -> str:
+def get_recent_context(messages: list[BaseMessage], count: int = 3) -> str:
     """Get a summary of recent conversation for context."""
     recent = []
     for msg in messages[-count * 2 :]:  # Last few exchanges
@@ -124,7 +124,7 @@ Analyze this and determine if a wellness activity would help."""
 # -----------------------------------------------------------------------------
 
 
-async def detect_activity_intent(state: WellnessState) -> dict:
+async def detect_activity_intent(state: WellnessState) -> dict[str, str | None]:
     """
     Analyzes conversation to detect if an activity would be helpful.
 

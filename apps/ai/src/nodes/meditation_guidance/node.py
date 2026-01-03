@@ -22,7 +22,7 @@ from src.logging_config import NodeLogger
 logger = NodeLogger("meditation_guidance")
 
 
-async def run_meditation_guidance(state: WellnessState) -> dict:
+async def run_meditation_guidance(state: WellnessState) -> dict[str, list[AIMessage]]:
     """
     Provides guided meditation content.
 

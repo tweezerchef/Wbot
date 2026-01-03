@@ -24,7 +24,7 @@ from src.memory.store import search_memories
 logger = NodeLogger("retrieve_memories")
 
 
-async def retrieve_memories(state: WellnessState) -> dict:
+async def retrieve_memories(state: WellnessState) -> dict[str, list[dict[str, str | float]]]:
     """
     Retrieves relevant memories based on the user's message.
 

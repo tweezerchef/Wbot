@@ -28,7 +28,7 @@ from src.utils.user_context import format_user_context
 logger = NodeLogger("generate_response")
 
 
-async def generate_response(state: WellnessState) -> dict:
+async def generate_response(state: WellnessState) -> dict[str, list[object]]:
     """
     Generates an AI response based on conversation history.
 

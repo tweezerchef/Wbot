@@ -26,7 +26,7 @@ from src.memory.store import generate_title_if_needed, save_messages, store_memo
 logger = NodeLogger("store_memory")
 
 
-async def store_memory_node(state: WellnessState, config: RunnableConfig) -> dict:
+async def store_memory_node(state: WellnessState, config: RunnableConfig) -> dict[str, object]:
     """
     Stores the latest conversation pair as a memory.
 
