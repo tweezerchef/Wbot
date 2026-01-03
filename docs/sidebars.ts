@@ -16,13 +16,19 @@ const sidebars: SidebarsConfig = {
     {
       type: 'category',
       label: 'Frontend (Web)',
-      items: ['web/authentication', 'web/ai-client', 'web/activities', 'web/supabase'],
+      items: [
+        'web/authentication',
+        'web/ai-client',
+        'web/activities',
+        'web/meditation',
+        'web/supabase',
+      ],
       collapsed: false,
     },
     {
       type: 'category',
       label: 'Backend (AI)',
-      items: ['ai/langgraph', 'ai/logging', 'ai/memory'],
+      items: ['ai/langgraph', 'ai/logging', 'ai/memory', 'ai/meditation'],
       collapsed: false,
     },
     {
