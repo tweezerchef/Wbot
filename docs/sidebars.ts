@@ -2,7 +2,7 @@ import type { SidebarsConfig } from '@docusaurus/plugin-content-docs';
 
 /**
  * Sidebar configuration for Wbot documentation.
- * Organizes docs into logical sections for easy navigation.
+ * Organizes docs into logical sections by project area.
  */
 const sidebars: SidebarsConfig = {
   docsSidebar: [
@@ -15,8 +15,14 @@ const sidebars: SidebarsConfig = {
     },
     {
       type: 'category',
-      label: 'API Guides',
-      items: ['api-guides/langgraph', 'api-guides/supabase'],
+      label: 'Frontend (Web)',
+      items: ['web/authentication', 'web/ai-client', 'web/activities', 'web/supabase'],
+      collapsed: false,
+    },
+    {
+      type: 'category',
+      label: 'Backend (AI)',
+      items: ['ai/langgraph', 'ai/logging', 'ai/memory'],
       collapsed: false,
     },
     {
@@ -27,10 +33,11 @@ const sidebars: SidebarsConfig = {
     },
     {
       type: 'category',
-      label: 'Integration',
-      items: ['integration/authentication', 'integration/activities'],
+      label: 'Tooling',
+      items: ['tooling/storybook', 'tooling/docusaurus', 'tooling/testing'],
       collapsed: true,
     },
+    'ROADMAP',
   ],
 };
 

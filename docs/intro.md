@@ -54,10 +54,16 @@ wbot/
 │
 ├── packages/
 │   ├── shared/           # Shared TypeScript types
-│   ├── docs/             # This documentation
 │   └── storybook/        # Component stories
 │
-└── database/
+├── docs/                 # 📖 Documentation + Docusaurus config
+│   ├── architecture/     # System design
+│   ├── web/              # Frontend docs
+│   ├── ai/               # Backend docs
+│   ├── database/         # Database docs
+│   └── tooling/          # Development tools
+│
+└── supabase/
     └── migrations/       # SQL migration files
 ```
 
@@ -92,10 +98,11 @@ Wbot remembers important information from conversations using vector embeddings.
 1. **Start the stack**: `pnpm dev:all`
 2. **Make changes**: Edit files in `apps/web` or `apps/ai`
 3. **Hot reload**: Both frontend and backend hot-reload on save
-4. **Test**: Open http://localhost:5173 in your browser
+4. **Test**: Open <http://localhost:5173> in your browser
 
 ## Next Steps
 
-- [Architecture Overview](/architecture/overview) - Deep dive into system design
-- [LangGraph API Guide](/api-guides/langgraph) - AI backend integration
-- [Database Schema](/database/schema) - Data model documentation
+- [Architecture Overview](./architecture/overview.md) - Deep dive into system design
+- [LangGraph Guide](./ai/langgraph.md) - AI backend implementation
+- [Database Schema](./database/schema.md) - Data model documentation
+- [ROADMAP](./ROADMAP.md) - Development progress and next steps
