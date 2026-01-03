@@ -78,7 +78,7 @@ export async function loadMessages(conversationId: string): Promise<Message[]> {
     id: msg.id,
     role: msg.role as 'user' | 'assistant' | 'system',
     content: msg.content,
-    createdAt: new Date(msg.created_at),
+    createdAt: msg.created_at ? new Date(msg.created_at) : new Date(),
   }));
 }
 
