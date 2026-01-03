@@ -132,10 +132,9 @@ def _add_challenges(lines: list[str], preferences: dict[str, Any]) -> None:
         "focus": "difficulty focusing",
     }
 
-    if challenges := preferences.get("challenges"):
-        if isinstance(challenges, list) and challenges:
-            challenge_names = [challenge_map.get(c, c) for c in challenges]
-            lines.append(f"They struggle with: {', '.join(challenge_names)}.")
+    if (challenges := preferences.get("challenges")) and isinstance(challenges, list) and challenges:
+        challenge_names = [challenge_map.get(c, c) for c in challenges]
+        lines.append(f"They struggle with: {', '.join(challenge_names)}.")
 
 
 def _add_communication_style(lines: list[str], preferences: dict[str, Any]) -> None:
@@ -178,10 +177,9 @@ def _add_preferred_activities(lines: list[str], preferences: dict[str, Any]) -> 
         "mood_tracking": "tracking their mood over time",
     }
 
-    if activities := preferences.get("preferred_activities"):
-        if isinstance(activities, list) and activities:
-            activity_names = [activity_map.get(a, a) for a in activities]
-            lines.append(f"They're interested in: {', '.join(activity_names)}.")
+    if (activities := preferences.get("preferred_activities")) and isinstance(activities, list) and activities:
+        activity_names = [activity_map.get(a, a) for a in activities]
+        lines.append(f"They're interested in: {', '.join(activity_names)}.")
 
 
 def _add_experience_level(lines: list[str], preferences: dict[str, Any]) -> None:
@@ -193,9 +191,8 @@ def _add_experience_level(lines: list[str], preferences: dict[str, Any]) -> None
         "regular_practice": "They practice wellness regularly and may appreciate more advanced techniques.",
     }
 
-    if experience := preferences.get("experience_level"):
-        if description := experience_map.get(experience):
-            lines.append(description)
+    if (experience := preferences.get("experience_level")) and (description := experience_map.get(experience)):
+        lines.append(description)
 
 
 def _add_session_length(lines: list[str], preferences: dict[str, Any]) -> None:
@@ -208,6 +205,5 @@ def _add_session_length(lines: list[str], preferences: dict[str, Any]) -> None:
         "flexible": "Their available time varies, so ask about their current availability when relevant.",
     }
 
-    if length := preferences.get("session_length"):
-        if description := length_map.get(length):
-            lines.append(description)
+    if (length := preferences.get("session_length")) and (description := length_map.get(length)):
+        lines.append(description)
