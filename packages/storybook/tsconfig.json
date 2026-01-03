@@ -6,6 +6,7 @@
     "moduleResolution": "bundler",
     "strict": true,
     "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
     "skipLibCheck": true,
     "noEmit": true,
     "jsx": "react-jsx",
@@ -15,6 +16,12 @@
       "@wbot/shared": ["../../packages/shared/src"]
     }
   },
-  "include": [".storybook/**/*", "stories/**/*"],
+  "include": [
+    ".storybook/**/*",
+    "stories/**/*",
+    "src/**/*",
+    "vitest.config.ts",
+    "vitest.shims.d.ts"
+  ],
   "exclude": ["node_modules", "dist"]
 }

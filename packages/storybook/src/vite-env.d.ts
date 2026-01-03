@@ -1,0 +1,12 @@
+/// <reference types="vite/client" />
+
+// CSS Modules type declarations
+declare module '*.module.css' {
+  const classes: Readonly<Record<string, string>>;
+  export default classes;
+}
+
+declare module '*.module.scss' {
+  const classes: Readonly<Record<string, string>>;
+  export default classes;
+}

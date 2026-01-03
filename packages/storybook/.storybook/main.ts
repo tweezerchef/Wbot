@@ -1,18 +1,25 @@
+// This file has been automatically migrated to valid ESM format by Storybook.
 import { dirname, join, resolve } from 'path';
 import { fileURLToPath } from 'url';
 
 import type { StorybookConfig } from '@storybook/react-vite';
+
+const __filename = fileURLToPath(import.meta.url);
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const webAppPath = resolve(__dirname, '../../../apps/web');
 
 const config: StorybookConfig = {
   stories: ['../stories/**/*.mdx', '../stories/**/*.stories.@(js|jsx|mjs|ts|tsx)'],
-
-  addons: ['@storybook/addon-essentials', '@storybook/addon-interactions', '@storybook/addon-a11y'],
+  addons: [
+    getAbsolutePath('@storybook/addon-a11y'),
+    getAbsolutePath('@storybook/addon-docs'),
+    getAbsolutePath('@storybook/addon-vitest'),
+    getAbsolutePath('@storybook/experimental-addon-test'),
+  ],
 
   framework: {
-    name: '@storybook/react-vite',
+    name: getAbsolutePath('@storybook/react-vite'),
     options: {},
   },
 
@@ -46,10 +53,10 @@ const config: StorybookConfig = {
 
   // Include web app's public assets (audio files, etc.)
   staticDirs: [{ from: join(webAppPath, 'public'), to: '/' }],
-
-  docs: {
-    autodocs: true,
-  },
 };
 
 export default config;
+
+function getAbsolutePath(value: string): string {
+  return dirname(fileURLToPath(import.meta.resolve(`${value}/package.json`)));
+}

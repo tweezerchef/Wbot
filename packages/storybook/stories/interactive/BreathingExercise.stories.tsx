@@ -1,8 +1,23 @@
-import type { Meta, StoryObj } from '@storybook/react';
-import { fn } from '@storybook/test';
+import type { Meta, StoryObj } from '@storybook/react-vite';
+import { expect, fn, userEvent, within } from '@storybook/test';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import type { ReactElement } from 'react';
 
 import { BreathingExercise } from '@/components/BreathingExercise/BreathingExercise';
-import { BREATHING_TECHNIQUES } from '@/components/BreathingExercise/types';
+import {
+  BREATHING_TECHNIQUES,
+  type BreathingTechnique,
+} from '@/components/BreathingExercise/types';
+
+// Create a client for Storybook stories
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: false,
+      staleTime: Infinity,
+    },
+  },
+});
 
 /**
  * Interactive breathing exercise component with visual animation and audio.
@@ -18,6 +33,13 @@ import { BREATHING_TECHNIQUES } from '@/components/BreathingExercise/types';
 const meta: Meta<typeof BreathingExercise> = {
   title: 'Interactive/BreathingExercise',
   component: BreathingExercise,
+  decorators: [
+    (Story): ReactElement => (
+      <QueryClientProvider client={queryClient}>
+        <Story />
+      </QueryClientProvider>
+    ),
+  ],
   parameters: {
     layout: 'centered',
     backgrounds: { default: 'wellness' },
@@ -194,6 +216,182 @@ export const AllTechniques: Story = {
     docs: {
       description: {
         story: 'Overview of all available breathing techniques with their patterns and benefits.',
+      },
+    },
+  },
+};
+
+// ==============================================================================
+// Test Stories with Play Functions
+// ==============================================================================
+
+/** Short technique for faster automated tests */
+const testTechniqueShort: BreathingTechnique = {
+  id: 'test_short',
+  name: 'Test Short',
+  durations: [2, 2, 2, 2], // 8 second cycle for demo
+  description: 'Short technique for automated testing',
+  cycles: 2,
+};
+
+/**
+ * Test: Starting the exercise
+ * Verifies that clicking Start transitions to active state
+ */
+export const TestStartExercise: Story = {
+  args: {
+    technique: testTechniqueShort,
+    introduction: 'Test story for automated interaction testing',
+    enableAudio: false,
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    // Verify idle state
+    await expect(canvas.getByText('Start Exercise')).toBeInTheDocument();
+    await expect(canvas.getByText('Ready')).toBeInTheDocument();
+
+    // Click start button
+    const startButton = canvas.getByText('Start Exercise');
+    await userEvent.click(startButton);
+
+    // Verify active state
+    await expect(canvas.getByText('Breathe In')).toBeInTheDocument();
+    await expect(canvas.getByText(/Cycle 1 of/)).toBeInTheDocument();
+    await expect(canvas.getByText('Pause')).toBeInTheDocument();
+    await expect(canvas.getByText('Stop')).toBeInTheDocument();
+  },
+};
+
+/**
+ * Test: Pause and resume functionality
+ * Verifies pause/resume buttons work correctly
+ */
+export const TestPauseResume: Story = {
+  args: {
+    technique: testTechniqueShort,
+    enableAudio: false,
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    // Start exercise
+    await userEvent.click(canvas.getByText('Start Exercise'));
+    await expect(canvas.getByText('Pause')).toBeInTheDocument();
+
+    // Pause
+    await userEvent.click(canvas.getByText('Pause'));
+    await expect(canvas.getByText('Resume')).toBeInTheDocument();
+    await expect(canvas.queryByText('Pause')).not.toBeInTheDocument();
+
+    // Resume
+    await userEvent.click(canvas.getByText('Resume'));
+    await expect(canvas.getByText('Pause')).toBeInTheDocument();
+    await expect(canvas.queryByText('Resume')).not.toBeInTheDocument();
+  },
+};
+
+/**
+ * Test: Stopping the exercise
+ * Verifies that Stop button returns to idle state
+ */
+export const TestStopExercise: Story = {
+  args: {
+    technique: testTechniqueShort,
+    enableAudio: false,
+  },
+  play: async ({ canvasElement, args }) => {
+    const canvas = within(canvasElement);
+
+    // Start exercise
+    await userEvent.click(canvas.getByText('Start Exercise'));
+    await expect(canvas.getByText('Breathe In')).toBeInTheDocument();
+
+    // Stop exercise
+    await userEvent.click(canvas.getByText('Stop'));
+
+    // Verify returned to idle state
+    await expect(canvas.getByText('Start Exercise')).toBeInTheDocument();
+    await expect(canvas.getByText('Ready')).toBeInTheDocument();
+
+    // Verify onStop callback was called
+    if (args.onStop) {
+      await expect(args.onStop).toHaveBeenCalledOnce();
+    }
+  },
+};
+
+/**
+ * Test: Audio toggle
+ * Verifies audio can be toggled on and off
+ */
+export const TestAudioToggle: Story = {
+  args: {
+    technique: testTechniqueShort,
+    enableAudio: true, // Enable audio for this test
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    // Verify audio toggle exists and shows "Sound On"
+    await expect(canvas.getByText('Sound On')).toBeInTheDocument();
+
+    // Toggle off
+    await userEvent.click(canvas.getByText('Sound On'));
+    await expect(canvas.getByText('Sound Off')).toBeInTheDocument();
+    await expect(canvas.queryByText('Sound On')).not.toBeInTheDocument();
+
+    // Toggle back on
+    await userEvent.click(canvas.getByText('Sound Off'));
+    await expect(canvas.getByText('Sound On')).toBeInTheDocument();
+    await expect(canvas.queryByText('Sound Off')).not.toBeInTheDocument();
+  },
+};
+
+/**
+ * Test: Accessibility
+ * Verifies ARIA labels and semantic HTML
+ */
+export const TestAccessibility: Story = {
+  args: {
+    technique: testTechniqueShort,
+    enableAudio: false,
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    // Verify button semantics
+    const startButton = canvas.getByText('Start Exercise');
+    await expect(startButton.tagName).toBe('BUTTON');
+
+    // Start and verify animation ARIA label
+    await userEvent.click(startButton);
+    const animation = canvas.getByRole('img');
+    await expect(animation).toHaveAttribute('aria-label');
+
+    // Verify aria-label contains phase info
+    const ariaLabel = animation.getAttribute('aria-label');
+    await expect(ariaLabel).toMatch(/Breathe In:.*seconds remaining/);
+  },
+};
+
+/**
+ * Visual test: Phase transitions
+ * Manual verification - watch the phases change over time
+ * No assertions, just visual confirmation
+ */
+export const VisualPhaseTransitions: Story = {
+  args: {
+    technique: testTechniqueShort,
+    introduction:
+      'Visual test - watch the phases transition. This story has no automated assertions.',
+    enableAudio: false,
+  },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'Visual test for phase transitions. Start the exercise and manually verify that phases advance correctly (Breathe In → Hold → Breathe Out → Hold).',
       },
     },
   },
