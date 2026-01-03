@@ -1,0 +1,86 @@
+/**
+ * Wbot Documentation Theme
+ * Custom styling for the Docusaurus documentation site.
+ */
+
+:root {
+  /* Primary colors - matches Wbot's wellness theme */
+  --ifm-color-primary: #4a9d9a;
+  --ifm-color-primary-dark: #3d8583;
+  --ifm-color-primary-darker: #377a78;
+  --ifm-color-primary-darkest: #2d6563;
+  --ifm-color-primary-light: #5eb0ad;
+  --ifm-color-primary-lighter: #6ab7b4;
+  --ifm-color-primary-lightest: #85c7c5;
+
+  /* Code block styling */
+  --ifm-code-font-size: 95%;
+  --docusaurus-highlighted-code-line-bg: rgba(74, 157, 154, 0.1);
+
+  /* Font family */
+  --ifm-font-family-base:
+    system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+    sans-serif;
+  --ifm-font-family-monospace: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+}
+
+/* Dark mode colors */
+[data-theme='dark'] {
+  --ifm-color-primary: #5eb0ad;
+  --ifm-color-primary-dark: #4a9d9a;
+  --ifm-color-primary-darker: #3d8583;
+  --ifm-color-primary-darkest: #2d6563;
+  --ifm-color-primary-light: #72bdb9;
+  --ifm-color-primary-lighter: #85c7c5;
+  --ifm-color-primary-lightest: #a8d7d5;
+
+  --docusaurus-highlighted-code-line-bg: rgba(94, 176, 173, 0.15);
+}
+
+/* Navbar styling */
+.navbar {
+  box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+}
+
+/* Sidebar styling */
+.menu__link {
+  font-size: 0.9rem;
+}
+
+/* Table styling */
+table {
+  display: table;
+  width: 100%;
+}
+
+table th {
+  background-color: var(--ifm-color-primary-lightest);
+}
+
+[data-theme='dark'] table th {
+  background-color: var(--ifm-color-primary-darkest);
+}
+
+/* Mermaid diagram container */
+.docusaurus-mermaid-container {
+  margin: 1.5rem 0;
+}
+
+/* Code block titles */
+.prism-code {
+  border-radius: 8px;
+}
+
+/* Admonition styling */
+.admonition {
+  border-radius: 8px;
+}
+
+/* Footer styling */
+.footer {
+  background-color: #1a1a1a;
+}
+
+.footer__title {
+  color: #ffffff;
+}

@@ -17,7 +17,6 @@ Classification outputs:
 ============================================================================
 """
 
-import logging
 from typing import Literal
 
 from langchain_core.messages import HumanMessage
@@ -25,9 +24,10 @@ from pydantic import BaseModel, Field
 
 from src.graph.state import WellnessState
 from src.llm.providers import ModelTier, create_llm
+from src.logging_config import NodeLogger
 
 # Set up logging for this node
-logger = logging.getLogger(__name__)
+logger = NodeLogger("detect_activity")
 
 
 # -----------------------------------------------------------------------------
@@ -43,11 +43,9 @@ class ActivityDetection(BaseModel):
     ensures reliable, typed responses from the LLM.
     """
 
-    detected_activity: Literal["breathing", "meditation", "journaling"] | None = (
-        Field(
-            default=None,
-            description="The type of wellness activity detected, or None if normal conversation",
-        )
+    detected_activity: Literal["breathing", "meditation", "journaling"] | None = Field(
+        default=None,
+        description="The type of wellness activity detected, or None if normal conversation",
     )
 
     confidence: float = Field(
@@ -139,18 +137,15 @@ async def detect_activity_intent(state: WellnessState) -> dict:
     Returns:
         Dict with suggested_activity (or None if no activity detected)
     """
-    logger.info("=== DETECT ACTIVITY NODE REACHED ===")
+    logger.node_start()
 
     messages = state.get("messages", [])
     if not messages:
-        logger.info("No messages to analyze")
         return {"suggested_activity": None}
 
     # Get the user's message and recent context
     last_message = get_last_user_message(messages)
     context = get_recent_context(messages)
-
-    logger.info(f"Analyzing message: {last_message[:100]}...")
 
     # Create structured LLM
     try:
@@ -161,30 +156,24 @@ async def detect_activity_intent(state: WellnessState) -> dict:
         prompt = DETECTION_PROMPT.format(context=context, message=last_message)
 
         # Run detection
-        result: ActivityDetection = await structured_llm.ainvoke(
-            [HumanMessage(content=prompt)]
-        )
-
-        logger.info(
-            f"Detection result: activity={result.detected_activity}, "
-            f"confidence={result.confidence:.2f}, "
-            f"reasoning={result.reasoning[:50]}..."
-        )
+        result: ActivityDetection = await structured_llm.ainvoke([HumanMessage(content=prompt)])
 
         # Only route if confidence is high enough
         confidence_threshold = 0.7
         if result.confidence >= confidence_threshold and result.detected_activity:
             logger.info(
-                f"Activity detected with sufficient confidence: {result.detected_activity}"
+                "Activity detected → routing",
+                activity=result.detected_activity,
+                confidence=f"{result.confidence:.0%}",
             )
+            logger.node_end()
             return {"suggested_activity": result.detected_activity}
 
-        logger.info(
-            f"No activity routed (confidence {result.confidence:.2f} < {confidence_threshold})"
-        )
+        logger.info("No activity needed → conversation")
+        logger.node_end()
         return {"suggested_activity": None}
 
     except Exception as e:
-        logger.error(f"Activity detection failed: {e}")
-        # On error, proceed with normal conversation
+        logger.error("Detection failed", error=str(e))
+        logger.node_end()
         return {"suggested_activity": None}

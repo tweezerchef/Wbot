@@ -19,9 +19,13 @@ from langchain_core.messages import SystemMessage
 
 from src.graph.state import WellnessState
 from src.llm.providers import create_llm
+from src.logging_config import NodeLogger
 from src.memory.store import Memory, format_memories_for_prompt
 from src.prompts.wellness_system import WELLNESS_SYSTEM_PROMPT
 from src.utils.user_context import format_user_context
+
+# Set up logging for this node
+logger = NodeLogger("generate_response")
 
 
 async def generate_response(state: WellnessState) -> dict:
@@ -78,6 +82,8 @@ async def generate_response(state: WellnessState) -> dict:
             ]
         }
     """
+    logger.node_start()
+
     # Create the LLM instance
     # The provider (Claude/Gemini) is determined by LLM_PROVIDER env var
     llm = create_llm()
@@ -94,6 +100,7 @@ async def generate_response(state: WellnessState) -> dict:
     # These come from the retrieve_memories node that runs before this
     retrieved_memories = state.get("retrieved_memories", [])
     if retrieved_memories:
+        logger.info("Using memories", count=len(retrieved_memories))
         # Convert dicts back to Memory objects for formatting
         memories = [
             Memory(
@@ -112,9 +119,7 @@ async def generate_response(state: WellnessState) -> dict:
 
     # Create the system message with personalized context
     # The WELLNESS_SYSTEM_PROMPT has a {user_context} placeholder
-    system_message = SystemMessage(
-        content=WELLNESS_SYSTEM_PROMPT.format(user_context=context_str)
-    )
+    system_message = SystemMessage(content=WELLNESS_SYSTEM_PROMPT.format(user_context=context_str))
 
     # Build the complete message list for the LLM
     # Structure: [SystemMessage, HumanMessage, AIMessage, HumanMessage, ...]
@@ -123,6 +128,8 @@ async def generate_response(state: WellnessState) -> dict:
     # Generate the response
     # ainvoke is the async version, enabling streaming in LangGraph
     response = await llm.ainvoke(messages)
+
+    logger.node_end()
 
     # Return the update to be merged into state
     # The add_messages reducer handles appending to the messages list

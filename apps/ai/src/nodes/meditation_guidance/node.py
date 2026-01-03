@@ -13,14 +13,13 @@ This is a stub for architecture validation.
 ============================================================================
 """
 
-import logging
-
 from langchain_core.messages import AIMessage
 
 from src.graph.state import WellnessState
+from src.logging_config import NodeLogger
 
 # Set up logging for this node
-logger = logging.getLogger(__name__)
+logger = NodeLogger("meditation_guidance")
 
 
 async def run_meditation_guidance(state: WellnessState) -> dict:
@@ -35,24 +34,14 @@ async def run_meditation_guidance(state: WellnessState) -> dict:
     Returns:
         Dict with meditation guidance messages
     """
-    # Log that this node was reached (for routing validation)
-    logger.info("=== MEDITATION GUIDANCE NODE REACHED ===")
-    logger.info(f"User context: {state.get('user_context', {})}")
-    logger.info(f"Message count: {len(state.get('messages', []))}")
+    logger.node_start()
+    logger.info("PLACEHOLDER - Feature coming soon")
 
-    # Also print to console for visibility
-    print("\n" + "=" * 50)
-    print("PLACEHOLDER: Meditation Guidance Node Activated")
-    print("=" * 50)
-    print(f"User: {state.get('user_context', {}).get('display_name', 'Unknown')}")
-    print("This is where meditation guidance would be generated.")
-    print("=" * 50 + "\n")
-
-    # Return a placeholder message
     placeholder_message = AIMessage(
         content="[PLACEHOLDER] I would now guide you through a meditation. "
         "This feature is coming soon! For now, try closing your eyes and "
         "focusing on your breath for a minute."
     )
 
+    logger.node_end()
     return {"messages": [placeholder_message]}

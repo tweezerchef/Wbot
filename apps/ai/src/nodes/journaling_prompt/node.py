@@ -14,14 +14,13 @@ This is a stub for architecture validation.
 ============================================================================
 """
 
-import logging
-
 from langchain_core.messages import AIMessage
 
 from src.graph.state import WellnessState
+from src.logging_config import NodeLogger
 
 # Set up logging for this node
-logger = logging.getLogger(__name__)
+logger = NodeLogger("journaling_prompt")
 
 
 async def provide_journaling_prompt(state: WellnessState) -> dict:
@@ -36,24 +35,14 @@ async def provide_journaling_prompt(state: WellnessState) -> dict:
     Returns:
         Dict with journaling prompt messages
     """
-    # Log that this node was reached (for routing validation)
-    logger.info("=== JOURNALING PROMPT NODE REACHED ===")
-    logger.info(f"User context: {state.get('user_context', {})}")
-    logger.info(f"Message count: {len(state.get('messages', []))}")
+    logger.node_start()
+    logger.info("PLACEHOLDER - Feature coming soon")
 
-    # Also print to console for visibility
-    print("\n" + "=" * 50)
-    print("PLACEHOLDER: Journaling Prompt Node Activated")
-    print("=" * 50)
-    print(f"User: {state.get('user_context', {}).get('display_name', 'Unknown')}")
-    print("This is where journaling prompts would be generated.")
-    print("=" * 50 + "\n")
-
-    # Return a placeholder message
     placeholder_message = AIMessage(
         content="[PLACEHOLDER] I would now offer you a journaling prompt. "
         "This feature is coming soon! For now, try writing about: "
         "'What's one thing you're grateful for today, and why?'"
     )
 
+    logger.node_end()
     return {"messages": [placeholder_message]}

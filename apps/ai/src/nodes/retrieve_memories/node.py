@@ -17,7 +17,11 @@ Latency: ~50-100ms (embedding generation + DB query)
 from langchain_core.messages import HumanMessage
 
 from src.graph.state import WellnessState
+from src.logging_config import NodeLogger
 from src.memory.store import search_memories
+
+# Set up logging for this node
+logger = NodeLogger("retrieve_memories")
 
 
 async def retrieve_memories(state: WellnessState) -> dict:
@@ -44,12 +48,15 @@ async def retrieve_memories(state: WellnessState) -> dict:
         - Returns empty list if no user messages yet
         - Errors are logged but don't fail the conversation
     """
+    logger.node_start()
+
     # Get user context for user_id
     user_context = state.get("user_context", {})
     user_id = user_context.get("user_id")
 
     if not user_id:
         # No user ID means no memories to search (unauthenticated)
+        logger.node_end()
         return {"retrieved_memories": []}
 
     # Get the latest user message
@@ -58,6 +65,7 @@ async def retrieve_memories(state: WellnessState) -> dict:
 
     if not user_messages:
         # No user messages yet
+        logger.node_end()
         return {"retrieved_memories": []}
 
     latest_message = user_messages[-1].content
@@ -82,10 +90,15 @@ async def retrieve_memories(state: WellnessState) -> dict:
             for m in memories
         ]
 
+        if memory_dicts:
+            logger.info("Found relevant memories", count=len(memory_dicts))
+
+        logger.node_end()
         return {"retrieved_memories": memory_dicts}
 
     except Exception as e:
         # Log error but don't fail the conversation
         # User should still get a response even if memory retrieval fails
-        print(f"[retrieve_memories] Error searching memories: {e}")
+        logger.error("Memory search failed", error=str(e))
+        logger.node_end()
         return {"retrieved_memories": []}

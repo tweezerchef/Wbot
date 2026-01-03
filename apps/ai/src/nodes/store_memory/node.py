@@ -19,7 +19,11 @@ from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.runnables import RunnableConfig
 
 from src.graph.state import WellnessState
+from src.logging_config import NodeLogger
 from src.memory.store import generate_title_if_needed, save_messages, store_memory
+
+# Set up logging for this node
+logger = NodeLogger("store_memory")
 
 
 async def store_memory_node(state: WellnessState, config: RunnableConfig) -> dict:
@@ -46,12 +50,15 @@ async def store_memory_node(state: WellnessState, config: RunnableConfig) -> dic
         - Does nothing if no complete message pair found
         - Errors are logged but don't fail the conversation
     """
+    logger.node_start()
+
     # Get user context for user_id
     user_context = state.get("user_context", {})
     user_id = user_context.get("user_id")
 
     if not user_id:
         # No user ID means can't store memory
+        logger.node_end()
         return {}
 
     # Get conversation_id from thread_id in config
@@ -63,6 +70,7 @@ async def store_memory_node(state: WellnessState, config: RunnableConfig) -> dic
 
     if len(messages) < 2:
         # Need at least 2 messages for a pair
+        logger.node_end()
         return {}
 
     # Find the latest user message and AI response pair
@@ -79,6 +87,7 @@ async def store_memory_node(state: WellnessState, config: RunnableConfig) -> dic
 
     if not user_message or not ai_response:
         # No complete pair found
+        logger.node_end()
         return {}
 
     # Save to messages table (for conversation history)
@@ -94,7 +103,7 @@ async def store_memory_node(state: WellnessState, config: RunnableConfig) -> dic
             # This ensures conversations have meaningful titles in history
             generate_title_if_needed(conversation_id)
         except Exception as e:
-            print(f"[store_memory] Error saving messages: {e}")
+            logger.error("Failed to save messages", error=str(e))
 
     # Store the memory with embedding (for semantic search)
     # Fire-and-forget pattern - errors logged but don't fail the conversation
@@ -108,8 +117,10 @@ async def store_memory_node(state: WellnessState, config: RunnableConfig) -> dic
                 "source": "wellness_chat",
             },
         )
+        logger.info("Memory stored")
     except Exception as e:
         # Log but don't fail - user already has their response
-        print(f"[store_memory] Error storing memory: {e}")
+        logger.error("Failed to store memory", error=str(e))
 
+    logger.node_end()
     return {}

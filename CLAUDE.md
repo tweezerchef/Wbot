@@ -408,6 +408,135 @@ if (!result.success) {
 
 ---
 
+## Python Logging Guidelines
+
+### Philosophy: Minimal & Focused
+
+**Show only what matters** - the AI agent's decision-making flow. Suppress all framework noise.
+
+### Using NodeLogger
+
+All Python nodes use the `NodeLogger` class for clean, minimal output:
+
+```python
+from src.logging_config import NodeLogger
+
+# Create logger with node name
+logger = NodeLogger("my_node")
+
+# Node lifecycle - automatic visual separators
+logger.node_start()   # Shows: ▶ MY_NODE
+logger.node_end()     # Shows: ✓ MY_NODE
+
+# Logging with context (appears on separate lines)
+logger.info("Activity detected",
+    activity="breathing",
+    confidence="85%"
+)
+
+logger.warning("Rate limit approaching", requests_remaining=5)
+logger.error("Processing failed", error=str(e))
+```
+
+### Output Example
+
+```
+──────────────────────────────────────────────────────────────────────
+▶ DETECT_ACTIVITY
+19:15:30 | INFO | [detect_activity] Activity detected → routing
+  activity: breathing
+  confidence: 85%
+✓ DETECT_ACTIVITY
+──────────────────────────────────────────────────────────────────────
+```
+
+### What Gets Logged
+
+**DO log:**
+
+- Node entry/exit (using `node_start()` / `node_end()`)
+- Key decisions (routing choices, technique selections)
+- Important context (memory usage, user choices)
+- Errors and warnings
+
+**DON'T log:**
+
+- Verbose details like full message previews
+- Redundant information already in context
+- Step-by-step progress within a node
+- Framework/HTTP logs (already suppressed)
+
+### Guidelines
+
+1. **Keep it minimal** - Each node should have 1-3 info logs max
+2. **Focus on decisions** - Log the "what" and "why", not the "how"
+3. **Use context params** - Put data in keyword args, not in the message string
+4. **Be descriptive** - Message should explain the decision/action
+
+### Good Examples
+
+```python
+# ✅ Good - Clear decision with context
+logger.info("Activity detected → routing",
+    activity="breathing",
+    confidence="85%"
+)
+
+# ✅ Good - Simple decision point
+logger.info("No activity needed → conversation")
+
+# ✅ Good - Important context
+logger.info("Using memories", count=3)
+
+# ❌ Bad - Too verbose
+logger.info(
+    "Analyzing message",
+    message_preview=last_message[:100],
+    message_count=len(messages),
+    user_id=user_context.get("id"),
+    timestamp=datetime.now()
+)
+
+# ❌ Bad - Redundant progress updates
+logger.info("Starting LLM call")
+logger.info("LLM response received")
+logger.info("Formatting response")
+```
+
+### Suppressed Logs
+
+These loggers are set to ERROR-only (you won't see them unless something breaks):
+
+- `langgraph_api` - Framework logs
+- `langgraph_runtime` - Runtime logs
+- `httpx` / `httpcore` - HTTP requests
+- `browser_opener` - Studio UI logs
+
+### Advanced Configuration
+
+Enable verbose logging when debugging:
+
+```python
+import logging
+
+# Show all node logs including DEBUG
+logging.getLogger("node").setLevel(logging.DEBUG)
+
+# Show framework logs
+logging.getLogger("langgraph_api").setLevel(logging.INFO)
+
+# Show HTTP requests
+logging.getLogger("httpx").setLevel(logging.INFO)
+```
+
+### Files
+
+- `apps/ai/src/logging_config.py` - Logging configuration
+- `apps/ai/LOGGING.md` - Quick reference guide
+- All nodes use `NodeLogger` instead of standard `logging.getLogger()`
+
+---
+
 ## Error Handling
 
 ### Frontend
@@ -448,4 +577,4 @@ if (!result.success) {
 
 _This file helps Claude Code understand the project conventions and constraints._
 
-_Last updated: January 2, 2025_
+_Last updated: January 3, 2025_

@@ -19,7 +19,6 @@ Supported techniques:
 """
 
 import json
-import logging
 from typing import Any
 
 from langchain_core.messages import AIMessage, HumanMessage
@@ -27,9 +26,10 @@ from langgraph.types import interrupt
 
 from src.graph.state import WellnessState
 from src.llm.providers import ModelTier, create_llm
+from src.logging_config import NodeLogger
 
 # Set up logging for this node
-logger = logging.getLogger(__name__)
+logger = NodeLogger("breathing_exercise")
 
 
 # -----------------------------------------------------------------------------
@@ -115,7 +115,7 @@ Available techniques:
 {techniques_info}
 
 User's recent message: "{last_message}"
-User preferences: {user_context.get('preferences', {})}
+User preferences: {user_context.get("preferences", {})}
 
 Based on the context, which technique would be most helpful?
 Respond with ONLY the technique ID (one of: box, relaxing_478, coherent, deep_calm).
@@ -183,8 +183,7 @@ async def run_breathing_exercise(state: WellnessState) -> dict:
     Returns:
         Dict with messages containing exercise guidance/configuration
     """
-    logger.info("=== BREATHING EXERCISE NODE REACHED ===")
-    logger.info(f"User context: {state.get('user_context', {})}")
+    logger.node_start()
 
     # Get user's display name for personalization
     user_context = state.get("user_context", {})
@@ -192,7 +191,7 @@ async def run_breathing_exercise(state: WellnessState) -> dict:
 
     # Step 1: Select the most appropriate technique
     selected_technique = await select_technique_with_llm(state)
-    logger.info(f"Selected technique: {selected_technique['name']}")
+    logger.info("Selected technique", technique=selected_technique["name"])
 
     # Step 2: Use HITL interrupt to get user confirmation
     # This pauses the graph and waits for user input
@@ -213,7 +212,8 @@ async def run_breathing_exercise(state: WellnessState) -> dict:
     decision = user_response.get("decision", "start")
 
     if decision == "not_now":
-        # User declined - return a supportive message
+        logger.info("User declined")
+        logger.node_end()
         return {
             "messages": [
                 AIMessage(
@@ -230,7 +230,7 @@ async def run_breathing_exercise(state: WellnessState) -> dict:
         new_technique_id = user_response.get("technique_id", "box")
         if new_technique_id in BREATHING_TECHNIQUES:
             selected_technique = BREATHING_TECHNIQUES[new_technique_id]
-            logger.info(f"User changed to: {selected_technique['name']}")
+            logger.info("User changed technique", new=selected_technique["name"])
 
     # Step 4: Generate personalized introduction
     introduction = (
@@ -243,7 +243,7 @@ async def run_breathing_exercise(state: WellnessState) -> dict:
     # Step 5: Return the exercise configuration
     exercise_message = format_exercise_message(selected_technique, introduction)
 
-    logger.info("Returning exercise configuration to frontend")
+    logger.node_end()
 
     return {
         "messages": [AIMessage(content=exercise_message)],
