@@ -21,7 +21,6 @@ from functools import lru_cache
 from google import genai
 from google.genai import types
 
-
 # Embedding dimensions - 768 is a good balance of quality and storage
 # Gemini supports 128 to 3072 dimensions
 EMBEDDING_DIMENSIONS = 768

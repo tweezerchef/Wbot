@@ -18,7 +18,6 @@ Security:
 
 import os
 from dataclasses import dataclass
-from typing import Any
 
 from supabase import Client, create_client
 
@@ -45,7 +44,7 @@ class Memory:
     ai_response: str
     similarity: float
     created_at: str
-    metadata: dict[str, Any]
+    metadata: dict[str, object]
 
 
 def get_supabase_client() -> Client:
@@ -78,7 +77,7 @@ async def store_memory(
     user_message: str,
     ai_response: str,
     conversation_id: str | None = None,
-    metadata: dict[str, Any] | None = None,
+    metadata: dict[str, object] | None = None,
 ) -> str:
     """
     Stores a conversation pair as a memory with its embedding.

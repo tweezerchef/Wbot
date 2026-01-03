@@ -14,7 +14,6 @@ Configures logging with:
 
 import logging
 import sys
-from typing import Any
 
 # ============================================================================
 # ANSI Color Codes for Terminal Output
@@ -184,44 +183,44 @@ class NodeLogger:
     clear visual separation and context information.
     """
 
-    def __init__(self, node_name: str):
+    def __init__(self, node_name: str) -> None:
         """Initialize node logger with specific node name."""
         self.node_name = node_name
         self.logger = logging.getLogger(f"node.{node_name}")
 
-    def node_start(self, **context: Any) -> None:
+    def node_start(self, **context: object) -> None:
         """Log node execution start with visual separator."""
         separator = "─" * 70
         message = f"\n{separator}\n▶ {self.node_name.upper()}"
         self._log_with_context(logging.INFO, message, context)
 
-    def node_end(self, **context: Any) -> None:
+    def node_end(self, **context: object) -> None:
         """Log node execution end with visual separator."""
         separator = "─" * 70
         message = f"✓ {self.node_name.upper()}\n{separator}\n"
         self._log_with_context(logging.INFO, message, context)
 
-    def info(self, message: str, **context: Any) -> None:
+    def info(self, message: str, **context: object) -> None:
         """Log info message with node context."""
         formatted_msg = f"[{self.node_name}] {message}"
         self._log_with_context(logging.INFO, formatted_msg, context)
 
-    def debug(self, message: str, **context: Any) -> None:
+    def debug(self, message: str, **context: object) -> None:
         """Log debug message with node context."""
         formatted_msg = f"[{self.node_name}] {message}"
         self._log_with_context(logging.DEBUG, formatted_msg, context)
 
-    def warning(self, message: str, **context: Any) -> None:
+    def warning(self, message: str, **context: object) -> None:
         """Log warning message with node context."""
         formatted_msg = f"[{self.node_name}] {message}"
         self._log_with_context(logging.WARNING, formatted_msg, context)
 
-    def error(self, message: str, **context: Any) -> None:
+    def error(self, message: str, **context: object) -> None:
         """Log error message with node context."""
         formatted_msg = f"[{self.node_name}] {message}"
         self._log_with_context(logging.ERROR, formatted_msg, context)
 
-    def _log_with_context(self, level: int, message: str, context: dict[str, Any]) -> None:
+    def _log_with_context(self, level: int, message: str, context: dict[str, object]) -> None:
         """
         Internal method to log with context as extra fields.
 

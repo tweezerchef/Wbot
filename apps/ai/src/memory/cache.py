@@ -25,7 +25,6 @@ import hashlib
 import json
 import os
 import time
-from typing import Any
 
 import redis.asyncio as redis
 
@@ -227,7 +226,7 @@ async def _evict_oldest_entries(
         return 0
 
 
-async def get_cache_stats(user_id: str) -> dict[str, Any]:
+async def get_cache_stats(user_id: str) -> dict[str, object]:
     """
     Returns cache statistics for debugging and monitoring.
 

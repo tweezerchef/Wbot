@@ -36,10 +36,10 @@ from src.memory.store import (
 )
 
 __all__ = [
-    "generate_embedding",
-    "format_memory_text",
-    "store_memory",
-    "search_memories",
-    "format_memories_for_prompt",
     "Memory",
+    "format_memories_for_prompt",
+    "format_memory_text",
+    "generate_embedding",
+    "search_memories",
+    "store_memory",
 ]
