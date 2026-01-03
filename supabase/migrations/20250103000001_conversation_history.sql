@@ -96,6 +96,9 @@ AS $$
   OFFSET p_offset;
 $$;
 
+-- Grant execute permission to authenticated users
+GRANT EXECUTE ON FUNCTION public.get_conversations_with_preview(uuid, integer, integer) TO authenticated;
+
 -- ----------------------------------------------------------------------------
 -- FUNCTION: search_conversations_keyword
 -- ----------------------------------------------------------------------------
@@ -143,6 +146,9 @@ AS $$
   ORDER BY rank DESC, m.created_at DESC
   LIMIT p_limit;
 $$;
+
+-- Grant execute permission to authenticated users
+GRANT EXECUTE ON FUNCTION public.search_conversations_keyword(uuid, text, integer) TO authenticated;
 
 -- ----------------------------------------------------------------------------
 -- FUNCTION: generate_conversation_title
