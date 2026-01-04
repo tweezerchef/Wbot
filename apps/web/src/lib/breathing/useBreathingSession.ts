@@ -12,12 +12,18 @@
    - Progress tracking
    - Experience level validation (safety checks for Wim Hof)
    - Analytics and insights
+
+   NOTE: breathing_sessions table exists but types not yet regenerated.
+   Run `pnpm db:generate-types` after starting Supabase to fix types.
    ============================================================================ */
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import type { CompletionStats } from '../../components/WimHofExercise';
 import { supabase } from '../supabase';
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const breathingSessions = () => supabase.from('breathing_sessions' as any);
 
 /**
  * Parameters for starting a new breathing session
@@ -55,8 +61,7 @@ export function useBreathingSession() {
    */
   const startSession = useMutation({
     mutationFn: async (params: StartSessionParams) => {
-      const { data, error } = await supabase
-        .from('breathing_sessions')
+      const { data, error } = await breathingSessions()
         .insert({
           technique_id: params.techniqueId,
           technique_name: params.techniqueName,
@@ -64,7 +69,7 @@ export function useBreathingSession() {
           conversation_id: params.conversationId,
           mood_before: params.moodBefore,
           completed: false,
-        })
+        } as never)
         .select()
         .single();
 
@@ -88,14 +93,13 @@ export function useBreathingSession() {
    */
   const completeSession = useMutation({
     mutationFn: async (params: CompleteSessionParams) => {
-      const { data, error } = await supabase
-        .from('breathing_sessions')
+      const { data, error } = await breathingSessions()
         .update({
           completed: true,
           completed_at: new Date().toISOString(),
           session_data: params.sessionData,
           mood_after: params.moodAfter,
-        })
+        } as never)
         .eq('id', params.sessionId)
         .select()
         .single();
@@ -121,11 +125,10 @@ export function useBreathingSession() {
    */
   const updateSession = useMutation({
     mutationFn: async ({ sessionId, sessionData }: { sessionId: string; sessionData: unknown }) => {
-      const { data, error } = await supabase
-        .from('breathing_sessions')
+      const { data, error } = await breathingSessions()
         .update({
           session_data: sessionData,
-        })
+        } as never)
         .eq('id', sessionId)
         .select()
         .single();

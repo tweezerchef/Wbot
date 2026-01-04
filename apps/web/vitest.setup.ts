@@ -10,17 +10,7 @@
 
 import '@testing-library/jest-dom/vitest';
 
-// Extend Vitest's expect with jest-dom matchers
-// This adds matchers like:
-// - toBeInTheDocument()
-// - toHaveTextContent()
-// - toBeVisible()
-// - toBeDisabled()
-// - toHaveClass()
-// etc.
-
 // Mock window.matchMedia (not implemented in happy-dom)
-// Required for components that use media queries
 Object.defineProperty(window, 'matchMedia', {
   writable: true,
   value: (query: string) => ({
@@ -36,7 +26,6 @@ Object.defineProperty(window, 'matchMedia', {
 });
 
 // Mock ResizeObserver (not implemented in happy-dom)
-// Required for components that observe element sizes
 global.ResizeObserver = class ResizeObserver {
   observe() {}
   unobserve() {}
@@ -44,7 +33,6 @@ global.ResizeObserver = class ResizeObserver {
 };
 
 // Mock AudioContext (not implemented in happy-dom)
-// Required for BreathingExercise audio features
 const createMockGainNode = () => ({
   gain: {
     value: 0,
@@ -62,6 +50,7 @@ const createMockOscillatorNode = () => ({
   connect: () => ({}),
   start: () => {},
   stop: () => {},
+  disconnect: () => {},
 });
 
 const createMockBufferSourceNode = () => ({
@@ -70,6 +59,13 @@ const createMockBufferSourceNode = () => ({
   connect: () => ({}),
   start: () => {},
   stop: () => {},
+});
+
+// Mock StereoPannerNode for binaural beats (useBinauralBeats hook)
+const createMockStereoPannerNode = () => ({
+  pan: { value: 0 },
+  connect: () => ({}),
+  disconnect: () => {},
 });
 
 global.AudioContext = class MockAudioContext {
@@ -95,6 +91,9 @@ global.AudioContext = class MockAudioContext {
   createBufferSource() {
     return createMockBufferSourceNode();
   }
+  createStereoPanner() {
+    return createMockStereoPannerNode();
+  }
   decodeAudioData() {
     return Promise.resolve({
       duration: 60,
@@ -104,3 +103,11 @@ global.AudioContext = class MockAudioContext {
     });
   }
 } as unknown as typeof AudioContext;
+
+// Ensure React Testing Library cleanup runs after each test
+import { cleanup } from '@testing-library/react';
+import { afterEach } from 'vitest';
+
+afterEach(() => {
+  cleanup();
+});

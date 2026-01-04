@@ -5,9 +5,6 @@
 // configurations from AI message content.
 // ============================================================================
 
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
-/* eslint-disable @typescript-eslint/no-unsafe-call */
-
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 import {
@@ -108,8 +105,8 @@ describe('parseActivityContent', () => {
       // Verify activity exists before accessing properties
       expect(result.activity).not.toBeNull();
       const activity = result.activity;
-      if (!activity) {
-        return;
+      if (activity?.activity !== 'breathing') {
+        throw new Error('Expected breathing activity');
       }
 
       expect(activity.technique.id).toBe('box');
@@ -430,8 +427,7 @@ describe('parseActivityContent - Wim Hof', () => {
       expect(result.activity).not.toBeNull();
       const activity = result.activity;
       if (activity?.activity !== 'breathing_wim_hof') {
-        fail('Expected Wim Hof activity');
-        return;
+        throw new Error('Expected Wim Hof activity');
       }
 
       expect(activity.technique.id).toBe('wim_hof');
@@ -450,8 +446,7 @@ describe('parseActivityContent - Wim Hof', () => {
 
       const activity = result.activity;
       if (activity?.activity !== 'breathing_wim_hof') {
-        fail('Expected Wim Hof activity');
-        return;
+        throw new Error('Expected Wim Hof activity');
       }
 
       // Required fields

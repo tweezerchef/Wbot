@@ -81,7 +81,7 @@ describe('conversationHistory', () => {
         data: { session: { user: { id: 'user-123' } } },
         error: null,
       } as unknown as Awaited<ReturnType<typeof supabase.auth.getSession>>);
-      vi.mocked(supabase.rpc).mockResolvedValue({ data: [], error: null });
+      vi.mocked(supabase.rpc).mockResolvedValue({ data: [], error: null } as never);
 
       await getConversationsWithPreview(10, 5);
 
@@ -98,7 +98,7 @@ describe('conversationHistory', () => {
         data: { session: { user: { id: 'user-123' } } },
         error: null,
       } as unknown as Awaited<ReturnType<typeof supabase.auth.getSession>>);
-      vi.mocked(supabase.rpc).mockResolvedValue({ data: mockData, error: null });
+      vi.mocked(supabase.rpc).mockResolvedValue({ data: mockData, error: null } as never);
 
       const result = await getConversationsWithPreview();
 
@@ -113,8 +113,8 @@ describe('conversationHistory', () => {
       } as unknown as Awaited<ReturnType<typeof supabase.auth.getSession>>);
       vi.mocked(supabase.rpc).mockResolvedValue({
         data: null,
-        error: new Error('RPC error'),
-      });
+        error: { message: 'RPC error', details: '', hint: '', code: '' },
+      } as never);
 
       const result = await getConversationsWithPreview();
 
@@ -128,7 +128,7 @@ describe('conversationHistory', () => {
         data: { session: { user: { id: 'user-123' } } },
         error: null,
       } as unknown as Awaited<ReturnType<typeof supabase.auth.getSession>>);
-      vi.mocked(supabase.rpc).mockResolvedValue({ data: invalidData, error: null });
+      vi.mocked(supabase.rpc).mockResolvedValue({ data: invalidData, error: null } as never);
 
       const result = await getConversationsWithPreview();
 
@@ -141,7 +141,7 @@ describe('conversationHistory', () => {
         data: { session: { user: { id: 'user-123' } } },
         error: null,
       } as unknown as Awaited<ReturnType<typeof supabase.auth.getSession>>);
-      vi.mocked(supabase.rpc).mockResolvedValue({ data: [], error: null });
+      vi.mocked(supabase.rpc).mockResolvedValue({ data: [], error: null } as never);
 
       await getConversationsWithPreview();
 
@@ -181,7 +181,7 @@ describe('conversationHistory', () => {
         data: { session: { user: { id: 'user-123' } } },
         error: null,
       } as unknown as Awaited<ReturnType<typeof supabase.auth.getSession>>);
-      vi.mocked(supabase.rpc).mockResolvedValue({ data: [], error: null });
+      vi.mocked(supabase.rpc).mockResolvedValue({ data: [], error: null } as never);
 
       await searchConversationsKeyword('test query', 20);
 
@@ -198,7 +198,7 @@ describe('conversationHistory', () => {
         data: { session: { user: { id: 'user-123' } } },
         error: null,
       } as unknown as Awaited<ReturnType<typeof supabase.auth.getSession>>);
-      vi.mocked(supabase.rpc).mockResolvedValue({ data: mockResults, error: null });
+      vi.mocked(supabase.rpc).mockResolvedValue({ data: mockResults, error: null } as never);
 
       const result = await searchConversationsKeyword('test');
 
@@ -213,8 +213,8 @@ describe('conversationHistory', () => {
       } as unknown as Awaited<ReturnType<typeof supabase.auth.getSession>>);
       vi.mocked(supabase.rpc).mockResolvedValue({
         data: null,
-        error: new Error('Search error'),
-      });
+        error: { message: 'Search error', details: '', hint: '', code: '' },
+      } as never);
 
       const result = await searchConversationsKeyword('test');
 
@@ -236,7 +236,7 @@ describe('conversationHistory', () => {
         data: { session: { user: { id: 'user-123' } } },
         error: null,
       } as unknown as Awaited<ReturnType<typeof supabase.auth.getSession>>);
-      vi.mocked(supabase.rpc).mockResolvedValue({ data: mockResults, error: null });
+      vi.mocked(supabase.rpc).mockResolvedValue({ data: mockResults, error: null } as never);
 
       const result = await searchConversations('test');
 
@@ -259,7 +259,7 @@ describe('conversationHistory', () => {
         data: { session: { user: { id: 'user-123' } } },
         error: null,
       } as unknown as Awaited<ReturnType<typeof supabase.auth.getSession>>);
-      vi.mocked(supabase.rpc).mockResolvedValue({ data: mockResults, error: null });
+      vi.mocked(supabase.rpc).mockResolvedValue({ data: mockResults, error: null } as never);
 
       const result = await searchConversations('test');
 
@@ -274,7 +274,7 @@ describe('conversationHistory', () => {
         data: { session: { user: { id: 'user-123' } } },
         error: null,
       } as unknown as Awaited<ReturnType<typeof supabase.auth.getSession>>);
-      vi.mocked(supabase.rpc).mockResolvedValue({ data: mockResults, error: null });
+      vi.mocked(supabase.rpc).mockResolvedValue({ data: mockResults, error: null } as never);
 
       const result = await searchConversations('test');
 
@@ -301,7 +301,7 @@ describe('conversationHistory', () => {
         data: { session: { user: { id: 'user-123' } } },
         error: null,
       } as unknown as Awaited<ReturnType<typeof supabase.auth.getSession>>);
-      vi.mocked(supabase.rpc).mockResolvedValue({ data: mockResults, error: null });
+      vi.mocked(supabase.rpc).mockResolvedValue({ data: mockResults, error: null } as never);
 
       const result = await searchConversations('test', 2);
 
