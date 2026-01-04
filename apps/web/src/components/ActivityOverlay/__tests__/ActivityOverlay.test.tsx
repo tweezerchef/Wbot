@@ -13,13 +13,16 @@ vi.mock('framer-motion', () => ({
       onClick,
       onKeyDown,
       role,
+      tabIndex,
       ...props
     }: React.HTMLProps<HTMLDivElement> & { 'data-activity-type'?: string }) => (
+      // eslint-disable-next-line jsx-a11y/no-static-element-interactions -- Test mock, actual component has proper a11y
       <div
         className={className}
         onClick={onClick}
         onKeyDown={onKeyDown}
         role={role}
+        tabIndex={tabIndex}
         data-testid={props['data-activity-type'] ? 'overlay' : undefined}
         {...props}
       >
