@@ -25,7 +25,8 @@ from pydantic import BaseModel, Field
 
 from src.auth import get_supabase_client
 from src.logging_config import NodeLogger
-from src.tts.elevenlabs import ElevenLabsTTS, MeditationScript
+from src.tts.elevenlabs import ElevenLabsTTS
+from src.tts.openai_audio import MeditationScript, OpenAIAudio
 from src.tts.parallel_streaming import parallel_stream_with_caching
 from src.tts.voices import get_all_voices, get_voice, validate_voice_id
 
@@ -469,37 +470,41 @@ async def generate_meditation(
         raise HTTPException(status_code=400, detail=f"Script not found: {request.script_id}")
 
     try:
-        # Initialize TTS client
-        tts = ElevenLabsTTS()
+        # Initialize OpenAI Audio client
+        audio = OpenAIAudio()
 
-        # Generate audio
-        result = await tts.generate_meditation(
+        # Generate audio - collect all chunks
+        audio_chunks: list[bytes] = []
+        async for chunk in audio.generate_from_script(
             script=script,
             user_name=request.user_name,
-            user_goal=request.user_goal,
-        )
+        ):
+            audio_chunks.append(chunk)
 
+        # For non-streaming, we'd need to upload to storage
+        # For now, return a placeholder response
         logger.info(
             "Meditation generated",
-            script_id=result.script_id,
-            cached=result.cached,
-            url=result.audio_url,
+            script_id=script.id,
+            size=sum(len(c) for c in audio_chunks),
         )
 
+        # Note: For full implementation, upload audio_chunks to storage
+        # and return the URL. For now this endpoint should use streaming instead.
         return GenerateMeditationResponse(
-            audio_url=result.audio_url,
-            script_id=result.script_id,
-            duration_seconds=result.duration_seconds,
-            cached=result.cached,
-            voice_id=result.voice_id,
+            audio_url="",  # Would need storage upload
+            script_id=script.id,
+            duration_seconds=script.duration_estimate_seconds,
+            cached=False,
+            voice_id=audio.voice,
         )
 
     except ValueError as e:
         # Missing API key or configuration error
         logger.error(f"Configuration error: {e}")
         raise HTTPException(status_code=500, detail=str(e)) from e
-    except RuntimeError as e:
-        # ElevenLabs API error
+    except Exception as e:
+        # OpenAI API error
         logger.error(f"TTS generation failed: {e}")
         raise HTTPException(status_code=500, detail=str(e)) from e
 

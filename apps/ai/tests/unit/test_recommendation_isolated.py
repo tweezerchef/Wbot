@@ -10,7 +10,13 @@ import pytest
 
 def load_recommendation_module():
     """Load recommendation.py directly without triggering imports."""
-    module_path = Path(__file__).parent.parent.parent / "src" / "nodes" / "meditation_guidance" / "recommendation.py"
+    module_path = (
+        Path(__file__).parent.parent.parent
+        / "src"
+        / "nodes"
+        / "meditation_guidance"
+        / "recommendation.py"
+    )
     spec = importlib.util.spec_from_file_location("recommendation", module_path)
     module = importlib.util.module_from_spec(spec)
 
@@ -19,9 +25,9 @@ def load_recommendation_module():
     from unittest.mock import MagicMock
 
     # Create mock modules
-    sys.modules['src.auth'] = MagicMock()
-    sys.modules['src.logging_config'] = MagicMock()
-    sys.modules['src.logging_config'].NodeLogger = MagicMock()
+    sys.modules["src.auth"] = MagicMock()
+    sys.modules["src.logging_config"] = MagicMock()
+    sys.modules["src.logging_config"].NodeLogger = MagicMock()
 
     spec.loader.exec_module(module)
     return module

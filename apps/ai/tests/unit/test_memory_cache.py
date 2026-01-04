@@ -67,8 +67,9 @@ async def test_cache_miss_returns_none():
 @pytest.mark.asyncio
 async def test_cache_updates_lru_on_hit():
     """get_cached_embedding() should update LRU timestamp on cache hit."""
-    with patch("src.memory.cache.get_redis_client") as mock_get_redis, patch(
-        "src.memory.cache.time.time", return_value=1000.0
+    with (
+        patch("src.memory.cache.get_redis_client") as mock_get_redis,
+        patch("src.memory.cache.time.time", return_value=1000.0),
     ):
         # Setup mock
         mock_redis = AsyncMock()
@@ -145,8 +146,9 @@ async def test_cache_embedding_stores_with_ttl():
 @pytest.mark.asyncio
 async def test_cache_embedding_updates_lru():
     """cache_embedding() should update LRU sorted set."""
-    with patch("src.memory.cache.get_redis_client") as mock_get_redis, patch(
-        "src.memory.cache.time.time", return_value=2000.0
+    with (
+        patch("src.memory.cache.get_redis_client") as mock_get_redis,
+        patch("src.memory.cache.time.time", return_value=2000.0),
     ):
         # Setup mock
         mock_redis = AsyncMock()
@@ -168,9 +170,10 @@ async def test_cache_embedding_updates_lru():
 @pytest.mark.asyncio
 async def test_cache_embedding_triggers_eviction_when_over_limit():
     """cache_embedding() should evict oldest entries when over MAX_ENTRIES."""
-    with patch("src.memory.cache.get_redis_client") as mock_get_redis, patch(
-        "src.memory.cache._evict_oldest_entries"
-    ) as mock_evict:
+    with (
+        patch("src.memory.cache.get_redis_client") as mock_get_redis,
+        patch("src.memory.cache._evict_oldest_entries") as mock_evict,
+    ):
         # Setup mock - cache is over limit
         mock_redis = AsyncMock()
         mock_redis.setex = AsyncMock()

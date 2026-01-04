@@ -248,9 +248,7 @@ class TestPreferredActivitiesMapping:
         """Should format multiple activities as comma-separated list."""
         context = {
             "display_name": "Test",
-            "preferences": {
-                "preferred_activities": ["breathing", "meditation", "journaling"]
-            },
+            "preferences": {"preferred_activities": ["breathing", "meditation", "journaling"]},
         }
 
         result = format_user_context(context)
