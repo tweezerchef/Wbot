@@ -34,6 +34,7 @@ import {
 import { createConversation, loadMessages, touchConversation } from '../../../lib/conversations';
 import { parseActivityContent } from '../../../lib/parseActivity';
 import { supabase } from '../../../lib/supabase';
+import { ActivityOverlay } from '../../ActivityOverlay';
 import { BreathingConfirmation } from '../../BreathingConfirmation';
 import { BreathingExercise, type BreathingTechnique } from '../../BreathingExercise';
 import {
@@ -46,6 +47,11 @@ import {
 } from '../../buttons';
 import { ConversationHistory } from '../../ConversationHistory';
 import { AIGeneratedMeditation, GuidedMeditation } from '../../GuidedMeditation';
+import {
+  ImmersiveBreathing,
+  ImmersiveBreathingConfirmation,
+  type BreathingStats,
+} from '../../ImmersiveBreathing';
 import { VoiceSelectionConfirmation } from '../../VoiceSelectionConfirmation';
 import { WimHofExercise } from '../../WimHofExercise';
 
@@ -108,6 +114,30 @@ export function ChatPage() {
   // - breathing_confirmation: for breathing exercises
   // - voice_selection: for AI-generated meditation voice selection
   const [interruptData, setInterruptData] = useState<InterruptPayload | null>(null);
+
+  // Active activity state for immersive overlay
+  // Phases: confirming -> active -> completing -> null
+  type ActivityState =
+    | {
+        phase: 'confirming';
+        type: 'breathing';
+        data: {
+          proposedTechnique: BreathingTechnique;
+          message: string;
+          availableTechniques: BreathingTechnique[];
+        };
+      }
+    | {
+        phase: 'active';
+        type: 'breathing';
+        data: {
+          technique: BreathingTechnique;
+          introduction?: string;
+        };
+      }
+    | null;
+
+  const [activeActivity, setActiveActivity] = useState<ActivityState>(null);
 
   // Reference to the message container for auto-scrolling
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -231,9 +261,44 @@ export function ChatPage() {
           case 'interrupt': {
             // Graph paused for user confirmation (HITL pattern)
             // Show the confirmation UI and wait for user decision
-            setInterruptData(event.payload);
             setStreamingContent('');
             setIsLoading(false);
+
+            // For breathing confirmations, use immersive overlay
+            if (isBreathingConfirmation(event.payload)) {
+              // Convert available techniques to BreathingTechnique format
+              // Map recommended_cycles → cycles for frontend compatibility
+              const availableTechniques: BreathingTechnique[] =
+                event.payload.available_techniques.map((t) => ({
+                  id: t.id,
+                  name: t.name,
+                  durations: t.durations,
+                  description: t.description,
+                  cycles: t.recommended_cycles,
+                }));
+
+              const proposedTechnique: BreathingTechnique = {
+                id: event.payload.proposed_technique.id,
+                name: event.payload.proposed_technique.name,
+                durations: event.payload.proposed_technique.durations,
+                description: event.payload.proposed_technique.description,
+                cycles: event.payload.proposed_technique.recommended_cycles,
+              };
+
+              setActiveActivity({
+                phase: 'confirming',
+                type: 'breathing',
+                data: {
+                  proposedTechnique,
+                  message: event.payload.message,
+                  availableTechniques,
+                },
+              });
+            } else {
+              // For other interrupts (voice selection), use inline UI
+              setInterruptData(event.payload);
+            }
+
             // Don't refocus input - user should interact with the confirmation
             return; // Exit the loop, handleBreathingConfirm will resume
           }
@@ -432,6 +497,165 @@ export function ChatPage() {
     },
     [conversationId]
   );
+
+  /* --------------------------------------------------------------------------
+     Immersive Breathing Overlay Handlers
+     -------------------------------------------------------------------------- */
+
+  /**
+   * Handle user confirming the breathing exercise in immersive overlay.
+   * Transitions from 'confirming' phase to 'active' phase.
+   */
+  const handleImmersiveBreathingConfirm = useCallback(
+    async (technique: BreathingTechnique) => {
+      if (activeActivity?.phase !== 'confirming') {
+        return;
+      }
+
+      // Store the introduction message for the exercise
+      const introduction = activeActivity.data.message;
+
+      // Resume the graph with user's decision
+      setIsLoading(true);
+
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+
+        if (!session || !conversationId) {
+          console.error('No session or conversation ID');
+          setIsLoading(false);
+          return;
+        }
+
+        const client = createAIClient(session.access_token);
+        let fullResponse = '';
+
+        // Resume with 'start' decision and the selected technique
+        for await (const event of client.resumeInterrupt(
+          { decision: 'start', technique_id: technique.id },
+          conversationId
+        )) {
+          switch (event.type) {
+            case 'token':
+              fullResponse = event.content;
+              break;
+
+            case 'done': {
+              // Add the activity message to the list (will be shown after exercise)
+              const assistantMessage: Message = {
+                id: `assistant-${String(Date.now())}`,
+                role: 'assistant',
+                content: fullResponse,
+                createdAt: new Date(),
+              };
+              setMessages((prev) => [...prev, assistantMessage]);
+              void touchConversation(conversationId);
+              break;
+            }
+
+            case 'error': {
+              console.error('Resume stream error:', event.error);
+              break;
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Failed to resume graph:', error);
+      } finally {
+        setIsLoading(false);
+      }
+
+      // Transition to active phase - show the breathing exercise
+      setActiveActivity({
+        phase: 'active',
+        type: 'breathing',
+        data: {
+          technique,
+          introduction,
+        },
+      });
+    },
+    [activeActivity, conversationId]
+  );
+
+  /**
+   * Handle user declining the breathing exercise.
+   * Closes overlay and resumes graph with 'not_now'.
+   */
+  const handleImmersiveBreathingDecline = useCallback(async () => {
+    setActiveActivity(null);
+    setIsLoading(true);
+
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session || !conversationId) {
+        console.error('No session or conversation ID');
+        setIsLoading(false);
+        return;
+      }
+
+      const client = createAIClient(session.access_token);
+      let fullResponse = '';
+
+      for await (const event of client.resumeInterrupt({ decision: 'not_now' }, conversationId)) {
+        switch (event.type) {
+          case 'token':
+            fullResponse = event.content;
+            setStreamingContent(fullResponse);
+            break;
+
+          case 'done': {
+            const assistantMessage: Message = {
+              id: `assistant-${String(Date.now())}`,
+              role: 'assistant',
+              content: fullResponse,
+              createdAt: new Date(),
+            };
+            setMessages((prev) => [...prev, assistantMessage]);
+            setStreamingContent('');
+            void touchConversation(conversationId);
+            break;
+          }
+
+          case 'error': {
+            console.error('Resume stream error:', event.error);
+            setStreamingContent('');
+            break;
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Failed to resume graph:', error);
+    } finally {
+      setIsLoading(false);
+      inputRef.current?.focus();
+    }
+  }, [conversationId]);
+
+  /**
+   * Handle breathing exercise completion.
+   * Closes overlay and optionally logs stats.
+   */
+  const handleImmersiveBreathingComplete = useCallback((_stats: BreathingStats) => {
+    // Close the overlay
+    setActiveActivity(null);
+    inputRef.current?.focus();
+
+    // TODO: Stats could be sent to backend for tracking (future enhancement)
+  }, []);
+
+  /**
+   * Handle user exiting exercise early (stop button or X).
+   */
+  const handleActivityClose = useCallback(() => {
+    setActiveActivity(null);
+    inputRef.current?.focus();
+  }, []);
 
   /* --------------------------------------------------------------------------
      Sidebar Handlers
@@ -746,6 +970,35 @@ export function ChatPage() {
         </div>
       </div>
       {/* End chatMain */}
+
+      {/* Immersive Activity Overlay */}
+      <ActivityOverlay
+        isOpen={activeActivity !== null}
+        onClose={handleActivityClose}
+        activityType="breathing"
+      >
+        {activeActivity?.phase === 'confirming' && (
+          <ImmersiveBreathingConfirmation
+            proposedTechnique={activeActivity.data.proposedTechnique}
+            message={activeActivity.data.message}
+            availableTechniques={activeActivity.data.availableTechniques}
+            onConfirm={(technique) => {
+              void handleImmersiveBreathingConfirm(technique);
+            }}
+            onDecline={() => {
+              void handleImmersiveBreathingDecline();
+            }}
+          />
+        )}
+        {activeActivity?.phase === 'active' && (
+          <ImmersiveBreathing
+            technique={activeActivity.data.technique}
+            introduction={activeActivity.data.introduction}
+            onComplete={handleImmersiveBreathingComplete}
+            onExit={handleActivityClose}
+          />
+        )}
+      </ActivityOverlay>
     </div>
   );
 }

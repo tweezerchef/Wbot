@@ -1,0 +1,203 @@
+/**
+ * BreathingControls Styles
+ *
+ * Floating control bar at the bottom of the immersive experience.
+ * Uses glassmorphism effect for subtle, non-intrusive appearance.
+ */
+
+/* Control bar container */
+.controls {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: var(--spacing-lg);
+  padding: var(--spacing-lg);
+  padding-bottom: max(var(--spacing-lg), env(safe-area-inset-bottom));
+  background: var(--glass-background);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border-top: 1px solid var(--glass-border);
+  z-index: var(--z-activity-controls);
+}
+
+/* Base button styles */
+.button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  transition:
+    transform var(--transition-fast),
+    box-shadow var(--transition-fast),
+    background var(--transition-fast);
+  color: white;
+}
+
+.button:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* Primary button (pause/resume) - larger and centered */
+.primaryButton {
+  width: 64px;
+  height: 64px;
+  background: rgba(255, 255, 255, 0.2);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
+.primaryButton:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+}
+
+.primaryButton:active {
+  transform: scale(0.95);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+}
+
+/* Secondary buttons (stop, audio) - smaller */
+.secondaryButton {
+  width: 48px;
+  height: 48px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.secondaryButton:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: translateY(-1px);
+}
+
+.secondaryButton:active {
+  transform: scale(0.95);
+}
+
+/* Stop button - red tint on hover */
+.stopButton:hover {
+  background: rgba(239, 68, 68, 0.3);
+}
+
+/* Audio button active state */
+.audioActive {
+  background: rgba(126, 200, 227, 0.3);
+}
+
+.audioActive:hover {
+  background: rgba(126, 200, 227, 0.4);
+}
+
+/* Icon container */
+.icon {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Pause icon (two vertical bars) */
+.pauseIcon {
+  display: flex;
+  gap: 4px;
+}
+
+.pauseIcon::before,
+.pauseIcon::after {
+  content: '';
+  width: 4px;
+  height: 16px;
+  background: currentColor;
+  border-radius: 2px;
+}
+
+/* Play icon (triangle) */
+.playIcon {
+  width: 0;
+  height: 0;
+  border-left: 14px solid currentColor;
+  border-top: 10px solid transparent;
+  border-bottom: 10px solid transparent;
+  margin-left: 4px;
+}
+
+/* Stop icon (square) */
+.stopIcon {
+  width: 14px;
+  height: 14px;
+  background: currentColor;
+  border-radius: 2px;
+}
+
+/* Audio icons - speaker with waves */
+.audioIcon {
+  position: relative;
+  width: 20px;
+  height: 20px;
+}
+
+.audioIcon::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 8px;
+  height: 10px;
+  background: currentColor;
+  clip-path: polygon(0 30%, 40% 30%, 100% 0, 100% 100%, 40% 70%, 0 70%);
+}
+
+/* Sound waves */
+.audioIcon::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 8px;
+  height: 16px;
+  border: 2px solid currentColor;
+  border-left: none;
+  border-radius: 0 50% 50% 0;
+}
+
+/* Muted - show X through the icon */
+.audioMuted .audioIcon::after {
+  display: none;
+}
+
+.audioMuted::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 28px;
+  height: 2px;
+  background: currentColor;
+  transform: translate(-50%, -50%) rotate(-45deg);
+}
+
+/* ============================================================================
+   REDUCED MOTION
+   ============================================================================ */
+
+@media (prefers-reduced-motion: reduce) {
+  .button {
+    transition: none;
+  }
+
+  .button:hover {
+    transform: none;
+  }
+
+  .button:active {
+    transform: none;
+  }
+}
