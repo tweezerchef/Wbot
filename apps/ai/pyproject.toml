@@ -110,6 +110,10 @@ select = ["E", "W", "F", "I", "UP", "B", "SIM", "RUF", "ANN"]
 # - E501: Line too long (handled by line-length setting instead)
 ignore = ["E501"]
 
+# Per-file ignores (tests don't need strict type annotations)
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["ANN201", "ANN001", "ANN202"]  # Allow missing type annotations in tests
+
 [tool.ruff.lint.isort]
 # Mark our own modules as first-party for proper import grouping
 known-first-party = ["src"]
