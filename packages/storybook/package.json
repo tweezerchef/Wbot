@@ -17,12 +17,9 @@
   "devDependencies": {
     "@storybook/addon-a11y": "^10.1.11",
     "@storybook/addon-docs": "^10.1.11",
-    "@storybook/addon-interactions": "^8.6.14",
     "@storybook/addon-vitest": "^10.1.11",
-    "@storybook/experimental-addon-test": "^8.6.14",
     "@storybook/react": "^10.1.11",
     "@storybook/react-vite": "^10.1.11",
-    "@storybook/test": "^8.6.15",
     "@tanstack/query-core": "^5.90.16",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
