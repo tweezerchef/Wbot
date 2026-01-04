@@ -115,8 +115,7 @@ async def check_wim_hof_safety(state: WellnessState) -> SafetyCheckResult:
             "reason": "recent_discomfort",
             "fallback_technique_id": "deep_calm",
             "message": (
-                "Since you mentioned feeling dizzy, let's stick with a gentler "
-                "technique today."
+                "Since you mentioned feeling dizzy, let's stick with a gentler technique today."
             ),
         }
 

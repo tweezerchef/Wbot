@@ -269,7 +269,7 @@ IMPORTANT:
 - For focus: prefer box or coherent
 - When uncertain: default to box breathing
 
-Respond with ONLY the technique ID (one of: {', '.join(valid_ids)}).
+Respond with ONLY the technique ID (one of: {", ".join(valid_ids)}).
 """
 
     try:
@@ -314,9 +314,7 @@ def format_exercise_message(technique: BreathingTechnique, introduction: str) ->
 
 
 def format_wim_hof_exercise(
-    technique: WimHofTechnique,
-    introduction: str,
-    is_first_time: bool
+    technique: WimHofTechnique, introduction: str, is_first_time: bool
 ) -> str:
     """
     Formats Wim Hof exercise configuration for frontend parsing.
@@ -342,9 +340,7 @@ def format_wim_hof_exercise(
 
 
 def generate_introduction(
-    technique: BreathingTechniqueUnion,
-    user_name: str,
-    is_first_time: bool = False
+    technique: BreathingTechniqueUnion, user_name: str, is_first_time: bool = False
 ) -> str:
     """
     Generate personalized introduction based on technique type and user experience.
@@ -464,9 +460,7 @@ async def run_breathing_exercise(state: WellnessState) -> dict[str, list[AIMessa
             if not safety_check["safe"]:
                 logger.warning("Blocked manual Wim Hof selection", reason=safety_check["reason"])
                 logger.node_end()
-                return {
-                    "messages": [AIMessage(content=safety_check["message"])]
-                }
+                return {"messages": [AIMessage(content=safety_check["message"])]}
             # Check first-time status for new selection
             session_count = await get_user_wim_hof_session_count(user_id)
             is_first_time = session_count == 0
