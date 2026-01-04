@@ -26,8 +26,10 @@ import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 
 import {
   createAIClient,
+  isBreathingConfirmation,
+  isVoiceSelection,
   type Message,
-  type BreathingConfirmationPayload,
+  type InterruptPayload,
 } from '../../../lib/ai-client';
 import { createConversation, loadMessages, touchConversation } from '../../../lib/conversations';
 import { parseActivityContent } from '../../../lib/parseActivity';
@@ -44,6 +46,7 @@ import {
 } from '../../buttons';
 import { ConversationHistory } from '../../ConversationHistory';
 import { AIGeneratedMeditation, GuidedMeditation } from '../../GuidedMeditation';
+import { VoiceSelectionConfirmation } from '../../VoiceSelectionConfirmation';
 import { WimHofExercise } from '../../WimHofExercise';
 
 import styles from './ChatPage.module.css';
@@ -100,7 +103,10 @@ export function ChatPage() {
 
   // Interrupt data for HITL (Human-in-the-Loop) confirmation dialogs
   // When the AI suggests an activity, it pauses for user confirmation
-  const [interruptData, setInterruptData] = useState<BreathingConfirmationPayload | null>(null);
+  // InterruptPayload is a union type supporting multiple confirmation types:
+  // - breathing_confirmation: for breathing exercises
+  // - voice_selection: for AI-generated meditation voice selection
+  const [interruptData, setInterruptData] = useState<InterruptPayload | null>(null);
 
   // Reference to the message container for auto-scrolling
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -288,6 +294,89 @@ export function ChatPage() {
 
         for await (const event of client.resumeInterrupt(
           { decision, technique_id: techniqueId },
+          conversationId
+        )) {
+          switch (event.type) {
+            case 'token':
+              fullResponse = event.content;
+              setStreamingContent(fullResponse);
+              break;
+
+            case 'done': {
+              // Add the activity message to the list
+              const assistantMessage: Message = {
+                id: `assistant-${String(Date.now())}`,
+                role: 'assistant',
+                content: fullResponse,
+                createdAt: new Date(),
+              };
+              setMessages((prev) => [...prev, assistantMessage]);
+              setStreamingContent('');
+
+              // Touch conversation for ordering
+              void touchConversation(conversationId);
+              break;
+            }
+
+            case 'error': {
+              console.error('Resume stream error:', event.error);
+              const errorMessage: Message = {
+                id: `error-${String(Date.now())}`,
+                role: 'system',
+                content: `Sorry, something went wrong: ${event.error}`,
+                createdAt: new Date(),
+              };
+              setMessages((prev) => [...prev, errorMessage]);
+              setStreamingContent('');
+              break;
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Failed to resume graph:', error);
+        const errorMessage: Message = {
+          id: `error-${String(Date.now())}`,
+          role: 'system',
+          content: "Sorry, I couldn't continue. Please try again.",
+          createdAt: new Date(),
+        };
+        setMessages((prev) => [...prev, errorMessage]);
+      } finally {
+        setIsLoading(false);
+        inputRef.current?.focus();
+      }
+    },
+    [conversationId]
+  );
+
+  /* --------------------------------------------------------------------------
+     Handle Voice Selection Confirmation (HITL resume for meditation)
+     -------------------------------------------------------------------------- */
+  const handleVoiceSelectionConfirm = useCallback(
+    async (decision: 'confirm' | 'cancel', voiceId?: string) => {
+      // Clear the interrupt UI
+      setInterruptData(null);
+      setIsLoading(true);
+      setStreamingContent('');
+
+      try {
+        // Get session for auth
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+
+        if (!session || !conversationId) {
+          console.error('No session or conversation ID');
+          setIsLoading(false);
+          return;
+        }
+
+        // Resume the graph with user's decision
+        const client = createAIClient(session.access_token);
+        let fullResponse = '';
+
+        for await (const event of client.resumeInterrupt(
+          { decision, voice_id: voiceId },
           conversationId
         )) {
           switch (event.type) {
@@ -563,7 +652,7 @@ export function ChatPage() {
           )}
 
           {/* Breathing exercise confirmation (HITL interrupt) */}
-          {interruptData && (
+          {interruptData && isBreathingConfirmation(interruptData) && (
             <div className={styles.messageRow}>
               <div
                 className={`${styles.bubble} ${styles.bubbleAssistant} ${styles.bubbleActivity}`}
@@ -574,6 +663,26 @@ export function ChatPage() {
                   availableTechniques={interruptData.available_techniques}
                   onConfirm={(decision, techniqueId) => {
                     void handleBreathingConfirm(decision, techniqueId);
+                  }}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Meditation voice selection confirmation (HITL interrupt) */}
+          {interruptData && isVoiceSelection(interruptData) && (
+            <div className={styles.messageRow}>
+              <div
+                className={`${styles.bubble} ${styles.bubbleAssistant} ${styles.bubbleActivity}`}
+              >
+                <VoiceSelectionConfirmation
+                  message={interruptData.message}
+                  availableVoices={interruptData.available_voices}
+                  recommendedVoice={interruptData.recommended_voice}
+                  meditationPreview={interruptData.meditation_preview}
+                  durationMinutes={interruptData.duration_minutes}
+                  onConfirm={(decision, voiceId) => {
+                    void handleVoiceSelectionConfirm(decision, voiceId);
                   }}
                 />
               </div>

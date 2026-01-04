@@ -22,9 +22,9 @@ class TestVoiceConfiguration:
         """Default voice key should exist in MEDITATION_VOICES."""
         assert DEFAULT_VOICE_KEY in MEDITATION_VOICES
 
-    def test_default_voice_is_nova(self):
-        """Default voice should be nova (warm, calm female)."""
-        assert DEFAULT_VOICE_KEY == "nova"
+    def test_default_voice_is_marin(self):
+        """Default voice should be marin (warm, calm voice recommended by OpenAI)."""
+        assert DEFAULT_VOICE_KEY == "marin"
 
     def test_all_voices_have_required_fields(self):
         """All voices should have required fields."""
@@ -52,13 +52,27 @@ class TestVoiceConfiguration:
         for key, voice in MEDITATION_VOICES.items():
             assert voice["id"] == key, f"Voice {key} id doesn't match key"
 
-    def test_has_six_voices(self):
-        """Should have exactly 6 OpenAI voices."""
-        assert len(MEDITATION_VOICES) == 6
+    def test_has_thirteen_voices(self):
+        """Should have exactly 13 OpenAI voices."""
+        assert len(MEDITATION_VOICES) == 13
 
     def test_expected_voices_exist(self):
         """All expected OpenAI voices should exist."""
-        expected = ["alloy", "echo", "fable", "nova", "onyx", "shimmer"]
+        expected = [
+            "alloy",
+            "ash",
+            "ballad",
+            "coral",
+            "echo",
+            "fable",
+            "marin",
+            "nova",
+            "onyx",
+            "sage",
+            "shimmer",
+            "verse",
+            "cedar",
+        ]
         for voice_key in expected:
             assert voice_key in MEDITATION_VOICES, f"Missing voice: {voice_key}"
 
@@ -144,7 +158,21 @@ class TestGetAllVoices:
         """Should contain all expected voice names."""
         voices = get_all_voices()
         names = [v["name"] for v in voices]
-        expected = ["Alloy", "Echo", "Fable", "Nova", "Onyx", "Shimmer"]
+        expected = [
+            "Alloy",
+            "Ash",
+            "Ballad",
+            "Coral",
+            "Echo",
+            "Fable",
+            "Marin",
+            "Nova",
+            "Onyx",
+            "Sage",
+            "Shimmer",
+            "Verse",
+            "Cedar",
+        ]
         for name in expected:
             assert name in names
 
@@ -163,11 +191,11 @@ class TestGetDefaultVoice:
         expected = MEDITATION_VOICES[DEFAULT_VOICE_KEY]
         assert voice == expected
 
-    def test_default_is_nova(self):
-        """Default voice should be Nova."""
+    def test_default_is_marin(self):
+        """Default voice should be Marin."""
         voice = get_default_voice()
-        assert voice["name"] == "Nova"
-        assert voice["id"] == "nova"
+        assert voice["name"] == "Marin"
+        assert voice["id"] == "marin"
 
 
 class TestRecommendVoiceForType:

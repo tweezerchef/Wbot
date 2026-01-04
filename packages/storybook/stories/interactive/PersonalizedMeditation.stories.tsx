@@ -313,11 +313,11 @@ function AuthenticatedPersonalizedMeditation(
 }
 
 /**
- * Personalized meditation component with TTS-generated audio via ElevenLabs.
+ * Personalized meditation component with TTS-generated audio via OpenAI.
  *
  * **⚠️ Requirements:**
  * 1. Backend running: `pnpm dev:ai`
- * 2. `ELEVENLABS_API_KEY` configured in `.env`
+ * 2. `OPENAI_API_KEY` configured in `.env`
  * 3. Sign in within Storybook (form provided)
  *
  * Features:
@@ -343,12 +343,12 @@ const meta: Meta<typeof PersonalizedMeditation> = {
     docs: {
       description: {
         component: `
-Personalized meditation component with TTS-generated audio via ElevenLabs.
+Personalized meditation component with TTS-generated audio via OpenAI.
 
 ## ⚠️ Requirements
 
 1. **Backend running:** \`pnpm dev:ai\`
-2. **ElevenLabs API key:** Set \`ELEVENLABS_API_KEY\` in your \`.env\`
+2. **OpenAI API key:** Set \`OPENAI_API_KEY\` in your \`.env\`
 3. **Sign in:** Use the sign-in form that appears in each story
 
 ## Authentication
@@ -366,7 +366,7 @@ POST /api/meditation/stream
   user_goal: 'reducing stress'
 }
 
-→ Streams audio chunks from ElevenLabs
+→ Streams audio chunks from OpenAI TTS
 → Caches to Supabase Storage for future instant playback
 \`\`\`
 
@@ -414,7 +414,7 @@ type Story = StoryObj<typeof PersonalizedMeditation>;
 
 /**
  * Default story - triggers real TTS generation.
- * Shows sign-in form if not authenticated, then generates audio via ElevenLabs.
+ * Shows sign-in form if not authenticated, then generates audio via OpenAI TTS.
  */
 export const Default: Story = {
   render: (args) => <AuthenticatedPersonalizedMeditation {...args} />,

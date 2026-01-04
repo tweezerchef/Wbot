@@ -2,7 +2,8 @@
 ============================================================================
 Generate Meditation Script Node
 ============================================================================
-Generates personalized meditation scripts using Claude AI.
+Generates personalized meditation scripts using OpenAI's Chat Completions
+with audio output (gpt-4o-mini-audio-preview).
 
 This node creates fully customized meditation scripts based on:
 - User's memories and past conversations
@@ -14,8 +15,10 @@ Flow:
 1. Extract context from state (memories, user_context, messages)
 2. Detect meditation type and emotional signals
 3. Use interrupt() for voice selection (HITL)
-4. Generate personalized script with Claude
-5. Return activity data for frontend streaming
+4. Generate meditation text + audio with OpenAI (single API call)
+5. Cache audio to Supabase Storage
+6. Save to user_generated_meditations table
+7. Return activity data with audio_url for frontend playback
 
 Activity Type: meditation_ai_generated
 ============================================================================
@@ -24,18 +27,19 @@ Activity Type: meditation_ai_generated
 import json
 import uuid
 from datetime import datetime
-from typing import Literal, TypedDict
+from typing import Literal, NotRequired, TypedDict
 
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
 from langgraph.types import interrupt
 
+from src.auth import get_supabase_client
 from src.graph.state import WellnessState
-from src.llm.providers import ModelTier, create_llm
 from src.logging_config import NodeLogger
 from src.nodes.generate_meditation_script.prompts import (
-    build_script_generation_prompt,
-    build_title_generation_prompt,
+    OPENAI_MEDITATION_SYSTEM_PROMPT,
+    build_spoken_meditation_prompt,
 )
+from src.tts.openai_audio import generate_meditation_with_caching
 from src.tts.voices import (
     DEFAULT_VOICE_KEY,
     MEDITATION_VOICES,
@@ -92,6 +96,7 @@ class AIGeneratedMeditationActivity(TypedDict):
     voice: Voice
     generation_context: GenerationContext
     introduction: str
+    audio_url: NotRequired[str]  # Pre-generated audio URL (skips frontend streaming)
 
 
 class VoiceSelectionConfirmation(TypedDict):
@@ -267,14 +272,16 @@ async def run_generate_meditation_script(
     state: WellnessState,
 ) -> dict[str, list[AIMessage]]:
     """
-    Generates a personalized meditation script using Claude.
+    Generates a personalized meditation using OpenAI Chat Completions with audio.
 
     Flow:
     1. Extract context (memories, user profile, messages)
     2. Detect emotional signals and select meditation type
     3. Use interrupt() for HITL voice selection
-    4. Generate personalized script with Claude
-    5. Return activity data for frontend streaming
+    4. Generate meditation text + audio with OpenAI (single API call)
+    5. Cache audio to Supabase Storage
+    6. Save to user_generated_meditations table
+    7. Return activity data with audio_url for frontend playback
 
     Args:
         state: Current conversation state
@@ -355,8 +362,12 @@ async def run_generate_meditation_script(
 
     logger.info("Voice selected", voice=selected_voice["name"])
 
-    # Step 2: Generate Script with Claude
-    script_prompt = build_script_generation_prompt(
+    # Generate meditation ID for this session
+    meditation_id = str(uuid.uuid4())
+    user_id = user_context.get("user_id", "anonymous")
+
+    # Step 2: Generate meditation text + audio with OpenAI (single API call)
+    meditation_prompt = build_spoken_meditation_prompt(
         meditation_type=meditation_type,
         duration_minutes=duration_minutes,
         user_name=user_name,
@@ -367,13 +378,26 @@ async def run_generate_meditation_script(
         emotional_signals=emotional_signals if emotional_signals else None,
     )
 
-    llm = create_llm(tier=ModelTier.STANDARD, temperature=0.7, max_tokens=2000)
-
     try:
-        script_response = await llm.ainvoke([HumanMessage(content=script_prompt)])
-        script_content = str(script_response.content).strip()
+        # Generate both text and audio in one call, cache audio to storage
+        audio_result = await generate_meditation_with_caching(
+            prompt=meditation_prompt,
+            meditation_id=meditation_id,
+            user_id=user_id,
+            voice=selected_voice_key,
+            system_prompt=OPENAI_MEDITATION_SYSTEM_PROMPT,
+        )
+        script_content = audio_result.text_content
+        audio_url = audio_result.audio_url
+
+        logger.info(
+            "Meditation generated with audio",
+            meditation_id=meditation_id,
+            audio_url=audio_url,
+            text_length=len(script_content),
+        )
     except Exception as e:
-        logger.error("Script generation failed", error=str(e))
+        logger.error("Meditation generation failed", error=str(e))
         logger.node_end()
         return {
             "messages": [
@@ -386,29 +410,14 @@ async def run_generate_meditation_script(
             ]
         }
 
-    # Step 3: Generate Title
-    title_prompt = build_title_generation_prompt(
-        meditation_type=meditation_type,
-        user_name=user_name,
-        primary_intent=user_message[:50] if user_message else "relaxation",
-        duration_minutes=duration_minutes,
-    )
-
-    try:
-        title_llm = create_llm(tier=ModelTier.FAST, temperature=0.5, max_tokens=20)
-        title_response = await title_llm.ainvoke([HumanMessage(content=title_prompt)])
-        title = str(title_response.content).strip()
-    except Exception:
-        # Fallback title
-        type_name = meditation_type.replace("_", " ").title()
-        title = f"Your {type_name}" if not user_name else f"{user_name}'s {type_name}"
+    # Step 3: Generate Title (simple format, no separate LLM call)
+    type_name = meditation_type.replace("_", " ").title()
+    title = f"{user_name}'s {type_name}" if user_name else f"Your {type_name}"
 
     # Step 4: Build Activity Data
     word_count = len(script_content.split())
     # Estimate ~120 words per minute for meditation pace
-    estimated_duration = int(word_count / 2)  # words / (120 wpm) * 60 sec
-
-    meditation_id = str(uuid.uuid4())
+    estimated_duration = audio_result.duration_estimate_seconds
 
     generation_context: GenerationContext = {
         "time_of_day": time_of_day,
@@ -454,14 +463,50 @@ async def run_generate_meditation_script(
         "introduction": introduction,
     }
 
+    # Add audio_url if available (allows frontend to skip streaming endpoint)
+    if audio_url:
+        activity_data["audio_url"] = audio_url
+
+    # Step 5: Save to user_generated_meditations table for replay
+    try:
+        supabase = await get_supabase_client()
+        await (
+            supabase.table("user_generated_meditations")
+            .insert(
+                {
+                    "id": meditation_id,
+                    "user_id": user_id,
+                    "title": title,
+                    "meditation_type": meditation_type,
+                    "script_content": script_content,
+                    "duration_seconds": estimated_duration,
+                    "generation_context": generation_context,
+                    "voice_id": selected_voice_key,
+                    "voice_name": selected_voice["name"],
+                    "audio_url": audio_url,
+                    "status": "ready",
+                }
+            )
+            .execute()
+        )
+
+        logger.info(
+            "Meditation saved to database",
+            meditation_id=meditation_id,
+        )
+    except Exception as e:
+        # Don't fail the whole flow if DB save fails
+        logger.warning("Failed to save meditation to database", error=str(e))
+
     # Format message with activity markers
     activity_message = format_activity_message(activity_data)
 
     logger.info(
-        "Meditation script generated",
+        "Meditation generated",
         meditation_id=meditation_id,
         title=title,
         word_count=word_count,
+        audio_url=audio_url,
     )
     logger.node_end()
 

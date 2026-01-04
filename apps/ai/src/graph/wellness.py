@@ -5,12 +5,13 @@ Wellness Conversation Graph
 The main LangGraph graph definition for Wbot's wellness chatbot.
 
 Graph Structure (With Activity Routing):
-    START -> retrieve_memories -> detect_activity -> [routing decision]
+    START -> inject_user_context -> retrieve_memories -> detect_activity -> [routing decision]
         -> generate_response -> store_memory -> END
         -> breathing_exercise -> store_memory -> END
         -> generate_meditation_script -> store_memory -> END
         (future: journaling_prompt)
 
+    - inject_user_context: Injects auth user info into state for downstream nodes
     - retrieve_memories: Semantic search for relevant past conversations (~50ms)
     - detect_activity: LLM-based classification to detect activity needs
     - generate_response: Streams AI response to user in real-time
@@ -30,6 +31,7 @@ from src.nodes.breathing_exercise import run_breathing_exercise
 from src.nodes.detect_activity import detect_activity_intent
 from src.nodes.generate_meditation_script import run_generate_meditation_script
 from src.nodes.generate_response import generate_response
+from src.nodes.inject_user_context import inject_user_context
 from src.nodes.retrieve_memories import retrieve_memories
 from src.nodes.store_memory import store_memory_node
 
@@ -81,6 +83,11 @@ def build_graph() -> StateGraph:
             └────┬────┘
                  │
                  ▼
+        ┌───────────────────────┐
+        │  inject_user_context  │  ← Populates user_context from auth
+        └──────────┬────────────┘
+                   │
+                   ▼
         ┌─────────────────────┐
         │  retrieve_memories  │  ← Fast DB query (~50ms)
         └──────────┬──────────┘
@@ -122,6 +129,10 @@ def build_graph() -> StateGraph:
     # Add Nodes
     # -------------------------------------------------------------------------
 
+    # User context injection - reads auth info and populates user_context
+    # This MUST run first so all downstream nodes have access to user info
+    builder.add_node("inject_user_context", inject_user_context)
+
     # Memory retrieval - searches for relevant past conversations
     builder.add_node("retrieve_memories", retrieve_memories)
 
@@ -144,8 +155,11 @@ def build_graph() -> StateGraph:
     # Define Edges (Flow)
     # -------------------------------------------------------------------------
 
-    # Entry point: first retrieve relevant memories
-    builder.set_entry_point("retrieve_memories")
+    # Entry point: first inject user context from auth
+    builder.set_entry_point("inject_user_context")
+
+    # After user context is set, retrieve relevant memories
+    builder.add_edge("inject_user_context", "retrieve_memories")
 
     # After memories, detect if activity is needed
     builder.add_edge("retrieve_memories", "detect_activity")

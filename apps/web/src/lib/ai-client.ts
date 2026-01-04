@@ -75,6 +75,40 @@ export interface BreathingConfirmationPayload {
   options: ('start' | 'change_technique' | 'not_now')[];
 }
 
+// Voice info from the backend (for meditation voice selection)
+export interface VoiceInfo {
+  id: string;
+  name: string;
+  description: string;
+  best_for: string[];
+  preview_url: string | null;
+}
+
+// Payload sent by the backend when an interrupt occurs for meditation voice selection
+export interface VoiceSelectionPayload {
+  type: 'voice_selection';
+  message: string;
+  available_voices: VoiceInfo[];
+  recommended_voice: string;
+  meditation_preview: string;
+  duration_minutes: number;
+}
+
+// Union type for all interrupt payloads (supports multiple HITL workflows)
+export type InterruptPayload = BreathingConfirmationPayload | VoiceSelectionPayload;
+
+// Type guard for breathing confirmation payload
+export function isBreathingConfirmation(
+  payload: InterruptPayload
+): payload is BreathingConfirmationPayload {
+  return payload.type === 'breathing_confirmation';
+}
+
+// Type guard for voice selection payload
+export function isVoiceSelection(payload: InterruptPayload): payload is VoiceSelectionPayload {
+  return payload.type === 'voice_selection';
+}
+
 // Events emitted during streaming
 export type StreamEvent =
   // A token of text content from the AI
@@ -85,8 +119,8 @@ export type StreamEvent =
   | { type: 'error'; error: string }
   // Stream started (useful for loading states)
   | { type: 'start' }
-  // Graph paused for human-in-the-loop input (breathing confirmation)
-  | { type: 'interrupt'; payload: BreathingConfirmationPayload };
+  // Graph paused for human-in-the-loop input (breathing or meditation confirmation)
+  | { type: 'interrupt'; payload: InterruptPayload };
 
 // Technique IDs that should be filtered from streaming output
 // These are internal LLM responses that shouldn't be shown to users
@@ -253,12 +287,13 @@ export class AIClient {
         console.log('Stream event:', chunk.event, JSON.stringify(chunk.data));
 
         // Check for interrupt events (HITL - Human-in-the-Loop)
-        // This happens when the graph pauses for user confirmation (e.g., breathing technique)
+        // This happens when the graph pauses for user confirmation (e.g., breathing or meditation)
         const chunkData = chunk.data as Record<string, unknown> | null;
         if (chunkData && '__interrupt__' in chunkData) {
           const interruptArray = chunkData.__interrupt__ as { value: unknown }[];
           if (interruptArray.length > 0) {
-            const interruptPayload = interruptArray[0].value as BreathingConfirmationPayload;
+            // Cast to union type - the `type` field discriminates between interrupt types
+            const interruptPayload = interruptArray[0].value as InterruptPayload;
             yield { type: 'interrupt', payload: interruptPayload };
             // Stop streaming here - frontend will handle the interrupt and resume
             return;
@@ -399,7 +434,7 @@ export class AIClient {
   /**
    * Resumes an interrupted graph after user input (HITL pattern).
    *
-   * Called after the user responds to a confirmation prompt (e.g., breathing technique).
+   * Called after the user responds to a confirmation prompt (e.g., breathing technique or voice selection).
    * The graph will resume from where it was paused and continue processing.
    *
    * @param resumeData - User's decision and any additional data
@@ -407,6 +442,7 @@ export class AIClient {
    * @yields StreamEvent objects as the graph resumes processing
    *
    * @example
+   * // For breathing confirmation:
    * for await (const event of client.resumeInterrupt(
    *   { decision: 'start', technique_id: 'box' },
    *   threadId
@@ -415,9 +451,20 @@ export class AIClient {
    *     updateUI(event.content);
    *   }
    * }
+   *
+   * @example
+   * // For voice selection:
+   * for await (const event of client.resumeInterrupt(
+   *   { decision: 'confirm', voice_id: 'nova' },
+   *   threadId
+   * )) {
+   *   if (event.type === 'token') {
+   *     updateUI(event.content);
+   *   }
+   * }
    */
   async *resumeInterrupt(
-    resumeData: { decision: string; technique_id?: string },
+    resumeData: { decision: string; technique_id?: string; voice_id?: string },
     threadId: string
   ): AsyncGenerator<StreamEvent> {
     yield { type: 'start' };

@@ -27,8 +27,22 @@ from src.logging_config import NodeLogger
 
 logger = NodeLogger("openai_audio")
 
-# OpenAI TTS voices
-VALID_VOICES = ["alloy", "echo", "fable", "onyx", "nova", "shimmer"]
+# OpenAI TTS voices (all 13 available voices)
+VALID_VOICES = [
+    "alloy",
+    "ash",
+    "ballad",
+    "coral",
+    "echo",
+    "fable",
+    "marin",
+    "nova",
+    "onyx",
+    "sage",
+    "shimmer",
+    "verse",
+    "cedar",
+]
 
 # Default system prompt for meditation guide
 DEFAULT_MEDITATION_SYSTEM_PROMPT = (
@@ -63,6 +77,17 @@ class GeneratedMeditation:
     cached: bool
 
 
+@dataclass
+class MeditationAudioResult:
+    """Result of generating meditation with both text and audio."""
+
+    text_content: str  # The transcript/script text
+    audio_bytes: bytes  # Raw audio data (MP3)
+    audio_url: str | None  # Public URL after caching (optional)
+    voice: str
+    duration_estimate_seconds: int  # Estimated from text word count
+
+
 class OpenAIAudio:
     """
     Generate meditation audio using OpenAI Chat Completions with audio output.
@@ -74,16 +99,16 @@ class OpenAIAudio:
     def __init__(
         self,
         api_key: str | None = None,
-        voice: str = "nova",
-        model: str = "gpt-4o-audio-preview",
+        voice: str = "marin",
+        model: str = "gpt-4o-mini-audio-preview",
     ) -> None:
         """
         Initialize OpenAI Audio client.
 
         Args:
             api_key: OpenAI API key (defaults to OPENAI_API_KEY env var)
-            voice: Voice to use (alloy, echo, fable, onyx, nova, shimmer)
-            model: Model to use (gpt-4o-audio-preview for streaming audio)
+            voice: Voice to use (marin, cedar recommended for quality)
+            model: Model to use (gpt-4o-mini-audio-preview for audio generation)
         """
         self.api_key = api_key or os.getenv("OPENAI_API_KEY")
         if not self.api_key:
@@ -201,10 +226,100 @@ class OpenAIAudio:
         content_hash = hashlib.sha256(f"{prompt}:{voice}".encode()).hexdigest()[:16]
         return f"openai-{content_hash}"
 
+    async def generate_meditation_with_text(
+        self,
+        prompt: str,
+        system_prompt: str | None = None,
+        voice: str | None = None,
+    ) -> MeditationAudioResult:
+        """
+        Generate meditation audio AND text transcript in a single API call.
+
+        Uses Chat Completions with modalities=["text", "audio"] to get both
+        the spoken meditation text and audio together.
+
+        Args:
+            prompt: The meditation request with full context
+            system_prompt: Optional custom system prompt
+            voice: Voice to use (defaults to instance voice)
+
+        Returns:
+            MeditationAudioResult with text content, audio bytes, and metadata
+        """
+        voice = voice or self.voice
+
+        logger.info(
+            "Generating meditation with text+audio",
+            voice=voice,
+            model=self.model,
+            prompt_length=len(prompt),
+        )
+
+        try:
+            # Use streaming to collect both text and audio
+            response = await self.client.chat.completions.create(
+                model=self.model,
+                modalities=["text", "audio"],
+                audio={"voice": voice, "format": "mp3"},
+                messages=[
+                    {
+                        "role": "system",
+                        "content": system_prompt or DEFAULT_MEDITATION_SYSTEM_PROMPT,
+                    },
+                    {"role": "user", "content": prompt},
+                ],
+                stream=True,
+            )
+
+            text_chunks: list[str] = []
+            audio_chunks: list[bytes] = []
+
+            async for chunk in response:
+                if chunk.choices and chunk.choices[0].delta:
+                    delta = chunk.choices[0].delta
+
+                    # Collect text content
+                    if hasattr(delta, "content") and delta.content:
+                        text_chunks.append(delta.content)
+
+                    # Collect audio data (base64 encoded)
+                    if hasattr(delta, "audio") and delta.audio:
+                        audio_data = getattr(delta.audio, "data", None)
+                        if audio_data:
+                            decoded = base64.b64decode(audio_data)
+                            audio_chunks.append(decoded)
+
+            text_content = "".join(text_chunks)
+            audio_bytes = b"".join(audio_chunks)
+
+            # Estimate duration from word count (~120 words per minute for meditation)
+            word_count = len(text_content.split())
+            duration_estimate = int((word_count / 120) * 60)  # seconds
+
+            logger.info(
+                "Meditation generated",
+                text_length=len(text_content),
+                audio_size=len(audio_bytes),
+                word_count=word_count,
+                duration_estimate=duration_estimate,
+            )
+
+            return MeditationAudioResult(
+                text_content=text_content,
+                audio_bytes=audio_bytes,
+                audio_url=None,  # Will be set after caching
+                voice=voice,
+                duration_estimate_seconds=duration_estimate,
+            )
+
+        except Exception as e:
+            logger.error("OpenAI audio generation error", error=str(e))
+            raise
+
 
 async def stream_meditation_audio(
     prompt: str,
-    voice: str = "nova",
+    voice: str = "marin",
     system_prompt: str | None = None,
 ) -> AsyncGenerator[bytes, None]:
     """
@@ -227,7 +342,7 @@ async def stream_meditation_with_caching(
     prompt: str,
     meditation_id: str,
     user_id: str,
-    voice: str = "nova",
+    voice: str = "marin",
     system_prompt: str | None = None,
 ) -> AsyncGenerator[bytes, None]:
     """
@@ -279,3 +394,70 @@ async def stream_meditation_with_caching(
         except Exception as e:
             # Don't fail the stream if caching fails
             logger.warning("Failed to cache streaming meditation", error=str(e))
+
+
+async def generate_meditation_with_caching(
+    prompt: str,
+    meditation_id: str,
+    user_id: str,
+    voice: str = "marin",
+    system_prompt: str | None = None,
+) -> MeditationAudioResult:
+    """
+    Generate meditation with both text and audio, caching audio to Supabase.
+
+    This is the main function for AI-generated meditations. It:
+    1. Calls OpenAI Chat Completions with modalities=["text", "audio"]
+    2. Collects both the text transcript and audio bytes
+    3. Caches audio to Supabase Storage
+    4. Returns MeditationAudioResult with text, audio bytes, and public URL
+
+    Args:
+        prompt: The meditation request with full context
+        meditation_id: UUID for this meditation (used in cache path)
+        user_id: User ID for storage path
+        voice: Voice to use (marin, cedar recommended)
+        system_prompt: Optional custom system prompt
+
+    Returns:
+        MeditationAudioResult with text_content, audio_bytes, audio_url, etc.
+    """
+    audio_client = OpenAIAudio(voice=voice)
+
+    # Generate both text and audio
+    result = await audio_client.generate_meditation_with_text(
+        prompt=prompt,
+        system_prompt=system_prompt,
+        voice=voice,
+    )
+
+    # Cache audio to Supabase Storage
+    if result.audio_bytes:
+        try:
+            supabase = await get_supabase_client()
+            bucket = supabase.storage.from_("meditation-audio")
+            file_path = f"generated/{user_id}/{meditation_id}.mp3"
+
+            # Upload audio file
+            await bucket.upload(
+                file_path,
+                result.audio_bytes,
+                {"content-type": "audio/mpeg"},
+            )
+
+            # Get public URL
+            audio_url = bucket.get_public_url(file_path)
+            result.audio_url = audio_url
+
+            logger.info(
+                "Meditation cached to storage",
+                meditation_id=meditation_id,
+                audio_url=audio_url,
+                size=len(result.audio_bytes),
+            )
+
+        except Exception as e:
+            logger.warning("Failed to cache meditation audio", error=str(e))
+            # Continue without URL - audio_bytes are still available
+
+    return result

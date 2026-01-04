@@ -4,13 +4,20 @@ OpenAI Audio Voices for Meditation
 ============================================================================
 Configuration for OpenAI TTS voices used in meditation generation.
 
-OpenAI provides 6 voices optimized for different use cases:
+OpenAI provides 13 voices for audio output:
 - alloy: Neutral, balanced
+- ash: Warm, conversational
+- ballad: Melodic, soothing
+- coral: Calm, professional
 - echo: Clear, articulate male
 - fable: Warm, expressive storytelling
-- nova: Warm, calm female (recommended for meditation)
+- marin: Warm, calm (recommended for quality)
+- nova: Warm, calm female
 - onyx: Deep, grounding male
+- sage: Gentle, wise
 - shimmer: Soft, expressive female
+- verse: Poetic, contemplative
+- cedar: Deep, grounding (recommended for quality)
 ============================================================================
 """
 
@@ -71,13 +78,63 @@ MEDITATION_VOICES: dict[str, MeditationVoice] = {
         "best_for": ["loving_kindness", "body_scan", "sleep"],
         "preview_url": None,
     },
+    # New voices added for gpt-4o-mini-audio-preview
+    "ash": {
+        "id": "ash",
+        "name": "Ash",
+        "description": "Warm, conversational voice",
+        "best_for": ["daily_mindfulness", "breathing_focus"],
+        "preview_url": None,
+    },
+    "ballad": {
+        "id": "ballad",
+        "name": "Ballad",
+        "description": "Melodic, soothing voice for deep relaxation",
+        "best_for": ["sleep", "loving_kindness", "body_scan"],
+        "preview_url": None,
+    },
+    "coral": {
+        "id": "coral",
+        "name": "Coral",
+        "description": "Calm, professional voice",
+        "best_for": ["daily_mindfulness", "breathing_focus"],
+        "preview_url": None,
+    },
+    "sage": {
+        "id": "sage",
+        "name": "Sage",
+        "description": "Gentle, wise voice for reflective practices",
+        "best_for": ["loving_kindness", "body_scan", "anxiety_relief"],
+        "preview_url": None,
+    },
+    "verse": {
+        "id": "verse",
+        "name": "Verse",
+        "description": "Poetic, contemplative voice",
+        "best_for": ["loving_kindness", "sleep"],
+        "preview_url": None,
+    },
+    "marin": {
+        "id": "marin",
+        "name": "Marin",
+        "description": "Warm, calm voice with excellent clarity (recommended)",
+        "best_for": ["body_scan", "loving_kindness", "sleep", "anxiety_relief"],
+        "preview_url": None,
+    },
+    "cedar": {
+        "id": "cedar",
+        "name": "Cedar",
+        "description": "Deep, grounding voice with natural warmth (recommended)",
+        "best_for": ["breathing_focus", "body_scan", "daily_mindfulness", "anxiety_relief"],
+        "preview_url": None,
+    },
 }
 
 # All valid OpenAI voice IDs
 VALID_VOICE_IDS = list(MEDITATION_VOICES.keys())
 
-# Default voice for meditation (warm, calming)
-DEFAULT_VOICE_KEY = "nova"
+# Default voice for meditation (marin recommended by OpenAI for quality)
+DEFAULT_VOICE_KEY = "marin"
 
 
 def get_voice(voice_key: str) -> MeditationVoice | None:

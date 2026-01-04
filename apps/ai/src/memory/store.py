@@ -19,10 +19,15 @@ Security:
 import os
 from dataclasses import dataclass
 
-from supabase import Client, create_client
+from supabase import acreate_client
+from supabase._async.client import AsyncClient
 
 from src.memory.cache import cache_embedding, get_cached_embedding
 from src.memory.embeddings import format_memory_text, generate_embedding
+
+# Module-level async client cache
+# This avoids creating a new client for every operation
+_async_client: AsyncClient | None = None
 
 
 @dataclass
@@ -47,29 +52,36 @@ class Memory:
     metadata: dict[str, object]
 
 
-def get_supabase_client() -> Client:
+async def get_async_supabase_client() -> AsyncClient:
     """
-    Creates a Supabase client for memory operations.
+    Gets or creates an async Supabase client for memory operations.
 
     Uses the service role key to bypass RLS for backend operations.
     User isolation is enforced via user_id filtering in queries.
 
+    The client is cached at module level to avoid re-creating connections.
+
     Returns:
-        Supabase Client instance.
+        Async Supabase Client instance.
 
     Raises:
         ValueError: If required environment variables are not set.
     """
-    url = os.getenv("SUPABASE_URL")
-    key = os.getenv("SUPABASE_SERVICE_KEY")
+    global _async_client
 
-    if not url or not key:
-        raise ValueError(
-            "SUPABASE_URL and SUPABASE_SERVICE_KEY are required for memory store. "
-            "Set these in your .env file."
-        )
+    if _async_client is None:
+        url = os.getenv("SUPABASE_URL")
+        key = os.getenv("SUPABASE_SERVICE_KEY")
 
-    return create_client(url, key)
+        if not url or not key:
+            raise ValueError(
+                "SUPABASE_URL and SUPABASE_SERVICE_KEY are required for memory store. "
+                "Set these in your .env file."
+            )
+
+        _async_client = await acreate_client(url, key)
+
+    return _async_client
 
 
 async def store_memory(
@@ -120,14 +132,14 @@ async def store_memory(
         "metadata": metadata or {},
     }
 
-    # Insert into Supabase
-    supabase = get_supabase_client()
-    result = supabase.table("memories").insert(record).execute()
+    # Insert into Supabase (async)
+    supabase = await get_async_supabase_client()
+    result = await supabase.table("memories").insert(record).execute()
 
     return result.data[0]["id"]
 
 
-def save_messages(
+async def save_messages(
     conversation_id: str,
     user_message: str,
     ai_response: str,
@@ -144,11 +156,11 @@ def save_messages(
         ai_response: The AI's response content
 
     Note:
-        Uses synchronous Supabase client since this is a fire-and-forget operation.
+        Uses async Supabase client for non-blocking operations.
         Errors are logged but don't fail the conversation flow.
     """
     try:
-        supabase = get_supabase_client()
+        supabase = await get_async_supabase_client()
 
         # Insert both messages in a single batch
         messages = [
@@ -164,7 +176,7 @@ def save_messages(
             },
         ]
 
-        supabase.table("messages").insert(messages).execute()
+        await supabase.table("messages").insert(messages).execute()
     except Exception as e:
         # Fire-and-forget: log but don't raise
         print(f"[memory] Failed to save messages: {e}")
@@ -205,9 +217,9 @@ async def search_memories(
         query_embedding = await generate_embedding(query)
         await cache_embedding(user_id, query, query_embedding)
 
-    # Call the Supabase RPC function
-    supabase = get_supabase_client()
-    result = supabase.rpc(
+    # Call the Supabase RPC function (async)
+    supabase = await get_async_supabase_client()
+    result = await supabase.rpc(
         "search_memories",
         {
             "p_user_id": user_id,
@@ -292,7 +304,7 @@ def format_memories_for_prompt(memories: list[Memory], max_chars: int = 2000) ->
     return "\n".join(lines)
 
 
-def generate_title_if_needed(conversation_id: str) -> str | None:
+async def generate_title_if_needed(conversation_id: str) -> str | None:
     """
     Generates a title for a conversation if one doesn't exist.
 
@@ -309,15 +321,15 @@ def generate_title_if_needed(conversation_id: str) -> str | None:
         The generated title, or None if already exists or no messages yet
 
     Example:
-        >>> title = generate_title_if_needed("uuid-here")
+        >>> title = await generate_title_if_needed("uuid-here")
         >>> print(title)  # "I've been feeling stressed about..."
     """
     if not conversation_id:
         return None
 
     try:
-        supabase = get_supabase_client()
-        result = supabase.rpc(
+        supabase = await get_async_supabase_client()
+        result = await supabase.rpc(
             "generate_conversation_title",
             {"p_conversation_id": conversation_id},
         ).execute()

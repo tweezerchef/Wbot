@@ -55,7 +55,9 @@ async def retrieve_memories(state: WellnessState) -> dict[str, list[dict[str, st
     user_id = user_context.get("user_id")
 
     if not user_id:
-        # No user ID means no memories to search (unauthenticated)
+        # No user ID means no memories to search
+        # This shouldn't happen if inject_user_context ran successfully
+        logger.warning("No user_id - skipping memory retrieval (unauthenticated?)")
         logger.node_end()
         return {"retrieved_memories": []}
 

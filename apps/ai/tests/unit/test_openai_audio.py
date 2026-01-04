@@ -22,10 +22,24 @@ class TestValidVoices:
     """Tests for valid voice constants."""
 
     def test_valid_voices_list(self):
-        """Should have all 6 OpenAI voices."""
-        expected = ["alloy", "echo", "fable", "onyx", "nova", "shimmer"]
+        """Should have all 13 OpenAI voices."""
+        expected = [
+            "alloy",
+            "ash",
+            "ballad",
+            "coral",
+            "echo",
+            "fable",
+            "marin",
+            "nova",
+            "onyx",
+            "sage",
+            "shimmer",
+            "verse",
+            "cedar",
+        ]
         assert set(VALID_VOICES) == set(expected)
-        assert len(VALID_VOICES) == 6
+        assert len(VALID_VOICES) == 13
 
     def test_voices_are_strings(self):
         """All voices should be non-empty strings."""
@@ -101,9 +115,9 @@ class TestOpenAIAudio:
     def test_init_with_valid_voice(self):
         """Should initialize with valid voice."""
         with patch.dict("os.environ", {"OPENAI_API_KEY": "test-key"}):
-            audio = OpenAIAudio(voice="nova")
-            assert audio.voice == "nova"
-            assert audio.model == "gpt-4o-audio-preview"
+            audio = OpenAIAudio(voice="marin")
+            assert audio.voice == "marin"
+            assert audio.model == "gpt-4o-mini-audio-preview"
 
     def test_init_with_custom_model(self):
         """Should accept custom model."""
@@ -241,7 +255,7 @@ class TestOpenAIAudioStreaming:
             audio.client.chat.completions.create.assert_called_once()
             call_kwargs = audio.client.chat.completions.create.call_args.kwargs
 
-            assert call_kwargs["model"] == "gpt-4o-audio-preview"
+            assert call_kwargs["model"] == "gpt-4o-mini-audio-preview"
             assert call_kwargs["modalities"] == ["text", "audio"]
             assert call_kwargs["audio"]["voice"] == "nova"
             assert call_kwargs["audio"]["format"] == "mp3"

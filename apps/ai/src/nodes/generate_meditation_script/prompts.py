@@ -2,7 +2,10 @@
 ============================================================================
 Meditation Script Generation Prompts
 ============================================================================
-Prompts for generating personalized meditation scripts using Claude.
+Prompts for generating personalized meditation scripts.
+
+Used with OpenAI Chat Completions (gpt-4o-mini-audio-preview) to generate
+both the meditation text AND audio in a single API call.
 
 These prompts incorporate:
 - User context (name, preferences, goals)
@@ -212,3 +215,113 @@ Requirements:
 
 Respond with ONLY the title:
 """
+
+
+# System prompt for OpenAI audio model - instructs how to speak
+OPENAI_MEDITATION_SYSTEM_PROMPT = """You are a calm, soothing meditation guide creating a personalized guided meditation.
+
+Voice and Delivery:
+- Speak slowly and gently with natural pauses between sentences
+- Use a warm, nurturing tone throughout
+- Allow silence between sections for the listener to breathe
+- Your pace should be relaxed and unhurried
+
+Style:
+- Use invitations rather than commands ("you might notice..." instead of "notice...")
+- Speak in second person ("you")
+- Be compassionate and non-judgmental
+- Create a safe, peaceful atmosphere
+
+Generate the complete meditation now, speaking it as you would guide someone in person."""
+
+
+def build_spoken_meditation_prompt(
+    meditation_type: str,
+    duration_minutes: int,
+    user_name: str | None,
+    primary_goal: str | None,
+    time_of_day: str,
+    user_request: str,
+    memories: list[dict] | None,
+    emotional_signals: list[str] | None,
+) -> str:
+    """
+    Builds the prompt for OpenAI to generate AND speak a personalized meditation.
+
+    This prompt is optimized for the gpt-4o-mini-audio-preview model which
+    will generate both text AND audio in a single call. The model will
+    speak the meditation directly with natural pacing.
+
+    Args:
+        meditation_type: Type of meditation (body_scan, breathing_focus, etc.)
+        duration_minutes: Target duration in minutes
+        user_name: User's display name (optional)
+        primary_goal: User's wellness goal from preferences
+        time_of_day: morning, afternoon, evening, or night
+        user_request: The user's latest message/request
+        memories: Relevant past conversation memories
+        emotional_signals: Detected emotional indicators from conversation
+
+    Returns:
+        The complete prompt string for meditation generation
+    """
+    word_count = DURATION_WORD_COUNTS.get(duration_minutes, 700)
+    type_description = MEDITATION_TYPE_DESCRIPTIONS.get(
+        meditation_type, MEDITATION_TYPE_DESCRIPTIONS["breathing_focus"]
+    )
+    time_guidance = TIME_OF_DAY_GUIDANCE.get(time_of_day, "")
+
+    # Format user context
+    name_context = f"Address the listener as {user_name}." if user_name else ""
+    goal_context = f"Their wellness goal: {primary_goal}." if primary_goal else ""
+
+    # Format memories for context
+    memories_context = ""
+    if memories:
+        memory_lines = []
+        for m in memories[:3]:
+            user_msg = m.get("user_message", "")[:80]
+            if user_msg:
+                memory_lines.append(f'- They mentioned: "{user_msg}"')
+        if memory_lines:
+            memories_context = "Relevant context from past conversations:\n" + "\n".join(
+                memory_lines
+            )
+
+    # Format emotional signals
+    emotional_context = ""
+    if emotional_signals:
+        emotional_context = (
+            f"The listener is experiencing: {', '.join(emotional_signals)}. "
+            "Acknowledge this compassionately in the meditation."
+        )
+
+    return f"""Create and speak a personalized {duration_minutes}-minute {meditation_type.replace("_", " ")} meditation.
+
+MEDITATION TYPE:
+{type_description}
+
+TIME OF DAY:
+{time_guidance}
+
+PERSONALIZATION:
+{name_context}
+{goal_context}
+Their request: "{user_request}"
+
+{memories_context}
+
+{emotional_context}
+
+STRUCTURE:
+- Opening (1-2 min): Settling in, grounding, initial breath awareness
+- Main Practice ({max(1, duration_minutes - 3)} min): Core meditation technique
+- Closing (1-2 min): Integration, returning to awareness, gentle transition
+
+REQUIREMENTS:
+- Aim for approximately {word_count} words
+- Use natural pauses between sections (no need for pause markers)
+- Personalize with their name 2-3 times naturally
+- Reference their specific situation when relevant
+
+Speak the complete meditation now:"""

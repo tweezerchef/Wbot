@@ -15,6 +15,7 @@ The embeddings are used to:
 ============================================================================
 """
 
+import asyncio
 import os
 from functools import lru_cache
 
@@ -71,15 +72,19 @@ async def generate_embedding(text: str) -> list[float]:
     """
     client = get_genai_client()
 
-    # Use the stable embedding model with semantic similarity task type
-    result = client.models.embed_content(
-        model="gemini-embedding-001",
-        contents=text,
-        config=types.EmbedContentConfig(
-            task_type="SEMANTIC_SIMILARITY",
-            output_dimensionality=EMBEDDING_DIMENSIONS,
-        ),
-    )
+    # Wrap blocking API call in thread pool to avoid blocking the event loop
+    # The google-genai client uses synchronous HTTP calls
+    def _embed() -> genai.types.EmbedContentResponse:
+        return client.models.embed_content(
+            model="gemini-embedding-001",
+            contents=text,
+            config=types.EmbedContentConfig(
+                task_type="SEMANTIC_SIMILARITY",
+                output_dimensionality=EMBEDDING_DIMENSIONS,
+            ),
+        )
+
+    result = await asyncio.to_thread(_embed)
 
     # The API returns a list of embeddings, we only sent one text
     return list(result.embeddings[0].values)
@@ -108,14 +113,18 @@ async def generate_embeddings_batch(texts: list[str]) -> list[list[float]]:
 
     client = get_genai_client()
 
-    result = client.models.embed_content(
-        model="gemini-embedding-001",
-        contents=texts,
-        config=types.EmbedContentConfig(
-            task_type="SEMANTIC_SIMILARITY",
-            output_dimensionality=EMBEDDING_DIMENSIONS,
-        ),
-    )
+    # Wrap blocking API call in thread pool to avoid blocking the event loop
+    def _embed_batch() -> genai.types.EmbedContentResponse:
+        return client.models.embed_content(
+            model="gemini-embedding-001",
+            contents=texts,
+            config=types.EmbedContentConfig(
+                task_type="SEMANTIC_SIMILARITY",
+                output_dimensionality=EMBEDDING_DIMENSIONS,
+            ),
+        )
+
+    result = await asyncio.to_thread(_embed_batch)
 
     return [list(emb.values) for emb in result.embeddings]
 

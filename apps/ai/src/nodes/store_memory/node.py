@@ -58,6 +58,8 @@ async def store_memory_node(state: WellnessState, config: RunnableConfig) -> dic
 
     if not user_id:
         # No user ID means can't store memory
+        # This shouldn't happen if inject_user_context ran successfully
+        logger.warning("No user_id - skipping memory storage (unauthenticated?)")
         logger.node_end()
         return {}
 
@@ -94,14 +96,14 @@ async def store_memory_node(state: WellnessState, config: RunnableConfig) -> dic
     # Only if we have a valid conversation_id
     if conversation_id:
         try:
-            save_messages(
+            await save_messages(
                 conversation_id=conversation_id,
                 user_message=user_message,
                 ai_response=ai_response,
             )
             # Generate a title for the conversation if one doesn't exist
             # This ensures conversations have meaningful titles in history
-            generate_title_if_needed(conversation_id)
+            await generate_title_if_needed(conversation_id)
         except Exception as e:
             logger.error("Failed to save messages", error=str(e))
 
