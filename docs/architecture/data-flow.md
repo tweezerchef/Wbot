@@ -418,11 +418,9 @@ async def execute_wellness_graph(input_state, config):
 
 ## Related Documentation
 
-- [Graph State Management](./state-management) - Detailed state schema and lifecycle
-- [Graph Nodes](../nodes/) - Individual node implementations and APIs
-- [Activity System](../activities/) - Wellness activity detection and execution
-- [Memory Integration](../memory/) - Context retrieval and conversation persistence
-- [LangGraph Deploy Setup](../../deployment/langgraph-deploy) - Production deployment guide
+- [Architecture Overview](./overview) - System design overview
+- [AI Backend - LangGraph](../ai/langgraph) - LangGraph implementation guide
+- [Memory System](../ai/memory) - Memory module API
 
 :::warning Development Notes
 This graph is actively developed. When adding new activity types, ensure proper routing logic and error handling are implemented before deployment.

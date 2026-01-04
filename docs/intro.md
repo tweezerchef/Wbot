@@ -98,7 +98,7 @@ Wbot remembers important information from conversations using vector embeddings.
 1. **Start the stack**: `pnpm dev:all`
 2. **Make changes**: Edit files in `apps/web` or `apps/ai`
 3. **Hot reload**: Both frontend and backend hot-reload on save
-4. **Test**: Open <http://localhost:5173> in your browser
+4. **Test**: Open http://localhost:5173 in your browser
 
 ## Next Steps
 

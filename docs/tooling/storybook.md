@@ -16,7 +16,7 @@ pnpm storybook
 pnpm storybook:build
 ```
 
-Open <http://localhost:6006> to view Storybook.
+Open http://localhost:6006 to view Storybook.
 
 ## Project Structure
 

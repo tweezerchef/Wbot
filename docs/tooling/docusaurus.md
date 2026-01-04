@@ -18,7 +18,7 @@ cd docs && pnpm serve
 cd docs && pnpm clear
 ```
 
-Open <http://localhost:3001> to view the documentation site.
+Open http://localhost:3001 to view the documentation site.
 
 ## Project Structure
 

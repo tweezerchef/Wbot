@@ -307,7 +307,7 @@ create table messages (
 
 :::tip Related Documentation
 
-- [Supabase Client](./supabase-client) - Database connection and authentication
 - [AI Client](./ai-client) - Message processing and AI responses
-- [Database Schema](/docs/architecture/database) - Complete database structure
+- [Authentication](./authentication) - Auth system documentation
+- [Database Schema](/database/schema) - Complete database structure
   :::

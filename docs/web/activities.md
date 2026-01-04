@@ -318,11 +318,9 @@ This node will be implemented as part of the broader activities feature developm
 
 ## Related Documentation
 
-- [BreathingAnimation Component](/components/breathing-animation) - Visual component for breathing guidance
-- [Activities System](/features/activities) - Broader activities feature architecture
-- [Chat Integration](/integration/chat) - Chat system integration patterns
-- [User Preferences](/features/user-preferences) - User preference management
-- [Analytics Service](/services/analytics) - Analytics and tracking integration
+- [Architecture Overview](/architecture/overview) - System design overview
+- [AI Client](./ai-client) - AI backend integration
+- [Authentication](./authentication) - Auth system documentation
 
 ## Implementation Timeline
 

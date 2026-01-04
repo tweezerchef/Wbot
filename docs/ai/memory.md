@@ -494,8 +494,6 @@ async def robust_memory_usage():
 
 ## Related Documentation
 
-- [Memory Store API](./store) - Detailed storage and retrieval functions
-- [Embeddings API](./embeddings) - Vector generation and caching
-- [Embedding Cache API](./cache) - Redis-based performance optimization
-- [Configuration Guide](../setup/configuration) - Environment setup
-- [Database Schema](../setup/database) - Supabase table structure
+- [LangGraph Guide](./langgraph) - AI backend implementation
+- [Architecture Overview](../architecture/overview) - System design overview
+- [Database Schema](../database/schema) - Supabase table structure

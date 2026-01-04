@@ -6,7 +6,7 @@ This guide explains how to set up the meditation audio files for the guided medi
 
 All meditation audio files are from **UCLA Mindful Awareness Research Center (MARC)**.
 
-- **Website**: <https://www.uclahealth.org/programs/marc/free-guided-meditations>
+- **Website**: [UCLA MARC Free Guided Meditations](https://www.uclahealth.org/programs/marc/free-guided-meditations)
 - **License**: Creative Commons Attribution-NonCommercial-NoDerivatives 4.0 (CC BY-NC-ND 4.0)
 - **Narrator**: Diana Winston
 
