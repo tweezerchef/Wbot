@@ -15,13 +15,13 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from src.memory.cache import (
     cache_embedding,
-    get_cached_embedding,
     get_cache_stats,
+    get_cached_embedding,
     get_redis_client,
 )
 
 
-async def main():
+async def main() -> None:
     """Test Redis connection and caching."""
     print("🔍 Testing Redis connection...\n")
 
@@ -35,7 +35,7 @@ async def main():
         print("     REDIS_URL=redis://...")
         return
 
-    print(f"✅ REDIS_URL configured")
+    print("✅ REDIS_URL configured")
     print(f"   URL: {redis_url[:30]}...{redis_url[-15:]}\n")
 
     # Test connection

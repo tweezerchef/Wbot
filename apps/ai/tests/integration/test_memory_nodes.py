@@ -11,20 +11,19 @@ Tests:
 """
 
 import sys
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from langchain_core.messages import AIMessage, HumanMessage
 
 # Mock problematic imports to break circular dependencies
-sys.modules['src.nodes.generate_response'] = MagicMock()
-sys.modules['src.graph'] = MagicMock()
-sys.modules['src.graph.wellness'] = MagicMock()
-sys.modules['src.graph.state'] = MagicMock()
+sys.modules["src.nodes.generate_response"] = MagicMock()
+sys.modules["src.graph"] = MagicMock()
+sys.modules["src.graph.wellness"] = MagicMock()
+sys.modules["src.graph.state"] = MagicMock()
 
-from src.nodes.retrieve_memories.node import retrieve_memories
-from src.nodes.store_memory.node import store_memory_node
-
+from src.nodes.retrieve_memories.node import retrieve_memories  # noqa: E402
+from src.nodes.store_memory.node import store_memory_node  # noqa: E402
 
 # =============================================================================
 # retrieve_memories Node Tests
@@ -32,7 +31,7 @@ from src.nodes.store_memory.node import store_memory_node
 
 
 @pytest.mark.asyncio
-async def test_retrieve_memories_returns_empty_when_unauthenticated():
+async def test_retrieve_memories_returns_empty_when_unauthenticated() -> None:
     """retrieve_memories should return empty list when no user_id."""
     state = {
         "messages": [HumanMessage(content="Hello")],
@@ -45,7 +44,7 @@ async def test_retrieve_memories_returns_empty_when_unauthenticated():
 
 
 @pytest.mark.asyncio
-async def test_retrieve_memories_returns_empty_when_no_messages():
+async def test_retrieve_memories_returns_empty_when_no_messages() -> None:
     """retrieve_memories should return empty list when no user messages."""
     state = {
         "messages": [AIMessage(content="Hello")],  # Only AI message
@@ -58,7 +57,7 @@ async def test_retrieve_memories_returns_empty_when_no_messages():
 
 
 @pytest.mark.asyncio
-async def test_retrieve_memories_returns_with_similarity_scores():
+async def test_retrieve_memories_returns_with_similarity_scores() -> None:
     """retrieve_memories should return memories with similarity scores."""
     with patch("src.nodes.retrieve_memories.node.search_memories") as mock_search:
         # Setup mock
@@ -91,7 +90,7 @@ async def test_retrieve_memories_returns_with_similarity_scores():
 
 
 @pytest.mark.asyncio
-async def test_retrieve_memories_searches_latest_user_message():
+async def test_retrieve_memories_searches_latest_user_message() -> None:
     """retrieve_memories should search using the latest user message."""
     with patch("src.nodes.retrieve_memories.node.search_memories") as mock_search:
         mock_search.return_value = []
@@ -114,7 +113,7 @@ async def test_retrieve_memories_searches_latest_user_message():
 
 
 @pytest.mark.asyncio
-async def test_retrieve_memories_error_returns_empty():
+async def test_retrieve_memories_error_returns_empty() -> None:
     """retrieve_memories should return empty list on errors."""
     with patch("src.nodes.retrieve_memories.node.search_memories") as mock_search:
         # Simulate error
@@ -136,11 +135,13 @@ async def test_retrieve_memories_error_returns_empty():
 
 
 @pytest.mark.asyncio
-async def test_store_memory_extracts_message_pair():
+async def test_store_memory_extracts_message_pair() -> None:
     """store_memory_node should extract latest user/AI message pair."""
-    with patch("src.nodes.store_memory.node.save_messages"), patch(
-        "src.nodes.store_memory.node.store_memory"
-    ) as mock_store, patch("src.nodes.store_memory.node.generate_title_if_needed"):
+    with (
+        patch("src.nodes.store_memory.node.save_messages"),
+        patch("src.nodes.store_memory.node.store_memory") as mock_store,
+        patch("src.nodes.store_memory.node.generate_title_if_needed"),
+    ):
         state = {
             "messages": [
                 HumanMessage(content="I'm stressed"),
@@ -160,11 +161,13 @@ async def test_store_memory_extracts_message_pair():
 
 
 @pytest.mark.asyncio
-async def test_store_memory_calls_save_and_store():
+async def test_store_memory_calls_save_and_store() -> None:
     """store_memory_node should call both save_messages and store_memory."""
-    with patch("src.nodes.store_memory.node.save_messages") as mock_save, patch(
-        "src.nodes.store_memory.node.store_memory"
-    ) as mock_store, patch("src.nodes.store_memory.node.generate_title_if_needed"):
+    with (
+        patch("src.nodes.store_memory.node.save_messages") as mock_save,
+        patch("src.nodes.store_memory.node.store_memory") as mock_store,
+        patch("src.nodes.store_memory.node.generate_title_if_needed"),
+    ):
         mock_store.return_value = "mem-123"
 
         state = {
@@ -184,11 +187,13 @@ async def test_store_memory_calls_save_and_store():
 
 
 @pytest.mark.asyncio
-async def test_store_memory_generates_title():
+async def test_store_memory_generates_title() -> None:
     """store_memory_node should generate conversation title if needed."""
-    with patch("src.nodes.store_memory.node.save_messages"), patch(
-        "src.nodes.store_memory.node.store_memory"
-    ), patch("src.nodes.store_memory.node.generate_title_if_needed") as mock_title:
+    with (
+        patch("src.nodes.store_memory.node.save_messages"),
+        patch("src.nodes.store_memory.node.store_memory"),
+        patch("src.nodes.store_memory.node.generate_title_if_needed") as mock_title,
+    ):
         state = {
             "messages": [
                 HumanMessage(content="First message"),
@@ -205,11 +210,13 @@ async def test_store_memory_generates_title():
 
 
 @pytest.mark.asyncio
-async def test_store_memory_returns_empty_dict():
+async def test_store_memory_returns_empty_dict() -> None:
     """store_memory_node should return empty dict (no state changes)."""
-    with patch("src.nodes.store_memory.node.save_messages"), patch(
-        "src.nodes.store_memory.node.store_memory"
-    ), patch("src.nodes.store_memory.node.generate_title_if_needed"):
+    with (
+        patch("src.nodes.store_memory.node.save_messages"),
+        patch("src.nodes.store_memory.node.store_memory"),
+        patch("src.nodes.store_memory.node.generate_title_if_needed"),
+    ):
         state = {
             "messages": [
                 HumanMessage(content="Hi"),
@@ -226,11 +233,12 @@ async def test_store_memory_returns_empty_dict():
 
 
 @pytest.mark.asyncio
-async def test_store_memory_skips_when_no_user_id():
+async def test_store_memory_skips_when_no_user_id() -> None:
     """store_memory_node should skip storage when unauthenticated."""
-    with patch("src.nodes.store_memory.node.save_messages") as mock_save, patch(
-        "src.nodes.store_memory.node.store_memory"
-    ) as mock_store:
+    with (
+        patch("src.nodes.store_memory.node.save_messages") as mock_save,
+        patch("src.nodes.store_memory.node.store_memory") as mock_store,
+    ):
         state = {
             "messages": [HumanMessage(content="Hi"), AIMessage(content="Hello")],
             "user_context": {},  # No user_id
@@ -246,11 +254,12 @@ async def test_store_memory_skips_when_no_user_id():
 
 
 @pytest.mark.asyncio
-async def test_store_memory_skips_when_no_message_pair():
+async def test_store_memory_skips_when_no_message_pair() -> None:
     """store_memory_node should skip when no complete message pair."""
-    with patch("src.nodes.store_memory.node.save_messages") as mock_save, patch(
-        "src.nodes.store_memory.node.store_memory"
-    ) as mock_store:
+    with (
+        patch("src.nodes.store_memory.node.save_messages") as mock_save,
+        patch("src.nodes.store_memory.node.store_memory") as mock_store,
+    ):
         state = {
             "messages": [HumanMessage(content="Only one message")],
             "user_context": {"user_id": "user-1"},
@@ -266,11 +275,13 @@ async def test_store_memory_skips_when_no_message_pair():
 
 
 @pytest.mark.asyncio
-async def test_store_memory_handles_save_errors_gracefully():
+async def test_store_memory_handles_save_errors_gracefully() -> None:
     """store_memory_node should not fail if save_messages errors."""
-    with patch("src.nodes.store_memory.node.save_messages") as mock_save, patch(
-        "src.nodes.store_memory.node.store_memory"
-    ) as mock_store, patch("src.nodes.store_memory.node.generate_title_if_needed"):
+    with (
+        patch("src.nodes.store_memory.node.save_messages") as mock_save,
+        patch("src.nodes.store_memory.node.store_memory") as mock_store,
+        patch("src.nodes.store_memory.node.generate_title_if_needed"),
+    ):
         # save_messages raises error
         mock_save.side_effect = Exception("DB error")
         mock_store.return_value = "mem-1"
@@ -287,11 +298,13 @@ async def test_store_memory_handles_save_errors_gracefully():
 
 
 @pytest.mark.asyncio
-async def test_store_memory_handles_store_errors_gracefully():
+async def test_store_memory_handles_store_errors_gracefully() -> None:
     """store_memory_node should not fail if store_memory errors."""
-    with patch("src.nodes.store_memory.node.save_messages"), patch(
-        "src.nodes.store_memory.node.store_memory"
-    ) as mock_store, patch("src.nodes.store_memory.node.generate_title_if_needed"):
+    with (
+        patch("src.nodes.store_memory.node.save_messages"),
+        patch("src.nodes.store_memory.node.store_memory") as mock_store,
+        patch("src.nodes.store_memory.node.generate_title_if_needed"),
+    ):
         # store_memory raises error
         mock_store.side_effect = Exception("Embedding error")
 

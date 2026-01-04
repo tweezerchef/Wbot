@@ -13,7 +13,7 @@ Tests:
 ============================================================================
 """
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -26,7 +26,6 @@ from src.memory.store import (
     store_memory,
 )
 
-
 # =============================================================================
 # store_memory() Tests
 # =============================================================================
@@ -35,9 +34,11 @@ from src.memory.store import (
 @pytest.mark.asyncio
 async def test_store_memory_formats_text_correctly(mock_env):
     """store_memory() should format combined text from user/assistant messages."""
-    with patch("src.memory.store.format_memory_text") as mock_format, patch(
-        "src.memory.store.generate_embedding"
-    ) as mock_embed, patch("src.memory.store.get_supabase_client") as mock_get_client:
+    with (
+        patch("src.memory.store.format_memory_text") as mock_format,
+        patch("src.memory.store.generate_embedding") as mock_embed,
+        patch("src.memory.store.get_supabase_client") as mock_get_client,
+    ):
         # Setup mocks
         mock_format.return_value = "User: Hello\nAI: Hi there!"
         mock_embed.return_value = [0.1] * 768
@@ -61,9 +62,11 @@ async def test_store_memory_formats_text_correctly(mock_env):
 @pytest.mark.asyncio
 async def test_store_memory_generates_embedding(mock_env):
     """store_memory() should generate 768-dimensional embedding."""
-    with patch("src.memory.store.format_memory_text") as mock_format, patch(
-        "src.memory.store.generate_embedding"
-    ) as mock_embed, patch("src.memory.store.get_supabase_client") as mock_get_client:
+    with (
+        patch("src.memory.store.format_memory_text") as mock_format,
+        patch("src.memory.store.generate_embedding") as mock_embed,
+        patch("src.memory.store.get_supabase_client") as mock_get_client,
+    ):
         # Setup mocks
         mock_format.return_value = "Combined text"
         embedding = [0.1] * 768
@@ -75,9 +78,7 @@ async def test_store_memory_generates_embedding(mock_env):
         mock_get_client.return_value = mock_client
 
         # Call function
-        await store_memory(
-            user_id="user-1", user_message="Test", ai_response="Response"
-        )
+        await store_memory(user_id="user-1", user_message="Test", ai_response="Response")
 
         # Verify embedding was generated
         mock_embed.assert_called_once_with("Combined text")
@@ -87,9 +88,11 @@ async def test_store_memory_generates_embedding(mock_env):
 @pytest.mark.asyncio
 async def test_store_memory_inserts_to_supabase(mock_env):
     """store_memory() should insert record to Supabase memories table."""
-    with patch("src.memory.store.format_memory_text") as mock_format, patch(
-        "src.memory.store.generate_embedding"
-    ) as mock_embed, patch("src.memory.store.get_supabase_client") as mock_get_client:
+    with (
+        patch("src.memory.store.format_memory_text") as mock_format,
+        patch("src.memory.store.generate_embedding") as mock_embed,
+        patch("src.memory.store.get_supabase_client") as mock_get_client,
+    ):
         # Setup mocks
         mock_format.return_value = "Combined text"
         mock_embed.return_value = [0.1] * 768
@@ -114,7 +117,6 @@ async def test_store_memory_inserts_to_supabase(mock_env):
 
         # Verify Supabase insert was called
         mock_client.table.assert_called_once_with("memories")
-        call_args = mock_insert.execute.call_args
 
         # Verify insert was called
         assert mock_insert.execute.called
@@ -123,9 +125,11 @@ async def test_store_memory_inserts_to_supabase(mock_env):
 @pytest.mark.asyncio
 async def test_store_memory_returns_valid_uuid(mock_env):
     """store_memory() should return a valid UUID."""
-    with patch("src.memory.store.format_memory_text"), patch(
-        "src.memory.store.generate_embedding"
-    ) as mock_embed, patch("src.memory.store.get_supabase_client") as mock_get_client:
+    with (
+        patch("src.memory.store.format_memory_text"),
+        patch("src.memory.store.generate_embedding") as mock_embed,
+        patch("src.memory.store.get_supabase_client") as mock_get_client,
+    ):
         # Setup mocks
         mock_embed.return_value = [0.1] * 768
         mock_client = MagicMock()
@@ -153,9 +157,10 @@ async def test_store_memory_returns_valid_uuid(mock_env):
 @pytest.mark.asyncio
 async def test_search_memories_returns_above_threshold(mock_env):
     """search_memories() should only return memories above similarity threshold."""
-    with patch("src.memory.store.generate_embedding") as mock_embed, patch(
-        "src.memory.store.get_supabase_client"
-    ) as mock_get_client:
+    with (
+        patch("src.memory.store.generate_embedding") as mock_embed,
+        patch("src.memory.store.get_supabase_client") as mock_get_client,
+    ):
         # Setup mocks
         mock_embed.return_value = [0.1] * 768
         mock_client = MagicMock()
@@ -175,9 +180,7 @@ async def test_search_memories_returns_above_threshold(mock_env):
         mock_get_client.return_value = mock_client
 
         # Call function
-        results = await search_memories(
-            user_id="user-1", query="stress", similarity_threshold=0.7
-        )
+        results = await search_memories(user_id="user-1", query="stress", similarity_threshold=0.7)
 
         # Verify only high similarity results
         assert len(results) >= 0
@@ -188,9 +191,10 @@ async def test_search_memories_returns_above_threshold(mock_env):
 @pytest.mark.asyncio
 async def test_search_memories_respects_limit(mock_env):
     """search_memories() should respect the limit parameter."""
-    with patch("src.memory.store.generate_embedding") as mock_embed, patch(
-        "src.memory.store.get_supabase_client"
-    ) as mock_get_client:
+    with (
+        patch("src.memory.store.generate_embedding") as mock_embed,
+        patch("src.memory.store.get_supabase_client") as mock_get_client,
+    ):
         # Setup mocks
         mock_embed.return_value = [0.1] * 768
         mock_client = MagicMock()
@@ -220,9 +224,10 @@ async def test_search_memories_respects_limit(mock_env):
 @pytest.mark.asyncio
 async def test_search_memories_returns_memory_objects(mock_env):
     """search_memories() should return Memory dataclass objects."""
-    with patch("src.memory.store.generate_embedding") as mock_embed, patch(
-        "src.memory.store.get_supabase_client"
-    ) as mock_get_client:
+    with (
+        patch("src.memory.store.generate_embedding") as mock_embed,
+        patch("src.memory.store.get_supabase_client") as mock_get_client,
+    ):
         # Setup mocks
         mock_embed.return_value = [0.1] * 768
         mock_client = MagicMock()

@@ -12,11 +12,9 @@ creating the Auth instance). Tests need to handle this carefully.
 """
 
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock, patch
-import os
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-
 
 # -----------------------------------------------------------------------------
 # get_supabase_client Tests
@@ -37,8 +35,7 @@ class TestGetSupabaseClient:
         url = None
         if not url:
             error_msg = (
-                "SUPABASE_URL environment variable is required. "
-                "Set it to your Supabase project URL"
+                "SUPABASE_URL environment variable is required. Set it to your Supabase project URL"
             )
             with pytest.raises(ValueError, match="SUPABASE_URL"):
                 raise ValueError(error_msg)
@@ -48,9 +45,7 @@ class TestGetSupabaseClient:
         url = "https://test.supabase.co"
         key = None
         if url and not key:
-            error_msg = (
-                "SUPABASE_SERVICE_KEY environment variable is required."
-            )
+            error_msg = "SUPABASE_SERVICE_KEY environment variable is required."
             with pytest.raises(ValueError, match="SUPABASE_SERVICE_KEY"):
                 raise ValueError(error_msg)
 
@@ -75,7 +70,7 @@ class TestVerifyTokenLogic:
         # Test the validation logic directly
         authorization = None
         if not authorization:
-            with pytest.raises(Exception):
+            with pytest.raises(Auth.exceptions.HTTPException):
                 raise Auth.exceptions.HTTPException(
                     status_code=401,
                     detail="Missing Authorization header",
@@ -157,9 +152,7 @@ class TestAuthIntegration:
     ) -> None:
         """Test handling when Supabase returns no user."""
         mock_client = AsyncMock()
-        mock_client.auth.get_user = AsyncMock(
-            return_value=MagicMock(user=None)
-        )
+        mock_client.auth.get_user = AsyncMock(return_value=MagicMock(user=None))
 
         token = "invalid-token"
         user_response = await mock_client.auth.get_user(token)
@@ -260,9 +253,5 @@ class TestAuthEdgeCases:
         ]
 
         for header in invalid_headers:
-            is_invalid = (
-                not header.startswith("Bearer ") or
-                len(header) <= 7 or
-                header == "Bearer "
-            )
+            is_invalid = not header.startswith("Bearer ") or len(header) <= 7 or header == "Bearer "
             assert is_invalid, f"Expected {header!r} to be invalid"

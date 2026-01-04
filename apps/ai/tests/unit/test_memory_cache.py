@@ -13,7 +13,7 @@ Tests:
 """
 
 import json
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -23,7 +23,6 @@ from src.memory.cache import (
     cache_embedding,
     get_cached_embedding,
 )
-
 
 # =============================================================================
 # get_cached_embedding() Tests

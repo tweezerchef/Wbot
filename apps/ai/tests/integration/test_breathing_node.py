@@ -13,13 +13,11 @@ the full graph initialization chain.
 """
 
 import json
-import sys
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from langchain_core.messages import AIMessage, HumanMessage
-
 
 # -----------------------------------------------------------------------------
 # Test fixtures for this module
@@ -156,9 +154,7 @@ class TestTechniqueSelection:
     ) -> None:
         """Should select technique based on LLM response."""
         # Configure LLM mock to return a technique ID
-        mock_llm.ainvoke = AsyncMock(
-            return_value=MagicMock(content="relaxing_478")
-        )
+        mock_llm.ainvoke = AsyncMock(return_value=MagicMock(content="relaxing_478"))
 
         # Simulate selection logic
         response = await mock_llm.ainvoke([HumanMessage(content="test")])
@@ -178,9 +174,7 @@ class TestTechniqueSelection:
         mock_llm: MagicMock,
     ) -> None:
         """Should default to box breathing when LLM returns invalid ID."""
-        mock_llm.ainvoke = AsyncMock(
-            return_value=MagicMock(content="unknown_technique")
-        )
+        mock_llm.ainvoke = AsyncMock(return_value=MagicMock(content="unknown_technique"))
 
         response = await mock_llm.ainvoke([HumanMessage(content="test")])
         technique_id = str(response.content).strip().lower()
@@ -219,9 +213,7 @@ class TestTechniqueSelection:
 class TestMessageFormatting:
     """Tests for exercise message formatting."""
 
-    def test_activity_markers_format(
-        self, breathing_techniques: dict[str, Any]
-    ) -> None:
+    def test_activity_markers_format(self, breathing_techniques: dict[str, Any]) -> None:
         """Should format message with correct activity markers."""
         technique = breathing_techniques["box"]
         introduction = "Let's practice box breathing."
@@ -279,9 +271,7 @@ class TestMessageFormatting:
         assert parsed["activity"] == "breathing"
         assert parsed["technique"]["id"] == "coherent"
 
-    def test_includes_phase_labels(
-        self, breathing_techniques: dict[str, Any]
-    ) -> None:
+    def test_includes_phase_labels(self, breathing_techniques: dict[str, Any]) -> None:
         """Should include all phase labels for frontend animation."""
         phases = ["inhale", "holdIn", "exhale", "holdOut"]
 
@@ -326,9 +316,7 @@ class TestHITLResponses:
             assert "Alex" in introduction
             assert "Box Breathing" in introduction
 
-    def test_not_now_decision_flow(
-        self, sample_user_context: dict[str, Any]
-    ) -> None:
+    def test_not_now_decision_flow(self, sample_user_context: dict[str, Any]) -> None:
         """Should handle 'not_now' decision correctly."""
         user_response = {"decision": "not_now"}
         user_name = sample_user_context.get("display_name", "there")
@@ -344,9 +332,7 @@ class TestHITLResponses:
             assert "No problem" in message
             assert "Alex" in message
 
-    def test_change_technique_flow(
-        self, breathing_techniques: dict[str, Any]
-    ) -> None:
+    def test_change_technique_flow(self, breathing_techniques: dict[str, Any]) -> None:
         """Should handle technique change correctly."""
         user_response = {
             "decision": "change_technique",
@@ -396,30 +382,20 @@ class TestBreathingTechniques:
     ) -> None:
         """All techniques should have exactly 4 duration values."""
         for technique_id, technique in breathing_techniques.items():
-            assert len(technique["durations"]) == 4, (
-                f"{technique_id} should have 4 durations"
-            )
+            assert len(technique["durations"]) == 4, f"{technique_id} should have 4 durations"
 
-    def test_technique_ids_match_dict_keys(
-        self, breathing_techniques: dict[str, Any]
-    ) -> None:
+    def test_technique_ids_match_dict_keys(self, breathing_techniques: dict[str, Any]) -> None:
         """Technique id field should match dictionary key."""
         for key, technique in breathing_techniques.items():
             assert technique["id"] == key
 
-    def test_all_durations_are_non_negative(
-        self, breathing_techniques: dict[str, Any]
-    ) -> None:
+    def test_all_durations_are_non_negative(self, breathing_techniques: dict[str, Any]) -> None:
         """All duration values should be non-negative."""
         for technique_id, technique in breathing_techniques.items():
             for i, duration in enumerate(technique["durations"]):
-                assert duration >= 0, (
-                    f"{technique_id} has negative duration at index {i}"
-                )
+                assert duration >= 0, f"{technique_id} has negative duration at index {i}"
 
-    def test_recommended_cycles_are_positive(
-        self, breathing_techniques: dict[str, Any]
-    ) -> None:
+    def test_recommended_cycles_are_positive(self, breathing_techniques: dict[str, Any]) -> None:
         """All techniques should have positive recommended cycles."""
-        for technique_id, technique in breathing_techniques.items():
+        for _technique_id, technique in breathing_techniques.items():
             assert technique["recommended_cycles"] > 0

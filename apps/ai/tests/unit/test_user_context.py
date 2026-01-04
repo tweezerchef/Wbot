@@ -11,7 +11,6 @@ import pytest
 
 from src.utils.user_context import format_user_context
 
-
 # -----------------------------------------------------------------------------
 # format_user_context - Main Function Tests
 # -----------------------------------------------------------------------------
