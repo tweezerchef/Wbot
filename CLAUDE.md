@@ -251,31 +251,40 @@ export function MessageBubble({ content, role }: MessageBubbleProps) {
 - **Runtime**: Python 3.11+
 - **Framework**: LangGraph + LangChain
 - **LLM**: Anthropic Claude (primary), Google Gemini (experimental)
-- **Memory**: Semantic memory with vector embeddings + Redis cache
+- **Memory**: Semantic memory with vector embeddings
+- **Cache**: Upstash Redis (remote) for embedding cache
 - **Package Manager**: uv
 - **Linting**: Ruff
 
 ### Database
 
-- **Platform**: Supabase (PostgreSQL)
+- **Platform**: Supabase (PostgreSQL) - Remote hosted
 - **Auth**: Supabase Auth
 - **Security**: Row Level Security (RLS) enabled
+- **Migrations**: `database/migrations/` pushed via `pnpm db:push`
 
 ---
 
 ## Common Commands
 
 ```bash
-# Development (start everything with one command)
-pnpm dev:all              # Start web + AI + Supabase together
+# Development (start everything - uses remote Supabase & Upstash Redis)
+pnpm dev:all              # Start web + AI (no Docker required)
 pnpm dev:web              # Start web frontend only
 pnpm dev:ai               # Start AI backend only
 
-# Database (requires Docker running)
-pnpm db:start             # Start local Supabase
-pnpm db:stop              # Stop local Supabase
-pnpm db:reset             # Reset database and rerun migrations
-pnpm db:generate-types    # Generate TypeScript types from DB
+# Database (remote Supabase)
+pnpm db:push              # Push migrations to remote Supabase
+pnpm db:generate-types    # Generate TypeScript types from remote DB
+pnpm db:status            # Check migration status
+pnpm db:new <name>        # Create new migration file
+
+# Local development (optional - requires Docker)
+pnpm db:local:start       # Start local Supabase
+pnpm db:local:stop        # Stop local Supabase
+pnpm db:local:reset       # Reset local database
+pnpm redis:local:start    # Start local Redis
+pnpm redis:local:stop     # Stop local Redis
 
 # Building
 pnpm build                # Build all packages
@@ -402,10 +411,11 @@ SUPABASE_SERVICE_KEY=     # Service role key (server only)
 
 ### Adding Database Tables
 
-1. Create new migration file in `database/migrations/`
-2. Use sequential numbering (e.g., `004_table_name.sql`)
+1. Create new migration file: `pnpm db:new <name>`
+2. Write SQL in `database/migrations/` (uses sequential numbering)
 3. Include RLS policies for security
-4. Update types in `packages/shared/src/types/database.ts`
+4. Push to remote: `pnpm db:push`
+5. Generate types: `pnpm db:generate-types`
 
 ---
 

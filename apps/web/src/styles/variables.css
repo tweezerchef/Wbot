@@ -193,6 +193,37 @@
   --max-width-wide: 1200px; /* Wide layouts */
   --header-height: 64px; /* Fixed header height */
   --sidebar-width: 280px; /* Sidebar navigation width */
+
+  /* --------------------------------------------------------------------------
+     IMMERSIVE ACTIVITY OVERLAY
+     --------------------------------------------------------------------------
+     Variables for full-screen immersive wellness experiences.
+     Used by ActivityOverlay, ImmersiveBreathing, ImmersiveMeditation.
+     -------------------------------------------------------------------------- */
+
+  /* Immersive Activity Background Colors */
+  --color-activity-bg-start: #1a1a2e; /* Deep blue-purple */
+  --color-activity-bg-mid: #16213e; /* Navy blue */
+  --color-activity-bg-end: #0f3460; /* Dark ocean blue */
+
+  /* Glassmorphism Effects */
+  --glass-background: rgba(255, 255, 255, 0.1);
+  --glass-border: rgba(255, 255, 255, 0.2);
+  --glass-blur: blur(12px);
+
+  /* Extended Breathing Colors */
+  --color-breath-ambient: rgba(126, 200, 227, 0.15); /* Subtle ambient glow */
+  --color-breath-glow-strong: rgba(126, 200, 227, 0.6); /* Strong glow effect */
+
+  /* Activity Transition Timing */
+  --transition-activity-enter: 500ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-activity-exit: 400ms cubic-bezier(0.4, 0, 1, 1);
+  --transition-breath-phase: 4s cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Activity Z-Index Layers */
+  --z-activity-overlay: 1000; /* Base overlay level */
+  --z-activity-controls: 1010; /* Controls above overlay */
+  --z-activity-close: 1020; /* Close button topmost */
 }
 
 /* ============================================================================

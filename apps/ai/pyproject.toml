@@ -66,6 +66,7 @@ dependencies = [
     # ASGI server for running FastAPI
     "uvicorn>=0.34.0",
     "openai>=2.14.0",
+    "pydub>=0.25.1",
 ]
 
 # Development dependencies (installed with `uv sync --dev`)

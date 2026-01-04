@@ -19,8 +19,10 @@ import hashlib
 import os
 from collections.abc import AsyncGenerator
 from dataclasses import dataclass
+from io import BytesIO
 
 from openai import AsyncOpenAI
+from pydub import AudioSegment
 
 from src.auth import get_supabase_client
 from src.logging_config import NodeLogger
@@ -52,6 +54,34 @@ DEFAULT_MEDITATION_SYSTEM_PROMPT = (
     "Use a warm, gentle tone throughout. "
     "Include brief pauses between sections for the listener to breathe and absorb."
 )
+
+
+def convert_pcm16_to_mp3(pcm_bytes: bytes) -> bytes:
+    """
+    Convert raw PCM16 audio bytes to MP3 format.
+
+    OpenAI outputs PCM16 with:
+    - Sample rate: 24kHz
+    - Channels: 1 (mono)
+    - Sample width: 2 bytes (16-bit)
+    - Byte order: Little-endian
+
+    Args:
+        pcm_bytes: Raw PCM16 audio data from OpenAI
+
+    Returns:
+        MP3-encoded audio bytes
+    """
+    audio = AudioSegment.from_raw(
+        BytesIO(pcm_bytes),
+        sample_width=2,  # 16-bit = 2 bytes
+        frame_rate=24000,  # 24kHz
+        channels=1,  # Mono
+    )
+
+    mp3_buffer = BytesIO()
+    audio.export(mp3_buffer, format="mp3", bitrate="128k")
+    return mp3_buffer.getvalue()
 
 
 @dataclass
@@ -131,7 +161,7 @@ class OpenAIAudio:
         Generate and stream meditation audio via Chat Completions.
 
         This creates both the meditation script AND audio in a single call.
-        Audio bytes are yielded as they're generated.
+        Streams PCM16 from OpenAI, then converts to MP3 and yields the result.
 
         Args:
             prompt: The meditation request (e.g., "Create a 5-minute body scan")
@@ -139,7 +169,7 @@ class OpenAIAudio:
             voice: Voice to use (defaults to instance voice)
 
         Yields:
-            Audio bytes (MP3 format) as generated
+            Audio bytes (MP3 format) after generation completes
         """
         voice = voice or self.voice
 
@@ -151,10 +181,11 @@ class OpenAIAudio:
         )
 
         try:
+            # Use PCM16 format for streaming (MP3 not supported with stream=True)
             response = await self.client.chat.completions.create(
                 model=self.model,
                 modalities=["text", "audio"],
-                audio={"voice": voice, "format": "mp3"},
+                audio={"voice": voice, "format": "pcm16"},
                 messages=[
                     {
                         "role": "system",
@@ -165,7 +196,8 @@ class OpenAIAudio:
                 stream=True,
             )
 
-            bytes_streamed = 0
+            # Collect all PCM16 chunks
+            pcm_chunks: list[bytes] = []
 
             async for chunk in response:
                 # Check for audio data in the delta
@@ -176,14 +208,23 @@ class OpenAIAudio:
                         audio_data = getattr(delta.audio, "data", None)
                         if audio_data:
                             decoded = base64.b64decode(audio_data)
-                            bytes_streamed += len(decoded)
-                            yield decoded
+                            pcm_chunks.append(decoded)
 
-            logger.info(
-                "Audio stream complete",
-                bytes_streamed=bytes_streamed,
-                voice=voice,
-            )
+            # Convert collected PCM16 to MP3
+            if pcm_chunks:
+                pcm_audio = b"".join(pcm_chunks)
+                mp3_audio = convert_pcm16_to_mp3(pcm_audio)
+
+                logger.info(
+                    "Audio stream complete",
+                    pcm_bytes=len(pcm_audio),
+                    mp3_bytes=len(mp3_audio),
+                    voice=voice,
+                )
+
+                yield mp3_audio
+            else:
+                logger.warning("No audio data received from OpenAI")
 
         except Exception as e:
             logger.error("OpenAI audio streaming error", error=str(e))
@@ -236,7 +277,8 @@ class OpenAIAudio:
         Generate meditation audio AND text transcript in a single API call.
 
         Uses Chat Completions with modalities=["text", "audio"] to get both
-        the spoken meditation text and audio together.
+        the spoken meditation text and audio together. Streams PCM16 from
+        OpenAI, then converts to MP3.
 
         Args:
             prompt: The meditation request with full context
@@ -244,7 +286,7 @@ class OpenAIAudio:
             voice: Voice to use (defaults to instance voice)
 
         Returns:
-            MeditationAudioResult with text content, audio bytes, and metadata
+            MeditationAudioResult with text content, audio bytes (MP3), and metadata
         """
         voice = voice or self.voice
 
@@ -256,11 +298,11 @@ class OpenAIAudio:
         )
 
         try:
-            # Use streaming to collect both text and audio
+            # Use PCM16 format for streaming (MP3 not supported with stream=True)
             response = await self.client.chat.completions.create(
                 model=self.model,
                 modalities=["text", "audio"],
-                audio={"voice": voice, "format": "mp3"},
+                audio={"voice": voice, "format": "pcm16"},
                 messages=[
                     {
                         "role": "system",
@@ -272,7 +314,7 @@ class OpenAIAudio:
             )
 
             text_chunks: list[str] = []
-            audio_chunks: list[bytes] = []
+            pcm_chunks: list[bytes] = []
 
             async for chunk in response:
                 if chunk.choices and chunk.choices[0].delta:
@@ -282,15 +324,18 @@ class OpenAIAudio:
                     if hasattr(delta, "content") and delta.content:
                         text_chunks.append(delta.content)
 
-                    # Collect audio data (base64 encoded)
+                    # Collect audio data (base64 encoded PCM16)
                     if hasattr(delta, "audio") and delta.audio:
                         audio_data = getattr(delta.audio, "data", None)
                         if audio_data:
                             decoded = base64.b64decode(audio_data)
-                            audio_chunks.append(decoded)
+                            pcm_chunks.append(decoded)
 
             text_content = "".join(text_chunks)
-            audio_bytes = b"".join(audio_chunks)
+
+            # Convert PCM16 to MP3
+            pcm_audio = b"".join(pcm_chunks)
+            mp3_audio = convert_pcm16_to_mp3(pcm_audio) if pcm_audio else b""
 
             # Estimate duration from word count (~120 words per minute for meditation)
             word_count = len(text_content.split())
@@ -299,14 +344,15 @@ class OpenAIAudio:
             logger.info(
                 "Meditation generated",
                 text_length=len(text_content),
-                audio_size=len(audio_bytes),
+                pcm_size=len(pcm_audio),
+                mp3_size=len(mp3_audio),
                 word_count=word_count,
                 duration_estimate=duration_estimate,
             )
 
             return MeditationAudioResult(
                 text_content=text_content,
-                audio_bytes=audio_bytes,
+                audio_bytes=mp3_audio,
                 audio_url=None,  # Will be set after caching
                 voice=voice,
                 duration_estimate_seconds=duration_estimate,

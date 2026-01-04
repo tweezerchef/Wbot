@@ -93,13 +93,14 @@ export function ChatPage() {
   const [conversationId, setConversationId] = useState<string | null>(loaderData.conversationId);
 
   // Sidebar open/closed state
-  // Default: closed on mobile, open on desktop (768px+)
-  const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return window.innerWidth >= 768;
-    }
-    return false;
-  });
+  // Start closed for consistent SSR hydration, then update based on viewport
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  // After hydration, open sidebar on desktop (768px+)
+  // This runs only on mount to avoid hydration mismatch
+  useEffect(() => {
+    setIsSidebarOpen(window.innerWidth >= 768);
+  }, []);
 
   // Interrupt data for HITL (Human-in-the-Loop) confirmation dialogs
   // When the AI suggests an activity, it pauses for user confirmation
