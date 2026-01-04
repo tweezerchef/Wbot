@@ -150,7 +150,70 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: transform 0.3s ease;
+  transition: transform 0.3s ease, background 0.3s ease;
+}
+
+/* Clickable circle for manual mode */
+.breathCircle[role='button'] {
+  cursor: pointer;
+}
+
+.breathCircle[role='button']:hover {
+  transform: scale(1.05);
+}
+
+.breathCircle[role='button']:active {
+  transform: scale(0.98);
+}
+
+/* Rapid breathing animation */
+.breathCircle.breathing {
+  animation: breathPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes breathPulse {
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 60px rgba(74, 157, 154, 0.3);
+  }
+  50% {
+    transform: scale(1.1);
+    box-shadow: 0 0 80px rgba(74, 157, 154, 0.5);
+  }
+}
+
+/* Retention (holding) state */
+.breathCircle.holding {
+  background: radial-gradient(
+    circle,
+    #f59e0b 0%,
+    #d97706 50%,
+    transparent 75%
+  );
+  box-shadow: 0 0 60px rgba(245, 158, 11, 0.4);
+  animation: holdPulse 2s ease-in-out infinite;
+}
+
+@keyframes holdPulse {
+  0%,
+  100% {
+    box-shadow: 0 0 60px rgba(245, 158, 11, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 80px rgba(245, 158, 11, 0.6);
+  }
+}
+
+/* Recovery state */
+.breathCircle.recovery {
+  background: radial-gradient(
+    circle,
+    #22c55e 0%,
+    #16a34a 50%,
+    transparent 75%
+  );
+  box-shadow: 0 0 60px rgba(34, 197, 94, 0.4);
 }
 
 .circleContent {
@@ -198,6 +261,24 @@
 .targetHint {
   font-size: var(--font-size-sm);
   color: rgba(255, 255, 255, 0.7);
+}
+
+/* Recovery Display */
+.recoveryDisplay {
+  text-align: center;
+}
+
+.recoveryLabel {
+  font-size: var(--font-size-lg);
+  color: rgba(255, 255, 255, 0.9);
+  margin-bottom: var(--spacing-xs);
+}
+
+.recoveryTimer {
+  font-size: var(--font-size-4xl);
+  font-weight: var(--font-weight-bold);
+  font-variant-numeric: tabular-nums;
+  color: white;
 }
 
 /* Controls */
@@ -340,6 +421,38 @@
   font-size: var(--font-size-2xl);
   font-weight: var(--font-weight-bold);
   color: var(--color-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Round Breakdown */
+.roundBreakdown {
+  display: flex;
+  gap: var(--spacing-md);
+  flex-wrap: wrap;
+  justify-content: center;
+  width: 100%;
+}
+
+.roundStat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--color-neutral-50);
+  border-radius: var(--radius-sm);
+  min-width: 80px;
+}
+
+.roundStatLabel {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  margin-bottom: var(--spacing-xs);
+}
+
+.roundStatValue {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
   font-variant-numeric: tabular-nums;
 }
 

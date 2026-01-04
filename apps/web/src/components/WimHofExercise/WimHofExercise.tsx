@@ -16,13 +16,12 @@
    unique round-based structure and breath retention focus.
    ============================================================================ */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 
 import type { WimHofTechnique } from '../../lib/parseActivity';
 
+import { useWimHofLoop } from './useWimHofLoop';
 import styles from './WimHofExercise.module.css';
-
-// Component will be built incrementally - for now, placeholder implementation
 
 export interface WimHofExerciseProps {
   technique: WimHofTechnique;
@@ -46,43 +45,84 @@ export function WimHofExercise({
   onComplete,
   onStop,
 }: WimHofExerciseProps) {
-  const [exerciseState, setExerciseState] = useState<'idle' | 'active' | 'complete'>('idle');
+  // Breathing mode: auto (timed) or manual (user-controlled)
   const [breathingMode, setBreathingMode] = useState<'auto' | 'manual'>('auto');
 
-  // Placeholder: Will be replaced with useWimHofLoop hook integration
-  const [currentRound, setCurrentRound] = useState(1);
-  const [currentPhase, _setCurrentPhase] = useState<'rapid_breathing' | 'retention' | 'recovery'>(
-    'rapid_breathing'
+  // Track if exercise has completed (for showing completion screen)
+  const [showComplete, setShowComplete] = useState(false);
+
+  // Store final stats for completion screen
+  const finalStatsRef = useRef<CompletionStats | null>(null);
+
+  // Handle completion callback - store stats and show completion screen
+  const handleComplete = useCallback(
+    (stats: CompletionStats) => {
+      finalStatsRef.current = stats;
+      setShowComplete(true);
+      onComplete?.(stats);
+    },
+    [onComplete]
   );
-  const [breathCount, setBreathCount] = useState(0);
-  const [retentionTime, _setRetentionTime] = useState(0);
-  const [roundRetentions, setRoundRetentions] = useState<number[]>([]);
 
+  // Use the Wim Hof loop hook for state management
+  const {
+    state,
+    start,
+    pause,
+    resume,
+    stop,
+    releaseRetention,
+    nextBreath,
+  } = useWimHofLoop(technique, handleComplete);
+
+  // Handle start - reset completion state and start exercise
   const handleStart = useCallback(() => {
-    setExerciseState('active');
-    setCurrentRound(1);
-    setBreathCount(0);
-    setRoundRetentions([]);
-  }, []);
+    setShowComplete(false);
+    finalStatsRef.current = null;
+    start();
+  }, [start]);
 
+  // Handle stop - stop exercise and notify parent
   const handleStop = useCallback(() => {
-    setExerciseState('idle');
+    stop();
     onStop?.();
-  }, [onStop]);
+  }, [stop, onStop]);
 
-  const handleComplete = useCallback(() => {
-    const stats: CompletionStats = {
-      roundRetentions,
-      totalDuration: 0, // Will be calculated by useWimHofLoop
-      averageRetention: roundRetentions.reduce((a, b) => a + b, 0) / roundRetentions.length || 0,
-      bestRetention: Math.max(...roundRetentions, 0),
+  // Handle manual breath advancement via keyboard
+  useEffect(() => {
+    if (!state.isActive || state.isPaused || breathingMode !== 'manual') {
+      return;
+    }
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.code === 'Space' && state.currentPhase === 'rapid_breathing') {
+        e.preventDefault();
+        nextBreath();
+      }
     };
-    setExerciseState('complete');
-    onComplete?.(stats);
-  }, [roundRetentions, onComplete]);
 
-  // Render idle state
-  if (exerciseState === 'idle') {
+    window.addEventListener('keydown', handleKeyDown);
+    return () => { window.removeEventListener('keydown', handleKeyDown); };
+  }, [state.isActive, state.isPaused, state.currentPhase, breathingMode, nextBreath]);
+
+  // Get phase display text
+  const getPhaseText = () => {
+    switch (state.currentPhase) {
+      case 'rapid_breathing':
+        return breathingMode === 'manual' ? 'Press space or click' : 'Breathe rapidly';
+      case 'retention':
+        return 'Hold your breath';
+      case 'recovery_inhale':
+        return 'Deep breath in, hold';
+      case 'recovery_pause':
+        return 'Rest and recover';
+      default:
+        return '';
+    }
+  };
+
+  // Render idle state (not active and not showing completion)
+  if (!state.isActive && !showComplete) {
     return (
       <div className={styles.container}>
         <h3 className={styles.techniqueName}>{technique.name}</h3>
@@ -140,39 +180,77 @@ export function WimHofExercise({
     );
   }
 
-  // Render active state - simplified for now
-  if (exerciseState === 'active') {
+  // Render active state
+  if (state.isActive) {
     return (
       <div className={styles.container}>
         <div className={styles.roundProgress}>
           <span className={styles.roundIndicator}>
-            Round {currentRound} of {technique.rounds}
+            Round {state.currentRound} of {technique.rounds}
           </span>
-          <span className={styles.phaseIndicator}>
-            {currentPhase === 'rapid_breathing' &&
-              `Breath ${String(breathCount)}/${String(technique.breaths_per_round)}`}
-            {currentPhase === 'retention' && `Hold: ${String(retentionTime)}s`}
-            {currentPhase === 'recovery' && 'Recovery'}
-          </span>
+          <span className={styles.phaseIndicator}>{getPhaseText()}</span>
         </div>
 
         <div className={styles.animationContainer}>
-          <div className={styles.breathCircle}>
-            {/* Placeholder - will be replaced with WimHofAnimation */}
+          <div
+            className={`${styles.breathCircle} ${
+              state.currentPhase === 'rapid_breathing' ? styles.breathing : ''
+            } ${state.currentPhase === 'retention' ? styles.holding : ''} ${
+              state.currentPhase === 'recovery_inhale' || state.currentPhase === 'recovery_pause'
+                ? styles.recovery
+                : ''
+            }`}
+            onClick={
+              breathingMode === 'manual' && state.currentPhase === 'rapid_breathing'
+                ? nextBreath
+                : undefined
+            }
+            onKeyDown={
+              breathingMode === 'manual' && state.currentPhase === 'rapid_breathing'
+                ? (e) => { if (e.key === 'Enter' || e.key === ' ') { nextBreath(); } }
+                : undefined
+            }
+            role={breathingMode === 'manual' && state.currentPhase === 'rapid_breathing' ? 'button' : undefined}
+            tabIndex={breathingMode === 'manual' && state.currentPhase === 'rapid_breathing' ? 0 : undefined}
+            aria-label={
+              breathingMode === 'manual' && state.currentPhase === 'rapid_breathing'
+                ? 'Click to advance breath'
+                : undefined
+            }
+          >
             <div className={styles.circleContent}>
-              {currentPhase === 'rapid_breathing' && (
+              {/* Rapid Breathing Phase - show breath counter */}
+              {state.currentPhase === 'rapid_breathing' && (
                 <div className={styles.breathCounter}>
-                  <span className={styles.currentBreath}>{breathCount}</span>
+                  <span className={styles.currentBreath}>{state.breathCount}</span>
                   <span className={styles.breathSeparator}>/</span>
                   <span className={styles.totalBreaths}>{technique.breaths_per_round}</span>
                 </div>
               )}
-              {currentPhase === 'retention' && (
+
+              {/* Retention Phase - show stopwatch */}
+              {state.currentPhase === 'retention' && (
                 <div className={styles.retentionDisplay}>
-                  <div className={styles.stopwatch}>{formatTime(retentionTime)}</div>
+                  <div className={styles.stopwatch}>{formatTime(state.retentionTime)}</div>
                   <div className={styles.targetHint}>
                     Target: {technique.retention_target_seconds}s
                   </div>
+                </div>
+              )}
+
+              {/* Recovery Inhale Phase - show countdown */}
+              {state.currentPhase === 'recovery_inhale' && (
+                <div className={styles.recoveryDisplay}>
+                  <div className={styles.recoveryLabel}>Hold</div>
+                  <div className={styles.recoveryTimer}>{state.recoveryTimeRemaining}s</div>
+                </div>
+              )}
+
+              {/* Recovery Pause Phase - show countdown */}
+              {state.currentPhase === 'recovery_pause' && (
+                <div className={styles.recoveryDisplay}>
+                  <div className={styles.recoveryLabel}>Rest</div>
+                  <div className={styles.recoveryTimer}>{state.recoveryTimeRemaining}s</div>
                 </div>
               )}
             </div>
@@ -180,22 +258,44 @@ export function WimHofExercise({
         </div>
 
         <div className={styles.controls}>
+          {/* Pause/Resume button */}
+          <button
+            className={styles.button}
+            onClick={state.isPaused ? resume : pause}
+            aria-label={state.isPaused ? 'Resume exercise' : 'Pause exercise'}
+          >
+            {state.isPaused ? 'Resume' : 'Pause'}
+          </button>
+
+          {/* Stop button */}
           <button className={styles.button} onClick={handleStop}>
             Stop
           </button>
-          {currentPhase === 'retention' && (
-            <button className={`${styles.button} ${styles.buttonPrimary}`} onClick={handleComplete}>
-              Release & Continue
+
+          {/* Release button during retention */}
+          {state.currentPhase === 'retention' && (
+            <button
+              className={`${styles.button} ${styles.buttonPrimary}`}
+              onClick={releaseRetention}
+            >
+              Release
             </button>
           )}
         </div>
 
-        <p className={styles.hint}>Full functionality coming in STEP 6 with useWimHofLoop hook</p>
+        {/* Paused indicator */}
+        {state.isPaused && <p className={styles.hint}>Exercise paused</p>}
+
+        {/* Manual mode hint */}
+        {breathingMode === 'manual' && state.currentPhase === 'rapid_breathing' && !state.isPaused && (
+          <p className={styles.hint}>Press spacebar or click the circle to breathe</p>
+        )}
       </div>
     );
   }
 
   // Render completion state
+  const stats = finalStatsRef.current;
   return (
     <div className={styles.container}>
       <div className={styles.completionContainer}>
@@ -216,19 +316,29 @@ export function WimHofExercise({
           You completed {technique.rounds} rounds of Wim Hof breathing.
         </p>
 
-        {roundRetentions.length > 0 && (
-          <div className={styles.statsGrid}>
-            <div className={styles.statCard}>
-              <span className={styles.statLabel}>Average Hold</span>
-              <span className={styles.statValue}>
-                {formatTime(roundRetentions.reduce((a, b) => a + b, 0) / roundRetentions.length)}
-              </span>
+        {stats && stats.roundRetentions.length > 0 && (
+          <>
+            <div className={styles.statsGrid}>
+              <div className={styles.statCard}>
+                <span className={styles.statLabel}>Average Hold</span>
+                <span className={styles.statValue}>{formatTime(stats.averageRetention)}</span>
+              </div>
+              <div className={styles.statCard}>
+                <span className={styles.statLabel}>Best Round</span>
+                <span className={styles.statValue}>{formatTime(stats.bestRetention)}</span>
+              </div>
             </div>
-            <div className={styles.statCard}>
-              <span className={styles.statLabel}>Best Round</span>
-              <span className={styles.statValue}>{formatTime(Math.max(...roundRetentions))}</span>
+
+            {/* Show retention time for each round */}
+            <div className={styles.roundBreakdown}>
+              {stats.roundRetentions.map((time, index) => (
+                <div key={index} className={styles.roundStat}>
+                  <span className={styles.roundStatLabel}>Round {index + 1}</span>
+                  <span className={styles.roundStatValue}>{formatTime(time)}</span>
+                </div>
+              ))}
             </div>
-          </div>
+          </>
         )}
 
         <button className={`${styles.button} ${styles.buttonSecondary}`} onClick={handleStart}>
@@ -242,6 +352,6 @@ export function WimHofExercise({
 // Helper function to format seconds as MM:SS
 function formatTime(seconds: number): string {
   const mins = Math.floor(seconds / 60);
-  const secs = seconds % 60;
+  const secs = Math.round(seconds % 60);
   return `${String(mins)}:${secs.toString().padStart(2, '0')}`;
 }
