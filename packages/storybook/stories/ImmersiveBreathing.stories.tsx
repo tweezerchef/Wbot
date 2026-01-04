@@ -1,5 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unnecessary-condition -- Storybook action args can be undefined at runtime */
 import type { Meta, StoryObj } from '@storybook/react-vite';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import type { ReactElement } from 'react';
 import { useState } from 'react';
 
 import {
@@ -11,6 +13,16 @@ import {
   BREATHING_TECHNIQUES,
 } from '@/components/ImmersiveBreathing';
 import type { BreathingStats } from '@/components/ImmersiveBreathing';
+
+// Create a client for Storybook stories
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: false,
+      staleTime: Infinity,
+    },
+  },
+});
 
 /**
  * ImmersiveBreathing provides a full-screen Apple Watch-inspired
@@ -26,6 +38,13 @@ import type { BreathingStats } from '@/components/ImmersiveBreathing';
 const meta: Meta<typeof ImmersiveBreathing> = {
   title: 'Activities/ImmersiveBreathing',
   component: ImmersiveBreathing,
+  decorators: [
+    (Story): ReactElement => (
+      <QueryClientProvider client={queryClient}>
+        <Story />
+      </QueryClientProvider>
+    ),
+  ],
   parameters: {
     layout: 'fullscreen',
     backgrounds: {

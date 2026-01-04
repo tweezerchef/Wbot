@@ -1,8 +1,11 @@
 /* eslint-disable @typescript-eslint/no-unnecessary-condition -- Storybook action args can be undefined at runtime even if TypeScript thinks otherwise */
 import type { Meta, StoryObj } from '@storybook/react-vite';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import type { ReactElement } from 'react';
 import { useState } from 'react';
 
 import { ActivityOverlay } from '@/components/ActivityOverlay';
+import { GuidedMeditation, MEDITATION_TRACKS } from '@/components/GuidedMeditation';
 import {
   ImmersiveBreathing,
   ImmersiveBreathingConfirmation,
@@ -10,6 +13,39 @@ import {
   type BreathingTechnique,
   type BreathingStats,
 } from '@/components/ImmersiveBreathing';
+import { MeditationSeries } from '@/components/MeditationSeries';
+
+// Create a client for Storybook stories
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: false,
+      staleTime: Infinity,
+    },
+  },
+});
+
+// Mock data for MeditationSeries stories
+const mockSeries = {
+  id: 'mindful-mornings',
+  title: 'Mindful Mornings',
+  description:
+    'Start your day with intention. This 7-day series builds a morning meditation practice.',
+  trackIds: ['day1', 'day2', 'day3', 'day4', 'day5', 'day6', 'day7'],
+  badgeName: 'Morning Meditator',
+  badgeEmoji: '🌅',
+  totalDurationSeconds: 2520, // 42 minutes total
+  difficulty: 'beginner' as const,
+};
+
+const mockSeriesProgress = {
+  seriesId: 'mindful-mornings',
+  completedTrackIds: ['day1', 'day2'],
+  currentTrackIndex: 2,
+  startedAt: new Date().toISOString(),
+  completedAt: null,
+  badgeEarned: false,
+};
 
 /**
  * ActivityOverlay provides a full-screen immersive experience for
@@ -23,6 +59,13 @@ import {
 const meta: Meta<typeof ActivityOverlay> = {
   title: 'Overlay/ActivityOverlay',
   component: ActivityOverlay,
+  decorators: [
+    (Story): ReactElement => (
+      <QueryClientProvider client={queryClient}>
+        <Story />
+      </QueryClientProvider>
+    ),
+  ],
   parameters: {
     layout: 'fullscreen',
     docs: {
@@ -56,89 +99,143 @@ const meta: Meta<typeof ActivityOverlay> = {
 export default meta;
 type Story = StoryObj<typeof ActivityOverlay>;
 
-/**
- * Placeholder content to simulate an activity inside the overlay
- */
-function PlaceholderContent({ title }: { title: string }) {
-  return (
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        height: '100%',
-        padding: '2rem',
-        color: 'white',
-        textAlign: 'center',
-      }}
-    >
-      <h2 style={{ fontSize: '1.5rem', marginBottom: '1rem' }}>{title}</h2>
-      <p style={{ opacity: 0.7, maxWidth: '300px' }}>
-        This is placeholder content. In the real app, this would be an ImmersiveBreathing or
-        ImmersiveMeditation component.
-      </p>
-      <div
-        style={{
-          width: '120px',
-          height: '120px',
-          borderRadius: '50%',
-          background: 'rgba(126, 200, 227, 0.3)',
-          marginTop: '2rem',
-          animation: 'pulse 2s ease-in-out infinite',
-        }}
-      />
-      <style>{`
-        @keyframes pulse {
-          0%, 100% { transform: scale(1); opacity: 0.6; }
-          50% { transform: scale(1.1); opacity: 1; }
-        }
-      `}</style>
-    </div>
-  );
-}
+// ============================================================================
+// BASIC ACTIVITY STORIES - Using Actual Components
+// ============================================================================
 
 /**
- * Default overlay with breathing activity placeholder
+ * Default overlay with ImmersiveBreathing exercise
+ *
+ * Shows the actual breathing exercise component inside the overlay.
+ * Click "Begin Exercise" to start the breathing animation.
  */
 export const Default: Story = {
+  render: function DefaultStory(args) {
+    const [isOpen, setIsOpen] = useState(true);
+
+    return (
+      <ActivityOverlay
+        {...args}
+        isOpen={isOpen}
+        onClose={() => {
+          setIsOpen(false);
+          args.onClose?.();
+        }}
+      >
+        <ImmersiveBreathing
+          technique={BREATHING_TECHNIQUES.box}
+          introduction="Let's practice some calming breaths together."
+          onComplete={() => {
+            setIsOpen(false);
+          }}
+          onExit={() => {
+            setIsOpen(false);
+          }}
+        />
+      </ActivityOverlay>
+    );
+  },
   args: {
-    isOpen: true,
     activityType: 'breathing',
-    children: <PlaceholderContent title="Breathing Exercise" />,
+  },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'Default breathing exercise inside the overlay. This is the full ImmersiveBreathing component with animations and controls.',
+      },
+    },
   },
 };
 
 /**
- * Meditation activity type
+ * Meditation activity with GuidedMeditation component
+ *
+ * Shows an actual guided meditation with audio playback controls.
  */
 export const Meditation: Story = {
+  render: function MeditationStory(args) {
+    const [isOpen, setIsOpen] = useState(true);
+
+    return (
+      <ActivityOverlay
+        {...args}
+        isOpen={isOpen}
+        onClose={() => {
+          setIsOpen(false);
+          args.onClose?.();
+        }}
+      >
+        <GuidedMeditation
+          track={MEDITATION_TRACKS.breathing_focus}
+          introduction="Take a few moments to center yourself with this guided meditation."
+          enableAmbient={false}
+          onComplete={() => {
+            setIsOpen(false);
+          }}
+          onStop={() => {
+            setIsOpen(false);
+          }}
+        />
+      </ActivityOverlay>
+    );
+  },
   args: {
-    isOpen: true,
     activityType: 'meditation',
-    children: <PlaceholderContent title="Guided Meditation" />,
+  },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'Guided meditation inside the overlay with audio playback, mood tracking, and visual animation.',
+      },
+    },
   },
 };
 
 /**
- * Library activity type (for browsing meditations)
- */
-export const Library: Story = {
-  args: {
-    isOpen: true,
-    activityType: 'library',
-    children: <PlaceholderContent title="Meditation Library" />,
-  },
-};
-
-/**
- * Series activity type (for meditation series)
+ * Series activity with MeditationSeries component
+ *
+ * Shows a meditation series/course with progress tracking.
  */
 export const Series: Story = {
+  render: function SeriesStory(args) {
+    const [isOpen, setIsOpen] = useState(true);
+
+    return (
+      <ActivityOverlay
+        {...args}
+        isOpen={isOpen}
+        onClose={() => {
+          setIsOpen(false);
+          args.onClose?.();
+        }}
+      >
+        <div style={{ padding: '1.5rem' }}>
+          <MeditationSeries
+            series={mockSeries}
+            progress={mockSeriesProgress}
+            onStartSession={(index) => {
+              console.warn('Starting session', index);
+            }}
+            onViewDetails={() => {
+              console.warn('View details');
+            }}
+          />
+        </div>
+      </ActivityOverlay>
+    );
+  },
   args: {
-    isOpen: true,
     activityType: 'series',
-    children: <PlaceholderContent title="Meditation Series" />,
+  },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'Meditation series card inside the overlay. Shows progress through a 7-day meditation course.',
+      },
+    },
   },
 };
 
@@ -175,7 +272,16 @@ export const Interactive: Story = {
             args.onClose?.();
           }}
         >
-          <PlaceholderContent title="Interactive Demo" />
+          <ImmersiveBreathing
+            technique={BREATHING_TECHNIQUES.box}
+            introduction="This is an interactive demo. Close with X, Escape, or clicking the backdrop."
+            onComplete={() => {
+              setIsOpen(false);
+            }}
+            onExit={() => {
+              setIsOpen(false);
+            }}
+          />
         </ActivityOverlay>
       </div>
     );
@@ -197,10 +303,32 @@ export const Interactive: Story = {
  * Mobile viewport simulation (375px width)
  */
 export const Mobile: Story = {
+  render: function MobileStory(args) {
+    const [isOpen, setIsOpen] = useState(true);
+
+    return (
+      <ActivityOverlay
+        {...args}
+        isOpen={isOpen}
+        onClose={() => {
+          setIsOpen(false);
+          args.onClose?.();
+        }}
+      >
+        <ImmersiveBreathing
+          technique={BREATHING_TECHNIQUES.box}
+          onComplete={() => {
+            setIsOpen(false);
+          }}
+          onExit={() => {
+            setIsOpen(false);
+          }}
+        />
+      </ActivityOverlay>
+    );
+  },
   args: {
-    isOpen: true,
     activityType: 'breathing',
-    children: <PlaceholderContent title="Mobile View" />,
   },
   parameters: {
     viewport: {
@@ -208,7 +336,7 @@ export const Mobile: Story = {
     },
     docs: {
       description: {
-        story: 'On mobile, the overlay takes over the entire screen.',
+        story: 'On mobile, the overlay takes over the entire screen with full ImmersiveBreathing.',
       },
     },
   },
@@ -218,10 +346,33 @@ export const Mobile: Story = {
  * Tablet viewport simulation (768px width)
  */
 export const Tablet: Story = {
+  render: function TabletStory(args) {
+    const [isOpen, setIsOpen] = useState(true);
+
+    return (
+      <ActivityOverlay
+        {...args}
+        isOpen={isOpen}
+        onClose={() => {
+          setIsOpen(false);
+          args.onClose?.();
+        }}
+      >
+        <ImmersiveBreathing
+          technique={BREATHING_TECHNIQUES.relaxing_478}
+          introduction="Try the 4-7-8 breathing technique for deep relaxation."
+          onComplete={() => {
+            setIsOpen(false);
+          }}
+          onExit={() => {
+            setIsOpen(false);
+          }}
+        />
+      </ActivityOverlay>
+    );
+  },
   args: {
-    isOpen: true,
     activityType: 'breathing',
-    children: <PlaceholderContent title="Tablet View" />,
   },
   parameters: {
     viewport: {
@@ -242,7 +393,7 @@ export const Closed: Story = {
   args: {
     isOpen: false,
     activityType: 'breathing',
-    children: <PlaceholderContent title="You should not see this" />,
+    children: null,
   },
   parameters: {
     docs: {
