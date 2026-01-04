@@ -67,6 +67,8 @@ dependencies = [
     "uvicorn>=0.34.0",
     "openai>=2.14.0",
     "pydub>=0.25.1",
+    "audioop-lts>=0.2.1; python_version >= '3.13'",  # pydub compatibility for Python 3.13+
+    "imageio-ffmpeg>=0.6.0",
 ]
 
 # Development dependencies (installed with `uv sync --dev`)

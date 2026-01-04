@@ -21,11 +21,15 @@ from collections.abc import AsyncGenerator
 from dataclasses import dataclass
 from io import BytesIO
 
+import imageio_ffmpeg
 from openai import AsyncOpenAI
 from pydub import AudioSegment
 
 from src.auth import get_supabase_client
 from src.logging_config import NodeLogger
+
+# Configure pydub to use bundled ffmpeg from imageio-ffmpeg
+AudioSegment.converter = imageio_ffmpeg.get_ffmpeg_exe()
 
 logger = NodeLogger("openai_audio")
 
@@ -197,18 +201,40 @@ class OpenAIAudio:
             )
 
             # Collect all PCM16 chunks
+            # Note: delta.audio is an untyped dict from OpenAI SDK (not in type definitions)
+            # Format: {"id": str, "data": str (base64), "transcript": str, "expires_at": int}
             pcm_chunks: list[bytes] = []
+            chunk_count = 0
+            audio_chunk_count = 0
 
             async for chunk in response:
-                # Check for audio data in the delta
+                chunk_count += 1
                 if chunk.choices and chunk.choices[0].delta:
                     delta = chunk.choices[0].delta
-                    # Audio data is base64 encoded in the delta
-                    if hasattr(delta, "audio") and delta.audio:
-                        audio_data = getattr(delta.audio, "data", None)
-                        if audio_data:
-                            decoded = base64.b64decode(audio_data)
-                            pcm_chunks.append(decoded)
+
+                    # Access audio dict (untyped extra attribute from OpenAI API)
+                    audio_dict: dict | None = getattr(delta, "audio", None)
+
+                    # Debug: Log first audio chunk structure
+                    if audio_dict and audio_chunk_count == 0:
+                        logger.info(
+                            "Audio chunk received",
+                            keys=list(audio_dict.keys()),
+                            has_data="data" in audio_dict,
+                        )
+
+                    # Extract base64-encoded PCM16 audio data
+                    if audio_dict and "data" in audio_dict:
+                        audio_data = audio_dict["data"]
+                        decoded = base64.b64decode(audio_data)
+                        pcm_chunks.append(decoded)
+                        audio_chunk_count += 1
+
+            logger.info(
+                "Streaming complete",
+                total_chunks=chunk_count,
+                audio_chunks=audio_chunk_count,
+            )
 
             # Convert collected PCM16 to MP3
             if pcm_chunks:
@@ -313,6 +339,8 @@ class OpenAIAudio:
                 stream=True,
             )
 
+            # Note: delta.audio is an untyped dict from OpenAI SDK
+            # Format: {"id": str, "data": str (base64), "transcript": str, "expires_at": int}
             text_chunks: list[str] = []
             pcm_chunks: list[bytes] = []
 
@@ -324,12 +352,14 @@ class OpenAIAudio:
                     if hasattr(delta, "content") and delta.content:
                         text_chunks.append(delta.content)
 
-                    # Collect audio data (base64 encoded PCM16)
-                    if hasattr(delta, "audio") and delta.audio:
-                        audio_data = getattr(delta.audio, "data", None)
-                        if audio_data:
-                            decoded = base64.b64decode(audio_data)
-                            pcm_chunks.append(decoded)
+                    # Access audio dict (untyped extra attribute from OpenAI API)
+                    audio_dict: dict | None = getattr(delta, "audio", None)
+
+                    # Extract base64-encoded PCM16 audio data
+                    if audio_dict and "data" in audio_dict:
+                        audio_data = audio_dict["data"]
+                        decoded = base64.b64decode(audio_data)
+                        pcm_chunks.append(decoded)
 
             text_content = "".join(text_chunks)
 
