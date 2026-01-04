@@ -25,7 +25,9 @@ The compiled `graph` is exported for use by LangGraph Deploy.
 """
 
 from langgraph.graph import END, StateGraph
+from langgraph.graph.state import CompiledStateGraph
 
+from src.checkpointer import get_checkpointer, setup_checkpointer
 from src.graph.state import WellnessState
 from src.nodes.breathing_exercise import run_breathing_exercise
 from src.nodes.detect_activity import detect_activity_intent
@@ -190,6 +192,57 @@ def build_graph() -> StateGraph:
     return builder
 
 
-# Compile the graph for LangGraph Deploy
+# Compile the graph for LangGraph Deploy (stateless, uses Cloud persistence)
 # This is the object referenced in langgraph.json
 graph = build_graph().compile()
+
+
+# ============================================================================
+# Self-Hosted Graph with PostgreSQL Checkpointing
+# ============================================================================
+# For self-hosted deployments, use get_compiled_graph() to get a graph
+# with persistent state stored in your own Supabase PostgreSQL instance.
+# ============================================================================
+
+# Cached compiled graph with checkpointer (lazy initialization)
+_compiled_graph_with_checkpointer = None
+
+
+async def get_compiled_graph() -> "CompiledStateGraph":
+    """
+    Gets the compiled graph with PostgreSQL checkpointer for self-hosted deployments.
+
+    This function:
+    1. Ensures checkpoint tables are initialized (idempotent)
+    2. Gets the singleton checkpointer instance
+    3. Compiles the graph with the checkpointer
+
+    Use this instead of the `graph` export when self-hosting LangGraph
+    and you want conversation state persisted to your Supabase instance.
+
+    Returns:
+        Compiled graph with PostgreSQL checkpointing enabled.
+
+    Example:
+        # In your server startup
+        graph = await get_compiled_graph()
+
+        # Run with automatic state persistence
+        result = await graph.ainvoke(
+            {"messages": [HumanMessage(content="Hello")]},
+            config={"configurable": {"thread_id": "conversation-uuid"}}
+        )
+    """
+    global _compiled_graph_with_checkpointer
+
+    if _compiled_graph_with_checkpointer is None:
+        # Ensure checkpoint tables exist (idempotent)
+        await setup_checkpointer()
+
+        # Get the checkpointer singleton
+        checkpointer = await get_checkpointer()
+
+        # Build and compile with checkpointer
+        _compiled_graph_with_checkpointer = build_graph().compile(checkpointer=checkpointer)
+
+    return _compiled_graph_with_checkpointer

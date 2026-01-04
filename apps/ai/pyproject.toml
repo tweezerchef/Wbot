@@ -69,6 +69,14 @@ dependencies = [
     "pydub>=0.25.1",
     "audioop-lts>=0.2.1; python_version >= '3.13'",  # pydub compatibility for Python 3.13+
     "imageio-ffmpeg>=0.6.0",
+    # -------------------------------------------------------------------------
+    # LangGraph Checkpointing
+    # -------------------------------------------------------------------------
+    # PostgreSQL checkpointer for persistent conversation state (self-hosted)
+    # Uses psycopg3 with connection pooling for efficient database access
+    "langgraph-checkpoint-postgres>=3.0.2",
+    # psycopg with binary and pool support for optimal performance
+    "psycopg[binary,pool]>=3.2.0",
 ]
 
 # Development dependencies (installed with `uv sync --dev`)
@@ -218,6 +226,13 @@ asyncio_mode = "auto"
 
 # Directory containing test files
 testpaths = ["tests"]
+
+# Suppress third-party deprecation warnings from pyiceberg (unfixable until 0.11.0)
+# See: https://github.com/apache/iceberg-python/issues/2648
+filterwarnings = [
+    "ignore::DeprecationWarning:pyiceberg.*",
+    "ignore::pydantic.warnings.PydanticDeprecatedSince212:pyiceberg.*",
+]
 
 [dependency-groups]
 dev = [
