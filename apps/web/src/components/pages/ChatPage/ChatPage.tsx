@@ -43,7 +43,7 @@ import {
   LogoutIcon,
 } from '../../buttons';
 import { ConversationHistory } from '../../ConversationHistory';
-import { GuidedMeditation } from '../../GuidedMeditation';
+import { AIGeneratedMeditation, GuidedMeditation } from '../../GuidedMeditation';
 import { WimHofExercise } from '../../WimHofExercise';
 
 import styles from './ChatPage.module.css';
@@ -741,6 +741,22 @@ function MessageBubble({ message, isStreaming = false }: MessageBubbleProps) {
             introduction={activity.introduction}
             onComplete={handleExerciseComplete}
           />
+        </div>
+      </div>
+    );
+  }
+
+  // Render AI-generated meditation inline if detected
+  if (
+    parsedContent?.hasActivity &&
+    parsedContent.activity?.activity === 'meditation_ai_generated'
+  ) {
+    const activity = parsedContent.activity;
+
+    return (
+      <div className={styles.messageRow}>
+        <div className={`${styles.bubble} ${styles.bubbleAssistant} ${styles.bubbleActivity}`}>
+          <AIGeneratedMeditation activityData={activity} onComplete={handleExerciseComplete} />
         </div>
       </div>
     );

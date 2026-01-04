@@ -74,16 +74,24 @@ describe('TimerMeditation', () => {
 
   describe('running state', () => {
     it('shows timer display after starting', () => {
-      const { container } = render(<TimerMeditation initialMinutes={5} enableAmbient={false} enableBinaural={false} />);
+      const { container } = render(
+        <TimerMeditation initialMinutes={5} enableAmbient={false} enableBinaural={false} />
+      );
       const startButton = container.querySelector('button[class*="startButton"]');
-      if (startButton) fireEvent.click(startButton);
+      if (startButton) {
+        fireEvent.click(startButton);
+      }
       expect(screen.getByText('5:00')).toBeInTheDocument();
     });
 
     it('counts down the timer', () => {
-      const { container } = render(<TimerMeditation initialMinutes={1} enableAmbient={false} enableBinaural={false} />);
+      const { container } = render(
+        <TimerMeditation initialMinutes={1} enableAmbient={false} enableBinaural={false} />
+      );
       const startButton = container.querySelector('button[class*="startButton"]');
-      if (startButton) fireEvent.click(startButton);
+      if (startButton) {
+        fireEvent.click(startButton);
+      }
 
       expect(screen.getByText('1:00')).toBeInTheDocument();
 
@@ -97,9 +105,13 @@ describe('TimerMeditation', () => {
 
   describe('completion', () => {
     it('shows completion screen when timer ends', () => {
-      const { container } = render(<TimerMeditation initialMinutes={1} enableAmbient={false} enableBinaural={false} />);
+      const { container } = render(
+        <TimerMeditation initialMinutes={1} enableAmbient={false} enableBinaural={false} />
+      );
       const startButton = container.querySelector('button[class*="startButton"]');
-      if (startButton) fireEvent.click(startButton);
+      if (startButton) {
+        fireEvent.click(startButton);
+      }
 
       act(() => {
         vi.advanceTimersByTime(60000);
@@ -110,9 +122,18 @@ describe('TimerMeditation', () => {
 
     it('calls onComplete callback', () => {
       const onComplete = vi.fn();
-      const { container } = render(<TimerMeditation initialMinutes={1} onComplete={onComplete} enableAmbient={false} enableBinaural={false} />);
+      const { container } = render(
+        <TimerMeditation
+          initialMinutes={1}
+          onComplete={onComplete}
+          enableAmbient={false}
+          enableBinaural={false}
+        />
+      );
       const startButton = container.querySelector('button[class*="startButton"]');
-      if (startButton) fireEvent.click(startButton);
+      if (startButton) {
+        fireEvent.click(startButton);
+      }
 
       act(() => {
         vi.advanceTimersByTime(60000);

@@ -91,11 +91,95 @@ const meditationActivitySchema = z.object({
   introduction: z.string(),
 });
 
+/** Schema for personalized meditation script */
+const personalizedScriptSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  type: z.enum([
+    'body_scan',
+    'loving_kindness',
+    'breathing_focus',
+    'sleep',
+    'anxiety_relief',
+    'daily_mindfulness',
+  ]),
+  durationEstimateSeconds: z.number(),
+  scriptContent: z.string().optional(),
+  placeholders: z.record(z.string(), z.string()).optional(),
+  language: z.string(),
+});
+
+/** Schema for personalization options */
+const meditationPersonalizationSchema = z.object({
+  userName: z.string().optional(),
+  userGoal: z.string().optional(),
+});
+
+/** Schema for personalized/TTS meditation activity data */
+const personalizedMeditationActivitySchema = z.object({
+  type: z.literal('activity'),
+  activity: z.literal('meditation_personalized'),
+  status: z.enum(['ready', 'generating', 'in_progress', 'complete']),
+  script: personalizedScriptSchema,
+  personalization: meditationPersonalizationSchema.optional(),
+  introduction: z.string(),
+  audioUrl: z.string().optional(),
+});
+
+/** Schema for AI-generated meditation voice */
+const aiMeditationVoiceSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  description: z.string(),
+  best_for: z.array(z.string()),
+  preview_url: z.string().nullable().optional(),
+});
+
+/** Schema for AI-generated meditation script */
+const aiMeditationScriptSchema = z.object({
+  content: z.string(),
+  word_count: z.number(),
+  estimated_duration_seconds: z.number(),
+});
+
+/** Schema for AI-generated meditation generation context */
+const aiMeditationContextSchema = z.object({
+  time_of_day: z.enum(['morning', 'afternoon', 'evening', 'night']),
+  primary_intent: z.string(),
+  memories_used: z.number(),
+  emotional_signals: z.array(z.string()),
+});
+
+/** Schema for AI-generated meditation activity data */
+const aiGeneratedMeditationActivitySchema = z.object({
+  type: z.literal('activity'),
+  activity: z.literal('meditation_ai_generated'),
+  status: z.enum(['ready', 'generating', 'in_progress', 'complete']),
+  meditation_id: z.string(),
+  title: z.string(),
+  meditation_type: z.enum([
+    'body_scan',
+    'loving_kindness',
+    'breathing_focus',
+    'sleep',
+    'anxiety_relief',
+    'daily_mindfulness',
+  ]),
+  duration_minutes: z.number(),
+  script: aiMeditationScriptSchema,
+  voice: aiMeditationVoiceSchema,
+  generation_context: aiMeditationContextSchema,
+  introduction: z.string(),
+  audio_url: z.string().optional(),
+});
+
 /** Union of all activity types */
 const activityDataSchema = z.discriminatedUnion('activity', [
   breathingActivitySchema,
   wimHofActivitySchema,
   meditationActivitySchema,
+  personalizedMeditationActivitySchema,
+  aiGeneratedMeditationActivitySchema,
   // Future: journalingActivitySchema
 ]);
 
@@ -120,6 +204,29 @@ export type MeditationTrack = z.infer<typeof meditationTrackSchema>;
 
 /** Inferred type for meditation activity data */
 export type MeditationActivityData = z.infer<typeof meditationActivitySchema>;
+
+/** Inferred type for personalized script */
+export type PersonalizedScript = z.infer<typeof personalizedScriptSchema>;
+
+/** Inferred type for meditation personalization */
+export type MeditationPersonalization = z.infer<typeof meditationPersonalizationSchema>;
+
+/** Inferred type for personalized meditation activity data */
+export type PersonalizedMeditationActivityData = z.infer<
+  typeof personalizedMeditationActivitySchema
+>;
+
+/** Inferred type for AI-generated meditation voice */
+export type AIMeditationVoice = z.infer<typeof aiMeditationVoiceSchema>;
+
+/** Inferred type for AI-generated meditation script */
+export type AIMeditationScript = z.infer<typeof aiMeditationScriptSchema>;
+
+/** Inferred type for AI-generated meditation generation context */
+export type AIMeditationContext = z.infer<typeof aiMeditationContextSchema>;
+
+/** Inferred type for AI-generated meditation activity data */
+export type AIGeneratedMeditationActivityData = z.infer<typeof aiGeneratedMeditationActivitySchema>;
 
 /** Inferred type for any activity data */
 export type ActivityData = z.infer<typeof activityDataSchema>;

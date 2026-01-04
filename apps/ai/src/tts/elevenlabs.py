@@ -106,7 +106,7 @@ class ElevenLabsTTS:
             file_path = f"custom/{cache_key}.mp3"
 
             # Try to get public URL - if file exists, this works
-            result = bucket.get_public_url(file_path)
+            result = await bucket.get_public_url(file_path)
             if result:
                 # Verify file exists by checking if URL is accessible
                 async with httpx.AsyncClient() as client:
@@ -133,7 +133,7 @@ class ElevenLabsTTS:
             {"content-type": "audio/mpeg"},
         )
 
-        return bucket.get_public_url(file_path)
+        return await bucket.get_public_url(file_path)
 
     async def generate_meditation(
         self,

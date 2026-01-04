@@ -59,27 +59,32 @@ export default defineConfig({
     }),
   ],
 
-  // Build optimization
-  build: {
-    rollupOptions: {
-      output: {
-        // Manual chunks for better code splitting and caching
-        manualChunks: {
-          // React core libraries (stable, rarely changes)
-          'react-vendor': ['react', 'react-dom', 'react/jsx-runtime'],
+  // Build optimization - only apply manualChunks to client environment
+  // SSR builds have different externals that conflict with manualChunks
+  environments: {
+    client: {
+      build: {
+        rollupOptions: {
+          output: {
+            // Manual chunks for better code splitting and caching
+            manualChunks: {
+              // React core libraries (stable, rarely changes)
+              'react-vendor': ['react', 'react-dom', 'react/jsx-runtime'],
 
-          // TanStack ecosystem (routing, queries, forms)
-          'tanstack-vendor': [
-            '@tanstack/react-query',
-            '@tanstack/react-router',
-            '@tanstack/react-start',
-          ],
+              // TanStack ecosystem (routing, queries, forms)
+              'tanstack-vendor': [
+                '@tanstack/react-query',
+                '@tanstack/react-router',
+                '@tanstack/react-start',
+              ],
 
-          // Supabase client library (large, stable)
-          'supabase-vendor': ['@supabase/supabase-js'],
+              // Supabase client library (large, stable)
+              'supabase-vendor': ['@supabase/supabase-js'],
 
-          // Shared utilities and types
-          'shared-vendor': ['zod'],
+              // Shared utilities and types
+              'shared-vendor': ['zod'],
+            },
+          },
         },
       },
     },

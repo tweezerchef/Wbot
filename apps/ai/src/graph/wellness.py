@@ -8,12 +8,14 @@ Graph Structure (With Activity Routing):
     START -> retrieve_memories -> detect_activity -> [routing decision]
         -> generate_response -> store_memory -> END
         -> breathing_exercise -> store_memory -> END
-        (future: meditation_guidance, journaling_prompt)
+        -> generate_meditation_script -> store_memory -> END
+        (future: journaling_prompt)
 
     - retrieve_memories: Semantic search for relevant past conversations (~50ms)
     - detect_activity: LLM-based classification to detect activity needs
     - generate_response: Streams AI response to user in real-time
     - breathing_exercise: Interactive breathing exercise with HITL confirmation
+    - generate_meditation_script: AI-generated personalized meditation with voice selection HITL
     - store_memory: Stores conversation pair after streaming completes
 
 This file defines the graph structure and compiles it for deployment.
@@ -26,6 +28,7 @@ from langgraph.graph import END, StateGraph
 from src.graph.state import WellnessState
 from src.nodes.breathing_exercise import run_breathing_exercise
 from src.nodes.detect_activity import detect_activity_intent
+from src.nodes.generate_meditation_script import run_generate_meditation_script
 from src.nodes.generate_response import generate_response
 from src.nodes.retrieve_memories import retrieve_memories
 from src.nodes.store_memory import store_memory_node
@@ -48,9 +51,9 @@ def route_activity(state: WellnessState) -> str:
 
     if activity == "breathing":
         return "breathing_exercise"
+    elif activity == "meditation":
+        return "generate_meditation_script"
     # Future activity types:
-    # elif activity == "meditation":
-    #     return "meditation_guidance"
     # elif activity == "journaling":
     #     return "journaling_prompt"
 
@@ -60,57 +63,57 @@ def route_activity(state: WellnessState) -> str:
 
 def build_graph() -> StateGraph:
     """
-    Constructs the wellness conversation graph with activity routing.
+        Constructs the wellness conversation graph with activity routing.
 
-    Implementation:
-    1. Retrieves relevant memories from past conversations
-    2. Detects if user needs a wellness activity
-    3. Routes to activity handler OR generates normal response
-    4. Stores the conversation pair for future retrieval
+        Implementation:
+        1. Retrieves relevant memories from past conversations
+        2. Detects if user needs a wellness activity
+        3. Routes to activity handler OR generates normal response
+        4. Stores the conversation pair for future retrieval
 
-    Returns:
-        A compiled StateGraph ready for execution by LangGraph Deploy.
+        Returns:
+            A compiled StateGraph ready for execution by LangGraph Deploy.
 
-    Graph Visualization:
+        Graph Visualization:
 
-        ┌─────────┐
-        │  START  │
-        └────┬────┘
-             │
-             ▼
-    ┌─────────────────────┐
-    │  retrieve_memories  │  ← Fast DB query (~50ms)
-    └──────────┬──────────┘
-               │
-               ▼
-    ┌─────────────────────┐
-    │   detect_activity   │  ← LLM classification
-    └──────────┬──────────┘
-               │
-        ┌──────┴──────┐
-        │  suggested  │
-        │  activity?  │
-        └──────┬──────┘
-               │
-    ┌──────────┼──────────┐
-    │          │          │
-    ▼          ▼          ▼
-┌────────┐ ┌────────┐ ┌────────┐
-│breathing│ │  ...  │ │generate│
-│exercise │ │(future)│ │response│
-└────┬────┘ └────┬───┘ └───┬────┘
-     │           │         │
-     └───────────┴─────────┘
-               │
-               ▼
-    ┌─────────────────────┐
-    │    store_memory     │
-    └──────────┬──────────┘
-               │
-               ▼
-         ┌─────────┐
-         │   END   │
-         └─────────┘
+            ┌─────────┐
+            │  START  │
+            └────┬────┘
+                 │
+                 ▼
+        ┌─────────────────────┐
+        │  retrieve_memories  │  ← Fast DB query (~50ms)
+        └──────────┬──────────┘
+                   │
+                   ▼
+        ┌─────────────────────┐
+        │   detect_activity   │  ← LLM classification
+        └──────────┬──────────┘
+                   │
+            ┌──────┴──────┐
+            │  suggested  │
+            │  activity?  │
+            └──────┬──────┘
+                   │
+        ┌──────────┼──────────┐
+        │          │          │
+        ▼          ▼          ▼
+    ┌────────┐ ┌────────┐ ┌────────┐
+    │breathing│ │  ...  │ │generate│
+    │exercise │ │(future)│ │response│
+    └────┬────┘ └────┬───┘ └───┬────┘
+         │           │         │
+         └───────────┴─────────┘
+                   │
+                   ▼
+        ┌─────────────────────┐
+        │    store_memory     │
+        └──────────┬──────────┘
+                   │
+                   ▼
+             ┌─────────┐
+             │   END   │
+             └─────────┘
     """
     # Create the graph builder with our state type
     builder = StateGraph(WellnessState)
@@ -131,6 +134,9 @@ def build_graph() -> StateGraph:
     # Breathing exercise - interactive breathing with HITL
     builder.add_node("breathing_exercise", run_breathing_exercise)
 
+    # AI-generated meditation script - personalized meditation with voice selection HITL
+    builder.add_node("generate_meditation_script", run_generate_meditation_script)
+
     # Memory storage - persists the conversation for future retrieval
     builder.add_node("store_memory", store_memory_node)
 
@@ -150,6 +156,7 @@ def build_graph() -> StateGraph:
         route_activity,
         {
             "breathing_exercise": "breathing_exercise",
+            "generate_meditation_script": "generate_meditation_script",
             "generate_response": "generate_response",
         },
     )
@@ -157,6 +164,7 @@ def build_graph() -> StateGraph:
     # All response paths lead to memory storage
     builder.add_edge("generate_response", "store_memory")
     builder.add_edge("breathing_exercise", "store_memory")
+    builder.add_edge("generate_meditation_script", "store_memory")
 
     # After storing memory, end the turn
     builder.add_edge("store_memory", END)

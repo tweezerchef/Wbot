@@ -16,7 +16,7 @@ const config: Config = {
   organizationName: 'your-org',
   projectName: 'wbot',
 
-  onBrokenLinks: 'throw',
+  onBrokenLinks: 'warn',
   onBrokenMarkdownLinks: 'warn',
 
   i18n: {

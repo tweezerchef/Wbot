@@ -1,19 +1,14 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { expect, fn, userEvent, within } from '@storybook/test';
-import { useState } from 'react';
 import type { ReactElement } from 'react';
+import { fn } from 'storybook/test';
 
 import {
   MeditationStreakBadge,
   TimerMeditation,
   useBinauralBeats,
 } from '@/components/GuidedMeditation';
-
-import {
-  MeditationSeries,
-  BadgeUnlock,
-} from '@/components/MeditationSeries';
-import type { MeditationSeries as SeriesType, SeriesProgress } from '@/components/MeditationSeries';
+import { MeditationSeries, BadgeUnlock } from '@/components/MeditationSeries';
+import type { MeditationSeriesType } from '@/components/MeditationSeries';
 
 // =============================================================================
 // MeditationStreakBadge Stories
@@ -127,7 +122,8 @@ export const WithCelebration: StreakStory = {
   parameters: {
     docs: {
       description: {
-        story: 'Shows the celebration animation that plays when a streak is saved after completing a meditation.',
+        story:
+          'Shows the celebration animation that plays when a streak is saved after completing a meditation.',
       },
     },
   },
@@ -179,8 +175,12 @@ export const TimerMeditationDefault: StoryObj<typeof TimerMeditation> = {
         initialMinutes={5}
         enableAmbient={true}
         enableBinaural={true}
-        onComplete={() => console.log('Timer completed!')}
-        onStop={(elapsed) => console.log(`Stopped after ${elapsed} seconds`)}
+        onComplete={() => {
+          console.warn('Timer completed!');
+        }}
+        onStop={(elapsed) => {
+          console.warn(`Stopped after ${String(elapsed)} seconds`);
+        }}
       />
     </div>
   ),
@@ -208,7 +208,9 @@ export const TimerWithoutExtras: StoryObj<typeof TimerMeditation> = {
         initialMinutes={10}
         enableAmbient={false}
         enableBinaural={false}
-        onComplete={() => console.log('Timer completed!')}
+        onComplete={() => {
+          console.warn('Timer completed!');
+        }}
       />
     </div>
   ),
@@ -235,18 +237,20 @@ function BinauralBeatsDemo(): ReactElement {
   return (
     <div style={{ padding: '24px', background: '#fff', borderRadius: '12px', width: '320px' }}>
       <h3 style={{ margin: '0 0 16px', fontSize: '18px' }}>Binaural Beats Generator</h3>
-      
+
       <p style={{ fontSize: '14px', color: '#666', marginBottom: '16px' }}>
         {binaural.getDescription()}
       </p>
-      
+
       <div style={{ marginBottom: '16px' }}>
         <label style={{ display: 'block', fontSize: '12px', color: '#999', marginBottom: '4px' }}>
           Frequency Preset
         </label>
         <select
           value={binaural.frequency}
-          onChange={(e) => binaural.setFrequency(e.target.value as 'delta' | 'theta' | 'alpha' | 'beta')}
+          onChange={(e) => {
+            binaural.setFrequency(e.target.value as 'delta' | 'theta' | 'alpha' | 'beta');
+          }}
           style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #ddd' }}
         >
           <option value="delta">Delta (2 Hz) - Deep sleep</option>
@@ -255,7 +259,7 @@ function BinauralBeatsDemo(): ReactElement {
           <option value="beta">Beta (20 Hz) - Alert focus</option>
         </select>
       </div>
-      
+
       <div style={{ marginBottom: '16px' }}>
         <label style={{ display: 'block', fontSize: '12px', color: '#999', marginBottom: '4px' }}>
           Volume: {Math.round(binaural.volume * 100)}%
@@ -266,11 +270,13 @@ function BinauralBeatsDemo(): ReactElement {
           max="1"
           step="0.05"
           value={binaural.volume}
-          onChange={(e) => binaural.setVolume(parseFloat(e.target.value))}
+          onChange={(e) => {
+            binaural.setVolume(parseFloat(e.target.value));
+          }}
           style={{ width: '100%' }}
         />
       </div>
-      
+
       <div style={{ display: 'flex', gap: '8px' }}>
         {!binaural.isPlaying ? (
           <button
@@ -306,7 +312,9 @@ function BinauralBeatsDemo(): ReactElement {
               ■ Stop
             </button>
             <button
-              onClick={() => binaural.fadeOut(2)}
+              onClick={() => {
+                binaural.fadeOut(2);
+              }}
               style={{
                 flex: 1,
                 padding: '10px',
@@ -323,7 +331,7 @@ function BinauralBeatsDemo(): ReactElement {
           </>
         )}
       </div>
-      
+
       <p style={{ fontSize: '12px', color: '#999', marginTop: '16px', textAlign: 'center' }}>
         🎧 Use headphones for best effect
       </p>
@@ -355,12 +363,20 @@ Interactive binaural beats generator using the Web Audio API.
 // MeditationSeries Stories
 // =============================================================================
 
-const mockSeries: SeriesType[] = [
+const mockSeries: MeditationSeriesType[] = [
   {
     id: '7_day_calm',
     title: '7 Day Calm',
     description: 'A week of daily stress relief meditations to build your calm practice.',
-    trackIds: ['breathing_focus', 'body_scan_short', 'daily_mindfulness', 'anxiety_relief', 'body_scan_medium', 'loving_kindness', 'complete_relaxation'],
+    trackIds: [
+      'breathing_focus',
+      'body_scan_short',
+      'daily_mindfulness',
+      'anxiety_relief',
+      'body_scan_medium',
+      'loving_kindness',
+      'complete_relaxation',
+    ],
     badgeName: 'Week of Calm',
     badgeEmoji: '🧘',
     totalDurationSeconds: 2820,
@@ -370,7 +386,13 @@ const mockSeries: SeriesType[] = [
     id: 'sleep_better',
     title: 'Sleep Better',
     description: 'A 5-day program to improve your sleep through guided relaxation.',
-    trackIds: ['body_scan_short', 'breathing_focus', 'body_scan_medium', 'complete_relaxation', 'sleep_meditation'],
+    trackIds: [
+      'body_scan_short',
+      'breathing_focus',
+      'body_scan_medium',
+      'complete_relaxation',
+      'sleep_meditation',
+    ],
     badgeName: 'Sleep Master',
     badgeEmoji: '😴',
     totalDurationSeconds: 2700,
@@ -380,7 +402,15 @@ const mockSeries: SeriesType[] = [
     id: 'self_compassion',
     title: 'Self-Compassion Journey',
     description: 'Develop a loving relationship with yourself through 7 sessions.',
-    trackIds: ['breathing_focus', 'loving_kindness', 'anxiety_relief', 'loving_kindness', 'body_scan_medium', 'loving_kindness_extended', 'loving_kindness_extended'],
+    trackIds: [
+      'breathing_focus',
+      'loving_kindness',
+      'anxiety_relief',
+      'loving_kindness',
+      'body_scan_medium',
+      'loving_kindness_extended',
+      'loving_kindness_extended',
+    ],
     badgeName: 'Heart of Gold',
     badgeEmoji: '💛',
     totalDurationSeconds: 3480,
@@ -394,8 +424,12 @@ export const SeriesNotStarted: StoryObj<typeof MeditationSeries> = {
       <MeditationSeries
         series={mockSeries[0]}
         progress={null}
-        onStartSession={(idx) => console.log(`Starting session ${idx}`)}
-        onViewDetails={() => console.log('View details')}
+        onStartSession={(idx) => {
+          console.warn(`Starting session ${String(idx)}`);
+        }}
+        onViewDetails={() => {
+          console.warn('View details');
+        }}
       />
     </div>
   ),
@@ -421,8 +455,12 @@ export const SeriesInProgress: StoryObj<typeof MeditationSeries> = {
           completedAt: null,
           badgeEarned: false,
         }}
-        onStartSession={(idx) => console.log(`Continuing at session ${idx}`)}
-        onViewDetails={() => console.log('View details')}
+        onStartSession={(idx) => {
+          console.warn(`Continuing at session ${String(idx)}`);
+        }}
+        onViewDetails={() => {
+          console.warn('View details');
+        }}
       />
     </div>
   ),
@@ -448,8 +486,12 @@ export const SeriesCompleted: StoryObj<typeof MeditationSeries> = {
           completedAt: '2024-01-07T00:00:00Z',
           badgeEarned: true,
         }}
-        onStartSession={(idx) => console.log(`Restarting at session ${idx}`)}
-        onViewDetails={() => console.log('View details')}
+        onStartSession={(idx) => {
+          console.warn(`Restarting at session ${String(idx)}`);
+        }}
+        onViewDetails={() => {
+          console.warn('View details');
+        }}
       />
     </div>
   ),
@@ -469,16 +511,24 @@ export const AllSeries: StoryObj = {
         <MeditationSeries
           key={series.id}
           series={series}
-          progress={idx === 1 ? {
-            seriesId: series.id,
-            completedTrackIds: [series.trackIds[0], series.trackIds[1]],
-            currentTrackIndex: 2,
-            startedAt: '2024-01-01T00:00:00Z',
-            completedAt: null,
-            badgeEarned: false,
-          } : null}
-          onStartSession={(i) => console.log(`${series.title}: session ${i}`)}
-          onViewDetails={() => console.log(`Details: ${series.title}`)}
+          progress={
+            idx === 1
+              ? {
+                  seriesId: series.id,
+                  completedTrackIds: [series.trackIds[0], series.trackIds[1]],
+                  currentTrackIndex: 2,
+                  startedAt: '2024-01-01T00:00:00Z',
+                  completedAt: null,
+                  badgeEarned: false,
+                }
+              : null
+          }
+          onStartSession={(i) => {
+            console.warn(`${series.title}: session ${String(i)}`);
+          }}
+          onViewDetails={() => {
+            console.warn(`Details: ${series.title}`);
+          }}
         />
       ))}
     </div>
@@ -501,7 +551,9 @@ export const BadgeUnlockDefault: StoryObj<typeof BadgeUnlock> = {
     <BadgeUnlock
       badgeName="Week of Calm"
       badgeEmoji="🧘"
-      onClose={() => console.log('Badge dismissed')}
+      onClose={() => {
+        console.warn('Badge dismissed');
+      }}
       autoClose={false}
     />
   ),
@@ -509,7 +561,8 @@ export const BadgeUnlockDefault: StoryObj<typeof BadgeUnlock> = {
     layout: 'fullscreen',
     docs: {
       description: {
-        story: 'Celebration overlay when a user earns a badge. Shows confetti animation and badge details.',
+        story:
+          'Celebration overlay when a user earns a badge. Shows confetti animation and badge details.',
       },
     },
   },
@@ -520,7 +573,9 @@ export const BadgeUnlockSleepMaster: StoryObj<typeof BadgeUnlock> = {
     <BadgeUnlock
       badgeName="Sleep Master"
       badgeEmoji="😴"
-      onClose={() => console.log('Badge dismissed')}
+      onClose={() => {
+        console.warn('Badge dismissed');
+      }}
       autoClose={false}
     />
   ),
@@ -534,7 +589,9 @@ export const BadgeUnlockHeartOfGold: StoryObj<typeof BadgeUnlock> = {
     <BadgeUnlock
       badgeName="Heart of Gold"
       badgeEmoji="💛"
-      onClose={() => console.log('Badge dismissed')}
+      onClose={() => {
+        console.warn('Badge dismissed');
+      }}
       autoClose={false}
     />
   ),
@@ -548,7 +605,9 @@ export const BadgeUnlockWithAutoClose: StoryObj<typeof BadgeUnlock> = {
     <BadgeUnlock
       badgeName="30 Day Streak!"
       badgeEmoji="🏆"
-      onClose={() => console.log('Auto-closed after 5 seconds')}
+      onClose={() => {
+        console.warn('Auto-closed after 5 seconds');
+      }}
       autoClose={true}
       autoCloseDelay={5000}
     />
@@ -557,7 +616,7 @@ export const BadgeUnlockWithAutoClose: StoryObj<typeof BadgeUnlock> = {
     layout: 'fullscreen',
     docs: {
       description: {
-        story: 'Badge unlock that auto-closes after 5 seconds if the user doesn\'t interact.',
+        story: "Badge unlock that auto-closes after 5 seconds if the user doesn't interact.",
       },
     },
   },

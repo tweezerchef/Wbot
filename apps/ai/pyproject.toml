@@ -58,6 +58,14 @@ dependencies = [
     "langgraph-cli[inmem]>=0.4.11",
     "redis>=7.1.0",
     "anthropic>=0.75.0",
+    # -------------------------------------------------------------------------
+    # FastAPI - HTTP API Server
+    # -------------------------------------------------------------------------
+    # Used for non-conversational endpoints (TTS generation, etc.)
+    "fastapi>=0.115.0",
+    # ASGI server for running FastAPI
+    "uvicorn>=0.34.0",
+    "openai>=2.14.0",
 ]
 
 # Development dependencies (installed with `uv sync --dev`)
@@ -153,6 +161,8 @@ module = [
     "langchain_google_genai.*",
     "langgraph.*",
     "supabase.*",
+    "fastapi.*",
+    "uvicorn.*",
 ]
 ignore_missing_imports = true
 

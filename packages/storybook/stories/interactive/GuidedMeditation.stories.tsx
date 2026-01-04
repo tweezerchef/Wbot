@@ -1,8 +1,9 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { expect, fn, userEvent, within } from '@storybook/test';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactElement } from 'react';
+import { expect, fn, userEvent, within } from 'storybook/test';
 
+import type { MeditationTrack, MoodRating } from '@/components/GuidedMeditation';
 import {
   GuidedMeditation,
   MeditationPlayer,
@@ -11,7 +12,6 @@ import {
   MEDITATION_TRACKS,
   getAllTracks,
 } from '@/components/GuidedMeditation';
-import type { MeditationTrack, MoodRating } from '@/components/GuidedMeditation';
 
 // Create a client for Storybook stories
 const queryClient = new QueryClient({
@@ -155,7 +155,7 @@ export const LovingKindnessExtended: Story = {
   args: {
     track: MEDITATION_TRACKS.loving_kindness_extended,
     introduction:
-      "This extended loving kindness practice takes us deeper into compassion cultivation, including visualizations for all beings.",
+      'This extended loving kindness practice takes us deeper into compassion cultivation, including visualizations for all beings.',
   },
 };
 
@@ -165,9 +165,12 @@ export const LovingKindnessExtended: Story = {
  */
 export const AnxietyRelief: Story = {
   args: {
-    track: MEDITATION_TRACKS.anxiety_relief,
+    track: 'body_scan_short',
+
     introduction:
       "I've chosen a meditation specifically for working with difficult emotions. Let's meet what you're feeling with mindfulness.",
+
+    enableAmbient: true,
   },
 };
 
@@ -203,7 +206,7 @@ export const CompleteRelaxation: Story = {
   args: {
     track: MEDITATION_TRACKS.complete_relaxation,
     introduction:
-      "This 15-minute meditation guides you through deep muscle relaxation and calming breathwork. Perfect for unwinding.",
+      'This 15-minute meditation guides you through deep muscle relaxation and calming breathwork. Perfect for unwinding.',
   },
 };
 
@@ -353,7 +356,7 @@ export const VisualPlaybackStates: StoryObj<typeof MeditationVisual> = {
 export const MoodCheckComponent: StoryObj<typeof MoodCheck> = {
   render: () => {
     const handleSelect = (mood: MoodRating) => {
-      console.log('Mood selected:', mood);
+      console.warn('Mood selected:', mood);
     };
     return (
       <div
@@ -367,7 +370,9 @@ export const MoodCheckComponent: StoryObj<typeof MoodCheck> = {
         <MoodCheck
           label="How are you feeling before meditation?"
           onSelect={handleSelect}
-          onSkip={() => { console.log('Skipped'); }}
+          onSkip={() => {
+            console.warn('Skipped');
+          }}
           allowSkip
         />
         <MoodCheck
@@ -408,18 +413,32 @@ export const PlayerWithAmbient: StoryObj<typeof MeditationPlayer> = {
         <MeditationPlayer
           state={mockState}
           track={MEDITATION_TRACKS.breathing_focus}
-          onPlay={() => { console.log('Play'); }}
-          onPause={() => { console.log('Pause'); }}
-          onStop={() => { console.log('Stop'); }}
-          onSeek={(pos) => { console.log('Seek to:', pos); }}
+          onPlay={() => {
+            console.warn('Play');
+          }}
+          onPause={() => {
+            console.warn('Pause');
+          }}
+          onStop={() => {
+            console.warn('Stop');
+          }}
+          onSeek={(pos) => {
+            console.warn('Seek to:', pos);
+          }}
           volume={0.8}
-          onVolumeChange={(vol) => { console.log('Volume:', vol); }}
+          onVolumeChange={(vol) => {
+            console.warn('Volume:', vol);
+          }}
           ambientControls={{
             sound: 'ocean',
             volume: 0.3,
             isPlaying: true,
-            onSoundChange: (s) => { console.log('Ambient sound:', s); },
-            onVolumeChange: (vol) => { console.log('Ambient volume:', vol); },
+            onSoundChange: (s) => {
+              console.warn('Ambient sound:', s);
+            },
+            onVolumeChange: (vol) => {
+              console.warn('Ambient volume:', vol);
+            },
           }}
         />
       </div>
@@ -473,8 +492,7 @@ export const AllTracks: Story = {
                 style={{
                   padding: '2px 8px',
                   fontSize: '11px',
-                  backgroundColor:
-                    track.language === 'es' ? '#fef3c7' : '#e0e7ff',
+                  backgroundColor: track.language === 'es' ? '#fef3c7' : '#e0e7ff',
                   color: track.language === 'es' ? '#92400e' : '#3730a3',
                   borderRadius: '4px',
                 }}
@@ -584,14 +602,7 @@ export const TestStartMeditation: Story = {
  * Verifies mood selection works correctly
  */
 export const TestMoodCheck: StoryObj<typeof MoodCheck> = {
-  render: () => (
-    <MoodCheck
-      label="How are you feeling?"
-      onSelect={fn()}
-      onSkip={fn()}
-      allowSkip
-    />
-  ),
+  render: () => <MoodCheck label="How are you feeling?" onSelect={fn()} onSkip={fn()} allowSkip />,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
 
@@ -648,12 +659,12 @@ export const VisualPlayerStates: Story = {
             error: null,
           }}
           track={MEDITATION_TRACKS.breathing_focus}
-          onPlay={() => {}}
-          onPause={() => {}}
-          onStop={() => {}}
-          onSeek={() => {}}
+          onPlay={fn()}
+          onPause={fn()}
+          onStop={fn()}
+          onSeek={fn()}
           volume={0.8}
-          onVolumeChange={() => {}}
+          onVolumeChange={fn()}
         />
       </div>
       <div>
@@ -668,12 +679,12 @@ export const VisualPlayerStates: Story = {
             error: null,
           }}
           track={MEDITATION_TRACKS.breathing_focus}
-          onPlay={() => {}}
-          onPause={() => {}}
-          onStop={() => {}}
-          onSeek={() => {}}
+          onPlay={fn()}
+          onPause={fn()}
+          onStop={fn()}
+          onSeek={fn()}
           volume={0.8}
-          onVolumeChange={() => {}}
+          onVolumeChange={fn()}
         />
       </div>
       <div>
@@ -688,12 +699,12 @@ export const VisualPlayerStates: Story = {
             error: null,
           }}
           track={MEDITATION_TRACKS.breathing_focus}
-          onPlay={() => {}}
-          onPause={() => {}}
-          onStop={() => {}}
-          onSeek={() => {}}
+          onPlay={fn()}
+          onPause={fn()}
+          onStop={fn()}
+          onSeek={fn()}
           volume={0.5}
-          onVolumeChange={() => {}}
+          onVolumeChange={fn()}
         />
       </div>
     </div>

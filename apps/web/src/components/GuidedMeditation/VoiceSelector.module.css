@@ -1,0 +1,327 @@
+/* ============================================================================
+   VoiceSelector Styles
+   ============================================================================
+   Styles for the voice selection grid component.
+   Uses wellness color palette for a calming selection experience.
+   ============================================================================ */
+
+/* --------------------------------------------------------------------------
+   Container & Layout
+   -------------------------------------------------------------------------- */
+
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-lg);
+  padding: var(--spacing-lg);
+  background: var(--color-exercise-card);
+  border-radius: var(--radius-lg);
+  max-width: 450px;
+  margin: var(--spacing-md) auto;
+}
+
+.header {
+  text-align: center;
+}
+
+.title {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  margin: 0 0 var(--spacing-xs) 0;
+}
+
+.subtitle {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  margin: 0;
+}
+
+/* --------------------------------------------------------------------------
+   Voice Grid
+   -------------------------------------------------------------------------- */
+
+.voiceGrid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.voiceCard {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  padding: var(--spacing-md);
+  background: var(--color-neutral-50);
+  border: 2px solid transparent;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition:
+    border-color var(--transition-fast),
+    background-color var(--transition-fast),
+    transform var(--transition-fast);
+  outline: none;
+}
+
+.voiceCard:hover {
+  background: white;
+  border-color: var(--color-neutral-200);
+}
+
+.voiceCard:focus-visible {
+  border-color: var(--color-wellness-lavender);
+  box-shadow: 0 0 0 3px rgba(138, 137, 196, 0.2);
+}
+
+.voiceCardSelected {
+  background: white;
+  border-color: var(--color-wellness-lavender);
+  box-shadow: 0 0 0 3px rgba(138, 137, 196, 0.15);
+}
+
+.voiceCardSelected:hover {
+  border-color: var(--color-wellness-lavender);
+}
+
+/* --------------------------------------------------------------------------
+   Selection Indicator
+   -------------------------------------------------------------------------- */
+
+.selectionIndicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: 2px solid var(--color-neutral-300);
+  border-radius: var(--radius-full);
+  flex-shrink: 0;
+  transition:
+    border-color var(--transition-fast),
+    background-color var(--transition-fast);
+}
+
+.voiceCardSelected .selectionIndicator {
+  border-color: var(--color-wellness-lavender);
+  background: linear-gradient(
+    135deg,
+    var(--color-wellness-lavender) 0%,
+    var(--color-wellness-sage) 100%
+  );
+}
+
+.selectionIndicator svg {
+  width: 14px;
+  height: 14px;
+  color: white;
+}
+
+/* --------------------------------------------------------------------------
+   Voice Info
+   -------------------------------------------------------------------------- */
+
+.voiceInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.voiceName {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  margin: 0 0 var(--spacing-xs) 0;
+}
+
+.voiceDescription {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  margin: 0;
+  line-height: var(--line-height-relaxed);
+}
+
+.bestFor {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  margin-top: var(--spacing-xs);
+  font-size: var(--font-size-xs);
+}
+
+.bestForLabel {
+  color: var(--color-text-muted);
+}
+
+.bestForTags {
+  color: var(--color-wellness-lavender);
+  font-weight: var(--font-weight-medium);
+}
+
+/* --------------------------------------------------------------------------
+   Preview Button
+   -------------------------------------------------------------------------- */
+
+.previewButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: var(--radius-full);
+  background: var(--color-neutral-100);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition:
+    background-color var(--transition-fast),
+    color var(--transition-fast),
+    transform var(--transition-fast);
+}
+
+.previewButton:hover {
+  background: var(--color-neutral-200);
+  transform: scale(1.05);
+}
+
+.previewButton:focus-visible {
+  outline: 2px solid var(--color-wellness-lavender);
+  outline-offset: 2px;
+}
+
+.previewButton svg {
+  width: 16px;
+  height: 16px;
+}
+
+.previewButtonPlaying {
+  background: linear-gradient(
+    135deg,
+    var(--color-wellness-lavender) 0%,
+    var(--color-wellness-sage) 100%
+  );
+  color: white;
+}
+
+.previewButtonPlaying:hover {
+  background: linear-gradient(
+    135deg,
+    var(--color-wellness-lavender) 0%,
+    var(--color-wellness-sage) 100%
+  );
+}
+
+/* --------------------------------------------------------------------------
+   Action Buttons
+   -------------------------------------------------------------------------- */
+
+.actions {
+  display: flex;
+  justify-content: center;
+  gap: var(--spacing-md);
+  margin-top: var(--spacing-sm);
+}
+
+.button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-sm) var(--spacing-lg);
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.buttonPrimary {
+  background: linear-gradient(
+    135deg,
+    var(--color-wellness-lavender) 0%,
+    var(--color-wellness-sage) 100%
+  );
+  color: white;
+  box-shadow: 0 4px 15px rgba(138, 137, 196, 0.4);
+}
+
+.buttonPrimary:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(138, 137, 196, 0.5);
+}
+
+.buttonSecondary {
+  background: var(--color-neutral-100);
+  color: var(--color-text-secondary);
+}
+
+.buttonSecondary:hover:not(:disabled) {
+  background: var(--color-neutral-200);
+}
+
+/* --------------------------------------------------------------------------
+   Loading Spinner
+   -------------------------------------------------------------------------- */
+
+.spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: var(--radius-full);
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Accessibility - Reduced Motion
+   -------------------------------------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .voiceCard,
+  .previewButton,
+  .button {
+    transition: none;
+  }
+
+  .spinner {
+    animation: none;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Responsive Adjustments
+   -------------------------------------------------------------------------- */
+
+@media (max-width: 480px) {
+  .container {
+    padding: var(--spacing-md);
+    margin: var(--spacing-sm);
+  }
+
+  .voiceCard {
+    padding: var(--spacing-sm);
+  }
+
+  .actions {
+    flex-direction: column;
+  }
+
+  .button {
+    width: 100%;
+  }
+}
