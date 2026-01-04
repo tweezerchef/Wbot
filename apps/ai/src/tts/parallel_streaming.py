@@ -1,25 +1,34 @@
 """
 ============================================================================
-Parallel Streaming Pipeline
+DEPRECATED: Parallel Streaming Pipeline
 ============================================================================
+This module is DEPRECATED and retained only for reference.
+
+The ElevenLabs pipeline has been replaced by OpenAI Chat Completions with
+audio output (see openai_audio.py), which generates BOTH script AND audio
+in a single API call.
+
+Use stream_meditation_audio() from openai_audio.py instead.
+============================================================================
+
+Original purpose:
 Streams meditation scripts from Claude to ElevenLabs TTS in real-time.
 
-Pipeline flow:
+Pipeline flow (deprecated):
 1. Claude generates script tokens (streaming)
 2. Tokens are buffered until sentence boundary
 3. Each complete sentence is sent to ElevenLabs
 4. Audio chunks are yielded to the client in real-time
 5. Complete audio is cached after streaming finishes
-
-This approach minimizes time-to-first-audio:
-- Audio starts playing within 2-3 seconds (first sentence)
-- User hears audio while Claude is still generating
 ============================================================================
 """
+
+from __future__ import annotations
 
 import hashlib
 import os
 import re
+import warnings
 from collections.abc import AsyncGenerator, Callable
 from dataclasses import dataclass, field
 
@@ -29,6 +38,13 @@ from langchain_core.messages import HumanMessage
 from src.auth import get_supabase_client
 from src.llm.providers import ModelTier, create_llm
 from src.logging_config import NodeLogger
+
+# Emit deprecation warning when module is imported
+warnings.warn(
+    "parallel_streaming is deprecated. Use openai_audio.stream_meditation_audio() instead.",
+    DeprecationWarning,
+    stacklevel=2,
+)
 
 logger = NodeLogger("parallel_streaming")
 

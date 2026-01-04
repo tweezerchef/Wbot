@@ -8,26 +8,23 @@ Endpoints:
 - POST /api/meditation/generate - Generate personalized meditation via TTS
 - POST /api/meditation/cache-check - Check if cached audio exists
 - POST /api/meditation/stream - Stream audio as it's generated
-- POST /api/meditation/generate-ai - Generate AI meditation with parallel streaming
+- POST /api/meditation/generate-ai - Generate AI meditation with streaming
 - GET /api/meditation/voices - Get available voices for AI meditation
 - POST /api/meditation/generated/{id}/complete - Mark AI meditation complete
 ============================================================================
 """
 
 from collections.abc import AsyncGenerator
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Literal
 
-import httpx
 from fastapi import APIRouter, Depends, Header, HTTPException, Path
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from src.auth import get_supabase_client
 from src.logging_config import NodeLogger
-from src.tts.elevenlabs import ElevenLabsTTS
-from src.tts.openai_audio import MeditationScript, OpenAIAudio
-from src.tts.parallel_streaming import parallel_stream_with_caching
+from src.tts.openai_audio import MeditationScript, OpenAIAudio, stream_meditation_with_caching
 from src.tts.voices import get_all_voices, get_voice, validate_voice_id
 
 logger = NodeLogger("meditation_api")
@@ -127,11 +124,11 @@ class ErrorResponse(BaseModel):
 
 
 class GenerateAIMeditationRequest(BaseModel):
-    """Request to generate an AI-personalized meditation with parallel streaming."""
+    """Request to generate an AI-personalized meditation with streaming."""
 
     meditation_id: str = Field(..., description="Unique ID for this meditation")
-    script_prompt: str = Field(..., description="Prompt for Claude to generate the script")
-    voice_id: str = Field(..., description="ElevenLabs voice ID")
+    script_prompt: str = Field(..., description="Prompt for generating the meditation")
+    voice_id: str = Field(..., description="OpenAI voice ID")
     title: str = Field(..., description="Title for the meditation")
     meditation_type: str = Field(..., description="Type of meditation")
     duration_minutes: int = Field(..., ge=1, le=30, description="Target duration in minutes")
@@ -451,16 +448,15 @@ async def generate_meditation(
     user: dict = CurrentUser,
 ) -> GenerateMeditationResponse:
     """
-    Generate a personalized meditation using ElevenLabs TTS.
+    Generate a personalized meditation using OpenAI TTS.
 
     This endpoint:
     1. Fetches the script from the database
     2. Applies personalization (replaces placeholders)
-    3. Generates audio via ElevenLabs API
-    4. Uploads to Supabase Storage
-    5. Returns the audio URL
+    3. Generates audio via OpenAI API
+    4. Returns the audio data
 
-    The backend caches generated audio - identical scripts return cached URLs.
+    For streaming audio, use the /stream endpoint instead.
     """
     logger.info("Generating meditation", script_id=request.script_id, user_id=user.get("id"))
 
@@ -481,8 +477,6 @@ async def generate_meditation(
         ):
             audio_chunks.append(chunk)
 
-        # For non-streaming, we'd need to upload to storage
-        # For now, return a placeholder response
         logger.info(
             "Meditation generated",
             script_id=script.id,
@@ -520,31 +514,19 @@ async def check_cache(
     """
     Check if cached audio exists for a meditation script.
 
-    This is a quick check that doesn't trigger generation.
-    Returns the audio URL if cached, null otherwise.
+    Note: With OpenAI Chat Completions audio, each generation is unique.
+    This endpoint returns None to trigger fresh generation.
     """
     logger.info("Checking cache", script_id=request.script_id)
 
-    # Get the script
+    # Get the script to verify it exists
     script = await get_script_from_db(request.script_id)
     if not script:
         return CacheCheckResponse(audio_url=None)
 
-    try:
-        tts = ElevenLabsTTS()
-
-        # Generate the cache key (same logic as in TTS class)
-        cache_key = tts._get_cache_key(script, tts.voice_id)
-
-        # Check if cached audio exists
-        supabase = await get_supabase_client()
-        cached_url = await tts._check_cache(cache_key, supabase)
-
-        return CacheCheckResponse(audio_url=cached_url)
-
-    except Exception as e:
-        logger.warning(f"Cache check failed: {e}")
-        return CacheCheckResponse(audio_url=None)
+    # OpenAI Chat Completions generates unique audio each time
+    # Return None to trigger fresh generation
+    return CacheCheckResponse(audio_url=None)
 
 
 # -----------------------------------------------------------------------------
@@ -566,8 +548,7 @@ async def stream_meditation(
     This endpoint:
     1. Fetches the script from the database
     2. Applies personalization (replaces placeholders)
-    3. Streams audio directly from ElevenLabs as it's generated
-    4. Saves to Supabase Storage in background for caching
+    3. Streams audio directly from OpenAI as it's generated
 
     Use this endpoint when you want immediate audio playback without
     waiting for the full file to generate.
@@ -580,67 +561,17 @@ async def stream_meditation(
         raise HTTPException(status_code=400, detail=f"Script not found: {request.script_id}")
 
     try:
-        tts = ElevenLabsTTS()
+        audio = OpenAIAudio()
     except ValueError as e:
         raise HTTPException(status_code=500, detail=str(e)) from e
 
-    # Render the script with personalization
-    rendered_content = tts._render_script(script, request.user_name, request.user_goal)
-
     async def generate_audio_stream() -> AsyncGenerator[bytes, None]:
-        """Stream audio chunks from ElevenLabs."""
-        audio_chunks: list[bytes] = []
-
-        async with (
-            httpx.AsyncClient() as client,
-            client.stream(
-                "POST",
-                f"https://api.elevenlabs.io/v1/text-to-speech/{tts.voice_id}/stream",
-                headers={
-                    "xi-api-key": tts.api_key,
-                    "Content-Type": "application/json",
-                },
-                json={
-                    "text": rendered_content,
-                    "model_id": "eleven_multilingual_v2",
-                    "voice_settings": {
-                        "stability": 0.75,
-                        "similarity_boost": 0.75,
-                        "style": 0.5,
-                        "use_speaker_boost": True,
-                    },
-                },
-                timeout=120.0,
-            ) as response,
+        """Stream audio chunks from OpenAI."""
+        async for chunk in audio.generate_from_script(
+            script=script,
+            user_name=request.user_name,
         ):
-            if response.status_code != 200:
-                error_text = await response.aread()
-                logger.error(
-                    "ElevenLabs streaming error",
-                    status=response.status_code,
-                    detail=error_text.decode(),
-                )
-                raise HTTPException(
-                    status_code=500,
-                    detail=f"ElevenLabs API error: {response.status_code}",
-                )
-
-            # Stream audio chunks to client
-            async for chunk in response.aiter_bytes(chunk_size=4096):
-                audio_chunks.append(chunk)
-                yield chunk
-
-        # After streaming completes, save to storage for caching
-        if audio_chunks:
-            try:
-                full_audio = b"".join(audio_chunks)
-                cache_key = tts._get_cache_key(script, tts.voice_id)
-                supabase = await get_supabase_client()
-                audio_url = await tts._upload_audio(full_audio, cache_key, supabase)
-                logger.info("Cached streamed meditation", script_id=script.id, url=audio_url)
-            except Exception as e:
-                # Don't fail the stream if caching fails
-                logger.warning(f"Failed to cache streamed audio: {e}")
+            yield chunk
 
     return StreamingResponse(
         generate_audio_stream(),
@@ -668,10 +599,10 @@ async def get_voices(
     """
     Get available voices for AI-generated meditations.
 
-    Returns a list of curated voices with names, descriptions,
+    Returns a list of OpenAI voices with names, descriptions,
     and suggested meditation types for each voice.
     """
-    logger.info("Fetching available voices", user_id=user.get("id"))
+    logger.info("Fetching available voices")
 
     voices = get_all_voices()
 
@@ -686,7 +617,7 @@ async def get_voices(
             )
             for voice in voices
         ],
-        default_voice="sarah_calm",
+        default_voice="nova",
     )
 
 
@@ -699,16 +630,14 @@ async def generate_ai_meditation(
     user: dict = CurrentUser,
 ) -> StreamingResponse:
     """
-    Generate an AI-personalized meditation with parallel streaming.
+    Generate an AI-personalized meditation with streaming.
 
-    This endpoint uses the parallel pipeline architecture:
-    1. Claude generates script tokens (streaming)
-    2. Tokens are buffered until sentence boundary
-    3. Each complete sentence is sent to ElevenLabs
-    4. Audio chunks are yielded to the client in real-time
-    5. Complete audio is cached after streaming finishes
+    This endpoint uses OpenAI Chat Completions with audio output:
+    1. OpenAI generates both script AND audio in one call
+    2. Audio chunks are streamed directly to the client
+    3. Complete audio is cached after streaming finishes
 
-    Audio starts playing within 2-3 seconds (first sentence arrives).
+    Audio starts playing almost immediately.
     """
     logger.info(
         "Generating AI meditation",
@@ -741,7 +670,7 @@ async def generate_ai_meditation(
                     "user_id": user_id,
                     "title": request.title,
                     "meditation_type": request.meditation_type,
-                    "script_content": "",  # Will be updated after generation
+                    "script_content": "",  # Script is generated by OpenAI
                     "duration_seconds": request.duration_minutes * 60,
                     "voice_id": request.voice_id,
                     "voice_name": voice["name"] if voice else "Unknown",
@@ -756,45 +685,33 @@ async def generate_ai_meditation(
         logger.warning(f"Failed to save meditation record: {e}")
         # Continue anyway - we'll try to save after streaming
 
-    # Create streaming generator using parallel pipeline
+    # Create streaming generator using OpenAI
     async def stream_with_tracking() -> AsyncGenerator[bytes, None]:
-        """Stream audio and track script for database update."""
-        script_chunks: list[str] = []
-
-        def on_script_chunk(chunk: str) -> None:
-            script_chunks.append(chunk)
-
+        """Stream audio from OpenAI."""
         try:
-            async for audio_chunk in parallel_stream_with_caching(
-                script_prompt=request.script_prompt,
-                voice_id=request.voice_id,
+            async for audio_chunk in stream_meditation_with_caching(
+                prompt=request.script_prompt,
                 meditation_id=request.meditation_id,
                 user_id=user_id,
+                voice=request.voice_id,
             ):
                 yield audio_chunk
 
-            # After streaming completes, update the database record
-            if script_chunks:
-                full_script = "".join(script_chunks)
-                try:
-                    supabase = await get_supabase_client()
-                    await (
-                        supabase.table("user_generated_meditations")
-                        .update(
-                            {
-                                "script_content": full_script,
-                                "status": "ready",
-                            }
-                        )
-                        .eq("id", request.meditation_id)
-                        .execute()
-                    )
-                    logger.info(
-                        "Updated meditation record",
-                        meditation_id=request.meditation_id,
-                    )
-                except Exception as e:
-                    logger.warning(f"Failed to update meditation record: {e}")
+            # After streaming completes, update status
+            try:
+                supabase = await get_supabase_client()
+                await (
+                    supabase.table("user_generated_meditations")
+                    .update({"status": "ready"})
+                    .eq("id", request.meditation_id)
+                    .execute()
+                )
+                logger.info(
+                    "Updated meditation record",
+                    meditation_id=request.meditation_id,
+                )
+            except Exception as e:
+                logger.warning(f"Failed to update meditation record: {e}")
 
         except Exception as e:
             # Update status to error
@@ -874,7 +791,7 @@ async def complete_meditation(
         # Build update payload
         update_data = {
             "play_count": existing.data["play_count"] + 1,
-            "last_played_at": datetime.utcnow().isoformat(),
+            "last_played_at": datetime.now(UTC).isoformat(),
             "status": "complete",
         }
 
@@ -910,7 +827,7 @@ async def complete_meditation(
 
 def get_voice_by_key_or_id(voice_key_or_id: str) -> dict | None:
     """
-    Get voice by key or by ElevenLabs ID.
+    Get voice by key or by OpenAI voice ID.
 
     Allows flexibility in how the frontend specifies the voice.
     """
@@ -919,7 +836,7 @@ def get_voice_by_key_or_id(voice_key_or_id: str) -> dict | None:
     if voice:
         return voice
 
-    # Otherwise, search by ElevenLabs ID
+    # Otherwise, search by voice ID
     from src.tts.voices import MEDITATION_VOICES
 
     for v in MEDITATION_VOICES.values():

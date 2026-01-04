@@ -1,10 +1,11 @@
 """
-Unit tests for meditation voice configuration.
+Unit tests for OpenAI meditation voice configuration.
 """
 
 from src.tts.voices import (
     DEFAULT_VOICE_KEY,
     MEDITATION_VOICES,
+    VALID_VOICE_IDS,
     get_all_voices,
     get_default_voice,
     get_voice,
@@ -20,6 +21,10 @@ class TestVoiceConfiguration:
     def test_default_voice_exists(self):
         """Default voice key should exist in MEDITATION_VOICES."""
         assert DEFAULT_VOICE_KEY in MEDITATION_VOICES
+
+    def test_default_voice_is_nova(self):
+        """Default voice should be nova (warm, calm female)."""
+        assert DEFAULT_VOICE_KEY == "nova"
 
     def test_all_voices_have_required_fields(self):
         """All voices should have required fields."""
@@ -42,9 +47,24 @@ class TestVoiceConfiguration:
             assert isinstance(voice["id"], str), f"Voice {key} id is not a string"
             assert len(voice["id"]) > 0, f"Voice {key} has empty id"
 
-    def test_minimum_voice_count(self):
-        """Should have at least 3 voices available."""
-        assert len(MEDITATION_VOICES) >= 3
+    def test_voice_id_matches_key(self):
+        """For OpenAI, voice ID should match the key."""
+        for key, voice in MEDITATION_VOICES.items():
+            assert voice["id"] == key, f"Voice {key} id doesn't match key"
+
+    def test_has_six_voices(self):
+        """Should have exactly 6 OpenAI voices."""
+        assert len(MEDITATION_VOICES) == 6
+
+    def test_expected_voices_exist(self):
+        """All expected OpenAI voices should exist."""
+        expected = ["alloy", "echo", "fable", "nova", "onyx", "shimmer"]
+        for voice_key in expected:
+            assert voice_key in MEDITATION_VOICES, f"Missing voice: {voice_key}"
+
+    def test_valid_voice_ids_list(self):
+        """VALID_VOICE_IDS should contain all voice keys."""
+        assert set(VALID_VOICE_IDS) == set(MEDITATION_VOICES.keys())
 
 
 class TestGetVoice:
@@ -52,9 +72,15 @@ class TestGetVoice:
 
     def test_get_existing_voice(self):
         """Should return voice for valid key."""
-        voice = get_voice("sarah_calm")
+        voice = get_voice("nova")
         assert voice is not None
-        assert voice["name"] == "Sarah"
+        assert voice["name"] == "Nova"
+
+    def test_get_all_valid_voices(self):
+        """Should return voice for all valid keys."""
+        for key in MEDITATION_VOICES:
+            voice = get_voice(key)
+            assert voice is not None
 
     def test_get_nonexistent_voice(self):
         """Should return None for invalid key."""
@@ -63,7 +89,7 @@ class TestGetVoice:
 
     def test_get_voice_returns_dict(self):
         """Returned voice should be a dict with expected structure."""
-        voice = get_voice("sarah_calm")
+        voice = get_voice("nova")
         assert isinstance(voice, dict)
         assert "id" in voice
         assert "name" in voice
@@ -75,12 +101,16 @@ class TestGetVoiceById:
     """Tests for get_voice_by_id function."""
 
     def test_get_voice_by_valid_id(self):
-        """Should return voice for valid ElevenLabs ID."""
-        # Get the ID of a known voice
-        sarah = MEDITATION_VOICES["sarah_calm"]
-        voice = get_voice_by_id(sarah["id"])
+        """Should return voice for valid OpenAI voice ID."""
+        voice = get_voice_by_id("nova")
         assert voice is not None
-        assert voice["name"] == "Sarah"
+        assert voice["name"] == "Nova"
+
+    def test_get_all_voices_by_id(self):
+        """Should return voice for all valid IDs."""
+        for voice_data in MEDITATION_VOICES.values():
+            voice = get_voice_by_id(voice_data["id"])
+            assert voice is not None
 
     def test_get_voice_by_invalid_id(self):
         """Should return None for invalid ID."""
@@ -110,6 +140,14 @@ class TestGetAllVoices:
             assert "description" in voice
             assert "best_for" in voice
 
+    def test_voices_contain_expected_names(self):
+        """Should contain all expected voice names."""
+        voices = get_all_voices()
+        names = [v["name"] for v in voices]
+        expected = ["Alloy", "Echo", "Fable", "Nova", "Onyx", "Shimmer"]
+        for name in expected:
+            assert name in names
+
 
 class TestGetDefaultVoice:
     """Tests for get_default_voice function."""
@@ -124,6 +162,12 @@ class TestGetDefaultVoice:
         voice = get_default_voice()
         expected = MEDITATION_VOICES[DEFAULT_VOICE_KEY]
         assert voice == expected
+
+    def test_default_is_nova(self):
+        """Default voice should be Nova."""
+        voice = get_default_voice()
+        assert voice["name"] == "Nova"
+        assert voice["id"] == "nova"
 
 
 class TestRecommendVoiceForType:
@@ -159,6 +203,12 @@ class TestRecommendVoiceForType:
         assert voice is not None
         assert "anxiety_relief" in voice["best_for"]
 
+    def test_recommends_for_daily_mindfulness(self):
+        """Should recommend a voice for daily mindfulness."""
+        voice = recommend_voice_for_type("daily_mindfulness")
+        assert voice is not None
+        assert "daily_mindfulness" in voice["best_for"]
+
     def test_returns_default_for_unknown_type(self):
         """Should return default voice for unknown meditation type."""
         voice = recommend_voice_for_type("unknown_type")
@@ -171,8 +221,14 @@ class TestValidateVoiceId:
 
     def test_validates_existing_id(self):
         """Should return True for valid voice ID."""
-        sarah = MEDITATION_VOICES["sarah_calm"]
-        assert validate_voice_id(sarah["id"]) is True
+        assert validate_voice_id("nova") is True
+        assert validate_voice_id("shimmer") is True
+        assert validate_voice_id("onyx") is True
+
+    def test_validates_all_voice_ids(self):
+        """Should return True for all valid voice IDs."""
+        for voice_id in VALID_VOICE_IDS:
+            assert validate_voice_id(voice_id) is True
 
     def test_invalidates_nonexistent_id(self):
         """Should return False for invalid voice ID."""
@@ -181,3 +237,9 @@ class TestValidateVoiceId:
     def test_invalidates_empty_id(self):
         """Should return False for empty string."""
         assert validate_voice_id("") is False
+
+    def test_invalidates_old_elevenlabs_ids(self):
+        """Should return False for old ElevenLabs voice IDs."""
+        # These were old ElevenLabs voice IDs
+        assert validate_voice_id("sarah_calm") is False
+        assert validate_voice_id("EXAVITQu4vr4xnSDxMaL") is False
