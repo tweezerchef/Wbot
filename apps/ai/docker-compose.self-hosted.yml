@@ -1,0 +1,75 @@
+# ============================================================================
+# Self-Hosted LangGraph Deployment
+# ============================================================================
+# Docker Compose configuration for running LangGraph with:
+# - External PostgreSQL (Supabase) for checkpoint persistence
+# - Local Redis for pub/sub and caching
+# - LangSmith integration for observability
+#
+# Usage:
+#   1. Build the image:
+#      langgraph build -t wbot-ai:latest
+#
+#   2. Start the services:
+#      docker-compose -f docker-compose.self-hosted.yml up -d
+#
+#   3. Stop the services:
+#      docker-compose -f docker-compose.self-hosted.yml down
+#
+# Environment variables (set in .env or pass via command line):
+#   - SUPABASE_URL: Your Supabase project URL
+#   - SUPABASE_DB_PASSWORD: Database password from Supabase
+#   - SUPABASE_SERVICE_KEY: Service role key for auth
+#   - ANTHROPIC_API_KEY: Claude API key
+#   - LANGSMITH_API_KEY: (Optional) LangSmith API key for tracing
+# ============================================================================
+
+volumes:
+  redis-data:
+    driver: local
+
+services:
+  # ---------------------------------------------------------------------------
+  # Redis - Required for LangGraph pub/sub and caching
+  # ---------------------------------------------------------------------------
+  langgraph-redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    # Not exposed externally - only accessible to langgraph-api
+
+  # ---------------------------------------------------------------------------
+  # LangGraph API Server
+  # ---------------------------------------------------------------------------
+  langgraph-api:
+    image: ${IMAGE_NAME:-wbot-ai:latest}
+    restart: unless-stopped
+    ports:
+      - "8123:8000"
+    depends_on:
+      langgraph-redis:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      # Database: Use Supabase PostgreSQL (external)
+      # The checkpointer.py module constructs this from SUPABASE_URL and SUPABASE_DB_PASSWORD
+      # But LangGraph runtime also needs DATABASE_URI for its internal operations
+      DATABASE_URI: postgresql://postgres.${SUPABASE_PROJECT_REF}:${SUPABASE_DB_PASSWORD}@db.${SUPABASE_PROJECT_REF}.supabase.co:5432/postgres?sslmode=require
+
+      # Redis: Local service for pub/sub
+      REDIS_URI: redis://langgraph-redis:6379
+
+      # LangSmith: Enable tracing (optional but recommended)
+      LANGSMITH_TRACING: ${LANGSMITH_TRACING:-true}
+      LANGSMITH_API_KEY: ${LANGSMITH_API_KEY}
+      LANGSMITH_PROJECT: ${LANGSMITH_PROJECT:-wbot-wellness}
+
+      # Connection pool settings
+      LANGGRAPH_POSTGRES_POOL_MAX_SIZE: 50
