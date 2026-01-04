@@ -8,6 +8,7 @@ dist/
 .vinxi/
 .turbo/
 .docusaurus/
+docs/build/
 
 # Python
 __pycache__/

@@ -1,13 +1,16 @@
 """
 ============================================================================
-Meditation Voice Configuration
+OpenAI Audio Voices for Meditation
 ============================================================================
-Curated list of ElevenLabs voices for meditation TTS generation.
+Configuration for OpenAI TTS voices used in meditation generation.
 
-These voices have been selected for:
-- Calming, soothing qualities
-- Clear pronunciation
-- Appropriate pacing for meditation
+OpenAI provides 6 voices optimized for different use cases:
+- alloy: Neutral, balanced
+- echo: Clear, articulate male
+- fable: Warm, expressive storytelling
+- nova: Warm, calm female (recommended for meditation)
+- onyx: Deep, grounding male
+- shimmer: Soft, expressive female
 ============================================================================
 """
 
@@ -17,55 +20,64 @@ from typing import TypedDict
 class MeditationVoice(TypedDict):
     """Configuration for a meditation voice."""
 
-    id: str  # ElevenLabs voice ID
+    id: str  # OpenAI voice ID (same as key)
     name: str  # Display name
     description: str  # User-facing description
     best_for: list[str]  # Meditation types this voice suits
     preview_url: str | None  # URL to preview audio (optional)
 
 
-# Curated voices for meditation
-# These are production ElevenLabs voice IDs
+# OpenAI TTS voices configured for meditation
 MEDITATION_VOICES: dict[str, MeditationVoice] = {
-    "sarah_calm": {
-        "id": "EXAVITQu4vr4xnSDxMaL",
-        "name": "Sarah",
-        "description": "Warm, gentle female voice with a soothing pace",
-        "best_for": ["body_scan", "loving_kindness", "sleep"],
-        "preview_url": None,  # Will be populated with Supabase URL
-    },
-    "adam_deep": {
-        "id": "pNInz6obpgDQGcFmaJgB",
-        "name": "Adam",
-        "description": "Deep, grounding male voice for focus and clarity",
-        "best_for": ["breathing_focus", "anxiety_relief", "daily_mindfulness"],
+    "nova": {
+        "id": "nova",
+        "name": "Nova",
+        "description": "Warm, calm female voice ideal for meditation",
+        "best_for": ["body_scan", "loving_kindness", "sleep", "anxiety_relief"],
         "preview_url": None,
     },
-    "rachel_soft": {
-        "id": "21m00Tcm4TlvDq8ikWAM",
-        "name": "Rachel",
-        "description": "Soft, calming female voice perfect for relaxation",
-        "best_for": ["sleep", "body_scan", "anxiety_relief"],
+    "shimmer": {
+        "id": "shimmer",
+        "name": "Shimmer",
+        "description": "Soft, expressive female voice for relaxation",
+        "best_for": ["sleep", "anxiety_relief", "loving_kindness"],
         "preview_url": None,
     },
-    "josh_warm": {
-        "id": "TxGEqnHWrfWFTfGW9XjX",
-        "name": "Josh",
-        "description": "Warm, reassuring male voice",
-        "best_for": ["daily_mindfulness", "breathing_focus", "loving_kindness"],
+    "onyx": {
+        "id": "onyx",
+        "name": "Onyx",
+        "description": "Deep, grounding male voice for focus",
+        "best_for": ["breathing_focus", "daily_mindfulness", "body_scan"],
         "preview_url": None,
     },
-    "bella_peaceful": {
-        "id": "EXAVITQu4vr4xnSDxMaL",  # Using Sarah's ID as placeholder
-        "name": "Bella",
-        "description": "Peaceful, nurturing female voice",
-        "best_for": ["loving_kindness", "sleep", "body_scan"],
+    "alloy": {
+        "id": "alloy",
+        "name": "Alloy",
+        "description": "Neutral, balanced voice for all meditation types",
+        "best_for": ["daily_mindfulness", "breathing_focus"],
+        "preview_url": None,
+    },
+    "echo": {
+        "id": "echo",
+        "name": "Echo",
+        "description": "Clear, articulate male voice",
+        "best_for": ["breathing_focus", "daily_mindfulness"],
+        "preview_url": None,
+    },
+    "fable": {
+        "id": "fable",
+        "name": "Fable",
+        "description": "Warm, expressive storytelling voice",
+        "best_for": ["loving_kindness", "body_scan", "sleep"],
         "preview_url": None,
     },
 }
 
-# Default voice if none specified
-DEFAULT_VOICE_KEY = "sarah_calm"
+# All valid OpenAI voice IDs
+VALID_VOICE_IDS = list(MEDITATION_VOICES.keys())
+
+# Default voice for meditation (warm, calming)
+DEFAULT_VOICE_KEY = "nova"
 
 
 def get_voice(voice_key: str) -> MeditationVoice | None:
@@ -74,11 +86,12 @@ def get_voice(voice_key: str) -> MeditationVoice | None:
 
 
 def get_voice_by_id(voice_id: str) -> MeditationVoice | None:
-    """Get a voice by its ElevenLabs ID."""
-    for voice in MEDITATION_VOICES.values():
-        if voice["id"] == voice_id:
-            return voice
-    return None
+    """
+    Get a voice by its ID.
+
+    For OpenAI, the voice ID is the same as the key.
+    """
+    return MEDITATION_VOICES.get(voice_id)
 
 
 def get_all_voices() -> list[MeditationVoice]:
@@ -109,4 +122,4 @@ def recommend_voice_for_type(meditation_type: str) -> MeditationVoice:
 
 def validate_voice_id(voice_id: str) -> bool:
     """Check if a voice ID is valid."""
-    return any(v["id"] == voice_id for v in MEDITATION_VOICES.values())
+    return voice_id in VALID_VOICE_IDS
