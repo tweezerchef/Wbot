@@ -102,6 +102,9 @@ importers:
         specifier: ^4.3.4
         version: 4.3.4
     devDependencies:
+      '@storybook/addon-mcp':
+        specifier: ^0.1.6
+        version: 0.1.6(storybook@10.1.11(@testing-library/dom@10.4.0)(prettier@3.7.4)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(typescript@5.9.3)
       '@testing-library/jest-dom':
         specifier: ^6.9.1
         version: 6.9.1
