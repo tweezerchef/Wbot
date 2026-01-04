@@ -265,6 +265,51 @@ export function MessageBubble({ content, role }: MessageBubbleProps) {
 
 ---
 
+## MCP Integrations
+
+This project uses Model Context Protocol (MCP) servers to enhance Claude Code capabilities.
+
+### Storybook MCP
+
+When Storybook is running (`pnpm storybook`), Claude has access to component documentation via MCP.
+
+**Available Tools:**
+
+| Tool                           | Description                                     |
+| ------------------------------ | ----------------------------------------------- |
+| `list-all-components`          | List all UI components in the Storybook library |
+| `get-component-documentation`  | Get detailed props and docs for a component     |
+| `get-story-urls`               | Get URLs for specific component stories         |
+| `get-ui-building-instructions` | Get instructions for UI component development   |
+
+**When to Use:**
+
+- **ALWAYS** call `get-ui-building-instructions` before creating or modifying UI components
+- Use `list-all-components` to discover existing components before creating new ones
+- Use `get-component-documentation` to understand component APIs and usage patterns
+
+**Configuration:**
+
+The MCP server is configured in `.mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "storybook": {
+      "type": "http",
+      "url": "http://localhost:6006/mcp"
+    }
+  }
+}
+```
+
+**Requirements:**
+
+- Storybook must be running: `pnpm storybook`
+- Node.js 24+ required for the `@storybook/addon-mcp` addon
+
+---
+
 ## Common Commands
 
 ```bash
@@ -670,4 +715,4 @@ logging.getLogger("httpx").setLevel(logging.INFO)
 
 _This file helps Claude Code understand the project conventions and constraints._
 
-_Last updated: January 3, 2025_
+_Last updated: January 4, 2025_
