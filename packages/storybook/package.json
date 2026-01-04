@@ -8,6 +8,7 @@
     "build": "storybook build -o dist"
   },
   "dependencies": {
+    "@storybook/addon-mcp": "^0.1.6",
     "@tanstack/react-query": "^5.90.16",
     "@tanstack/react-router": "^1.144.0",
     "react": "^19.2.3",

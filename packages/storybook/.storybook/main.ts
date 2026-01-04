@@ -16,7 +16,21 @@ const config: StorybookConfig = {
     getAbsolutePath('@storybook/addon-docs'),
     getAbsolutePath('@storybook/addon-vitest'),
     getAbsolutePath('@storybook/experimental-addon-test'),
+    {
+      name: getAbsolutePath('@storybook/addon-mcp'),
+      options: {
+        toolsets: {
+          dev: true, // Story URL retrieval & UI instructions
+          docs: true, // Component manifest & documentation
+        },
+      },
+    },
   ],
+
+  // Required for MCP docs tools
+  features: {
+    experimentalComponentsManifest: true,
+  },
 
   framework: {
     name: getAbsolutePath('@storybook/react-vite'),
@@ -24,6 +38,10 @@ const config: StorybookConfig = {
   },
 
   viteFinal: (config) => {
+    // Load environment variables from monorepo root (same as web app)
+    // This enables VITE_SUPABASE_URL for audio file URLs
+    config.envDir = resolve(__dirname, '../../..');
+
     // Add path aliases to resolve @wbot/web components
     config.resolve = config.resolve ?? {};
 
