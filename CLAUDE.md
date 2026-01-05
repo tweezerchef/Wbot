@@ -38,13 +38,88 @@ The chatbot is the PRIMARY interface - activities render inside the chat, not as
 
 ### Testing
 
+#### ⚠️ CRITICAL: Never Rewrite Tests to Make Them Pass
+
+**Tests reveal bugs - FIX THE CODE, not the tests.**
+
 - **NEVER** change tests to avoid failures - tests reveal bugs that need fixing
 - **ALWAYS** fix code bugs when tests fail, not the tests themselves
 - **ONLY** change failing tests if the issue is actually in the test (incorrect assertions, wrong mocks, etc.)
 - **NEVER** weaken test assertions or add workarounds to make tests pass
 - **NEVER** use `sys.modules` mocking or other hacks to work around import/code issues
+- **NEVER** skip tests with `.skip()` or `@pytest.skip` to hide failures
+- **NEVER** change expected values to match buggy output
 - Failing tests are valuable - they document expected behavior and identify bugs
 - If tests fail due to circular imports, fix the imports in the code, not the tests
+
+**When tests fail, ask yourself:**
+
+1. Is the test correct? (Does it test the right behavior?)
+2. Is the implementation wrong? (Most likely - fix the code!)
+3. Did requirements change? (Only then update the test, with user approval)
+
+**Examples of what NOT to do:**
+
+```typescript
+// ❌ BAD: Changing expected value to match buggy output
+expect(result).toBe(42);  // Test was failing
+expect(result).toBe(41);  // Changed to make it pass - WRONG!
+
+// ❌ BAD: Weakening assertions
+expect(result).toEqual({ id: 1, name: 'test' });  // Was failing
+expect(result).toBeDefined();  // Weakened to pass - WRONG!
+
+// ❌ BAD: Skipping tests
+it.skip('should handle edge case', () => { ... });  // WRONG!
+
+// ✅ GOOD: Fix the implementation
+// If test expects 42 but gets 41, find and fix the bug in the code
+```
+
+#### Testing Tools & Packages
+
+**Frontend (apps/web) - Vitest + Testing Library:**
+
+| Package                       | Purpose                         | Usage                       |
+| ----------------------------- | ------------------------------- | --------------------------- |
+| `vitest`                      | Test runner (fast, Vite-native) | `pnpm test`                 |
+| `@vitest/ui`                  | Interactive test browser UI     | `pnpm test:ui`              |
+| `@vitest/coverage-v8`         | Code coverage reports           | `pnpm test:coverage`        |
+| `@testing-library/react`      | React component testing         | Render and query components |
+| `@testing-library/jest-dom`   | DOM assertion matchers          | `toBeInTheDocument()`, etc. |
+| `@testing-library/user-event` | User interaction simulation     | `userEvent.click()`, etc.   |
+| `happy-dom`                   | Fast DOM implementation         | Configured in vitest.config |
+
+**Backend (apps/ai) - Pytest:**
+
+| Package          | Purpose            | Usage                                 |
+| ---------------- | ------------------ | ------------------------------------- |
+| `pytest`         | Testing framework  | `uv run pytest`                       |
+| `pytest-asyncio` | Async test support | Automatic via `asyncio_mode = "auto"` |
+| `pytest-mock`    | Mocking utilities  | `mocker` fixture                      |
+
+#### Testing Commands Reference
+
+```bash
+# Frontend (apps/web)
+pnpm test                      # Run all tests in watch mode
+pnpm test:ui                   # Open interactive Vitest UI
+pnpm test:coverage             # Run tests with coverage report
+pnpm test ComponentName        # Run specific test file
+pnpm --filter @wbot/web test   # Run from monorepo root
+
+# Backend (apps/ai)
+cd apps/ai && uv run pytest              # Run all Python tests
+cd apps/ai && uv run pytest -v           # Verbose output
+cd apps/ai && uv run pytest tests/test_file.py  # Run specific file
+cd apps/ai && uv run pytest -k "test_name"      # Run tests matching pattern
+cd apps/ai && uv run pytest --cov=src    # With coverage (if configured)
+
+# Full test suite
+pnpm test:web                  # All frontend tests
+pnpm test:ai                   # All backend tests
+pnpm test                      # All tests (via Turbo)
+```
 
 #### Comprehensive Testing Requirements
 
@@ -110,15 +185,6 @@ describe('useWimHofLoop', () => {
     /* ... */
   });
 });
-```
-
-**Testing Commands:**
-
-```bash
-pnpm test                    # Run all tests
-pnpm test ComponentName      # Run specific test file
-pnpm test --coverage         # Run with coverage report
-pnpm test --ui               # Interactive test UI
 ```
 
 ### TypeScript Typing Rules
@@ -717,4 +783,4 @@ logging.getLogger("httpx").setLevel(logging.INFO)
 
 _This file helps Claude Code understand the project conventions and constraints._
 
-_Last updated: January 4, 2025_
+_Last updated: January 5, 2025_
