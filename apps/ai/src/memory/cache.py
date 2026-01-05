@@ -1,23 +1,31 @@
 """
 ============================================================================
-Embedding Cache Module
+Cache Module
 ============================================================================
-Redis-based caching for vector embeddings to reduce API calls to Gemini.
+Redis-based caching for embeddings and conversation messages.
 
 Features:
-- Per-user cache isolation (key: embedding:{user_id}:{text_hash})
-- Size-based eviction (max 1000 entries per user)
+- Embedding cache: Per-user isolation, LRU eviction, 7-day TTL
+- Message cache: Per-conversation storage, 24-hour TTL, write-through pattern
 - Graceful fallback on Redis failures
 - Async operations using redis-py asyncio
 
-Usage:
+Usage - Embeddings:
     from src.memory.cache import get_cached_embedding, cache_embedding
 
-    # Check cache first
     embedding = await get_cached_embedding(user_id, text)
     if embedding is None:
         embedding = await generate_embedding(text)
         await cache_embedding(user_id, text, embedding)
+
+Usage - Messages:
+    from src.memory.cache import get_cached_messages, cache_messages, append_messages
+
+    # Read: Check cache first, fall back to database
+    messages = await get_cached_messages(conversation_id)
+
+    # Write-through: Append new messages to cache after saving to database
+    await append_messages(conversation_id, new_messages)
 ============================================================================
 """
 
@@ -33,10 +41,19 @@ MAX_ENTRIES_PER_USER = 1000
 EMBEDDING_TTL_SECONDS = 7 * 24 * 60 * 60  # 7 days
 REDIS_CONNECT_TIMEOUT = 2.0  # seconds
 
+# Message cache configuration
+# Eviction is based on total message count, not TTL
+MAX_CACHED_MESSAGES = 10_000  # Total messages across all cached conversations
+MESSAGES_LRU_KEY = "conv_msgs_lru"  # Sorted set: conversation_id -> last_access_timestamp
+MESSAGES_COUNTS_KEY = "conv_msgs_counts"  # Hash: conversation_id -> message_count
+
 
 def _get_redis_url() -> str | None:
-    """Returns Redis URL from environment, or None if not configured."""
-    return os.getenv("REDIS_URL")
+    """Returns Redis URL from environment, or None if not configured.
+
+    Checks REDIS_URI first (LangGraph convention), falls back to REDIS_URL.
+    """
+    return os.getenv("REDIS_URI") or os.getenv("REDIS_URL")
 
 
 # Global connection pool (initialized lazily)
@@ -266,3 +283,280 @@ async def close_redis_pool() -> None:
     if _redis_pool is not None:
         await _redis_pool.aclose()
         _redis_pool = None
+
+
+# =============================================================================
+# Conversation Message Cache
+# =============================================================================
+# Write-through cache for conversation messages.
+# - AI backend appends messages after saving to Supabase
+# - Web frontend reads from cache first, falls back to Supabase
+#
+# Eviction Strategy:
+# - Total message count across all conversations is limited to MAX_CACHED_MESSAGES
+# - When limit is exceeded, oldest-accessed conversations are evicted (LRU)
+# - Uses two tracking structures:
+#   - MESSAGES_LRU_KEY: sorted set (conversation_id -> access_timestamp) for LRU ordering
+#   - MESSAGES_COUNTS_KEY: hash (conversation_id -> message_count) for counting
+# =============================================================================
+
+
+def _messages_key(conversation_id: str) -> str:
+    """Constructs the Redis key for cached conversation messages."""
+    return f"conv_msgs:{conversation_id}"
+
+
+async def _get_total_cached_messages(client: redis.Redis) -> int:
+    """Returns the total number of messages across all cached conversations."""
+    try:
+        # Sum all values in the counts hash
+        counts = await client.hgetall(MESSAGES_COUNTS_KEY)
+        total = sum(int(v) for v in counts.values())
+        return total
+    except Exception:
+        return 0
+
+
+async def _evict_oldest_conversations(client: redis.Redis, messages_to_free: int) -> int:
+    """
+    Evicts oldest-accessed conversations until messages_to_free are removed.
+
+    Args:
+        client: Redis client instance.
+        messages_to_free: Minimum number of messages to evict.
+
+    Returns:
+        Number of messages actually evicted.
+    """
+    evicted = 0
+    try:
+        while evicted < messages_to_free:
+            # Get oldest conversation (lowest score = oldest access time)
+            oldest = await client.zrange(MESSAGES_LRU_KEY, 0, 0)
+            if not oldest:
+                break
+
+            conv_id_bytes = oldest[0]
+            conv_id = (
+                conv_id_bytes.decode("utf-8") if isinstance(conv_id_bytes, bytes) else conv_id_bytes
+            )
+
+            # Get message count for this conversation
+            msg_count_raw = await client.hget(MESSAGES_COUNTS_KEY, conv_id)
+            msg_count = int(msg_count_raw) if msg_count_raw else 0
+
+            # Remove the conversation data and tracking entries
+            pipe = client.pipeline()
+            pipe.delete(_messages_key(conv_id))
+            pipe.zrem(MESSAGES_LRU_KEY, conv_id)
+            pipe.hdel(MESSAGES_COUNTS_KEY, conv_id)
+            await pipe.execute()
+
+            evicted += msg_count
+            print(f"[cache] Evicted conversation {conv_id[:8]}... ({msg_count} msgs)")
+
+    except Exception as e:
+        print(f"[cache] Error during eviction: {e}")
+
+    return evicted
+
+
+async def get_cached_messages(conversation_id: str) -> list[dict[str, object]] | None:
+    """
+    Retrieves cached messages for a conversation.
+
+    Updates the access time in the LRU index to support eviction.
+
+    Args:
+        conversation_id: The conversation UUID.
+
+    Returns:
+        List of message dicts [{id, role, content, created_at}, ...] or None if not cached.
+    """
+    client = await get_redis_client()
+    if client is None:
+        return None
+
+    key = _messages_key(conversation_id)
+
+    try:
+        data = await client.get(key)
+        if data is None:
+            return None
+
+        messages = json.loads(data)
+
+        # Update access time in LRU index (keeps frequently accessed convos in cache)
+        await client.zadd(MESSAGES_LRU_KEY, {conversation_id: time.time()})
+
+        return messages
+    except Exception as e:
+        print(f"[cache] Error retrieving messages: {e}")
+        return None
+
+
+async def cache_messages(conversation_id: str, messages: list[dict[str, object]]) -> bool:
+    """
+    Caches all messages for a conversation (full replacement).
+
+    Used when populating cache from a database read.
+    Triggers eviction if total message count exceeds limit.
+
+    Args:
+        conversation_id: The conversation UUID.
+        messages: List of message dicts to cache.
+
+    Returns:
+        True if caching succeeded, False otherwise.
+    """
+    client = await get_redis_client()
+    if client is None:
+        return False
+
+    key = _messages_key(conversation_id)
+    msg_count = len(messages)
+
+    try:
+        # Get current count for this conversation (if already cached)
+        existing_count_raw = await client.hget(MESSAGES_COUNTS_KEY, conversation_id)
+        existing_count = int(existing_count_raw) if existing_count_raw else 0
+
+        # Check if we need to evict before adding
+        current_total = await _get_total_cached_messages(client)
+        new_total = current_total - existing_count + msg_count
+
+        if new_total > MAX_CACHED_MESSAGES:
+            messages_to_free = new_total - MAX_CACHED_MESSAGES + msg_count
+            await _evict_oldest_conversations(client, messages_to_free)
+
+        # Store messages and update tracking
+        pipe = client.pipeline()
+        pipe.set(key, json.dumps(messages))
+        pipe.zadd(MESSAGES_LRU_KEY, {conversation_id: time.time()})
+        pipe.hset(MESSAGES_COUNTS_KEY, conversation_id, msg_count)
+        await pipe.execute()
+
+        return True
+    except Exception as e:
+        print(f"[cache] Error caching messages: {e}")
+        return False
+
+
+async def append_messages(conversation_id: str, new_messages: list[dict[str, object]]) -> bool:
+    """
+    Appends new messages to an existing cached conversation.
+
+    Used for write-through caching after saving messages to the database.
+    If the conversation is not in cache, this is a no-op (cache will be
+    populated on next read from database).
+
+    Args:
+        conversation_id: The conversation UUID.
+        new_messages: New message dicts to append.
+
+    Returns:
+        True if append succeeded or cache miss (no-op), False on error.
+    """
+    client = await get_redis_client()
+    if client is None:
+        return False
+
+    key = _messages_key(conversation_id)
+
+    try:
+        # Get existing messages
+        data = await client.get(key)
+        if data is None:
+            # Cache miss - don't create new entry, let next read populate
+            return True
+
+        existing = json.loads(data)
+        updated = existing + new_messages
+        new_count = len(updated)
+        old_count = len(existing)
+
+        # Check if we need to evict before adding
+        current_total = await _get_total_cached_messages(client)
+        new_total = current_total - old_count + new_count
+
+        if new_total > MAX_CACHED_MESSAGES:
+            messages_to_free = new_total - MAX_CACHED_MESSAGES + len(new_messages)
+            await _evict_oldest_conversations(client, messages_to_free)
+
+        # Store updated messages and update tracking
+        pipe = client.pipeline()
+        pipe.set(key, json.dumps(updated))
+        pipe.zadd(MESSAGES_LRU_KEY, {conversation_id: time.time()})
+        pipe.hset(MESSAGES_COUNTS_KEY, conversation_id, new_count)
+        await pipe.execute()
+
+        return True
+    except Exception as e:
+        print(f"[cache] Error appending messages: {e}")
+        return False
+
+
+async def invalidate_conversation_cache(conversation_id: str) -> bool:
+    """
+    Removes a conversation from the cache.
+
+    Call this when a conversation is deleted or needs full refresh.
+
+    Args:
+        conversation_id: The conversation UUID.
+
+    Returns:
+        True if invalidation succeeded, False otherwise.
+    """
+    client = await get_redis_client()
+    if client is None:
+        return False
+
+    key = _messages_key(conversation_id)
+
+    try:
+        # Remove data and all tracking entries
+        pipe = client.pipeline()
+        pipe.delete(key)
+        pipe.zrem(MESSAGES_LRU_KEY, conversation_id)
+        pipe.hdel(MESSAGES_COUNTS_KEY, conversation_id)
+        await pipe.execute()
+        return True
+    except Exception as e:
+        print(f"[cache] Error invalidating conversation cache: {e}")
+        return False
+
+
+async def get_message_cache_stats() -> dict[str, object]:
+    """
+    Returns statistics about the message cache.
+
+    Useful for monitoring and debugging.
+
+    Returns:
+        Dict with total_messages, conversation_count, oldest_conversation, etc.
+    """
+    client = await get_redis_client()
+    if client is None:
+        return {"error": "Redis not available"}
+
+    try:
+        total_messages = await _get_total_cached_messages(client)
+        conv_count = await client.zcard(MESSAGES_LRU_KEY)
+
+        # Get oldest conversation
+        oldest = await client.zrange(MESSAGES_LRU_KEY, 0, 0, withscores=True)
+        oldest_age = None
+        if oldest:
+            oldest_timestamp = oldest[0][1]
+            oldest_age = time.time() - oldest_timestamp
+
+        return {
+            "total_messages": total_messages,
+            "max_messages": MAX_CACHED_MESSAGES,
+            "conversation_count": conv_count,
+            "oldest_conversation_age_seconds": oldest_age,
+            "utilization_percent": round(total_messages / MAX_CACHED_MESSAGES * 100, 1),
+        }
+    except Exception as e:
+        return {"error": str(e)}

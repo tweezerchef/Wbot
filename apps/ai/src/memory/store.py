@@ -22,7 +22,13 @@ from dataclasses import dataclass
 from supabase import acreate_client
 from supabase._async.client import AsyncClient
 
-from src.memory.cache import cache_embedding, get_cached_embedding
+from src.memory.cache import (
+    append_messages as cache_append_messages,
+)
+from src.memory.cache import (
+    cache_embedding,
+    get_cached_embedding,
+)
 from src.memory.embeddings import format_memory_text, generate_embedding
 
 # Module-level async client cache
@@ -145,10 +151,14 @@ async def save_messages(
     ai_response: str,
 ) -> None:
     """
-    Saves user and AI messages to the messages table.
+    Saves user and AI messages to the messages table with write-through caching.
 
     This persists the raw conversation for history retrieval and display.
     Called after each AI response to maintain full conversation history.
+
+    Write-through pattern:
+    1. Save to Supabase (source of truth)
+    2. Append to Redis cache (for fast reads)
 
     Args:
         conversation_id: The conversation this message belongs to
@@ -158,6 +168,7 @@ async def save_messages(
     Note:
         Uses async Supabase client for non-blocking operations.
         Errors are logged but don't fail the conversation flow.
+        Redis cache failures are silent - cache will be populated on next read.
     """
     try:
         supabase = await get_async_supabase_client()
@@ -176,7 +187,22 @@ async def save_messages(
             },
         ]
 
-        await supabase.table("messages").insert(messages).execute()
+        result = await supabase.table("messages").insert(messages).execute()
+
+        # Write-through to Redis cache
+        # Include id and created_at from Supabase response for cache consistency
+        if result.data:
+            cache_messages = [
+                {
+                    "id": row["id"],
+                    "role": row["role"],
+                    "content": row["content"],
+                    "created_at": row["created_at"],
+                }
+                for row in result.data
+            ]
+            await cache_append_messages(conversation_id, cache_messages)
+
     except Exception as e:
         # Fire-and-forget: log but don't raise
         print(f"[memory] Failed to save messages: {e}")
