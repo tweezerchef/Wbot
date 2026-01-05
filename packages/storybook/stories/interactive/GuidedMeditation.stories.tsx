@@ -165,7 +165,7 @@ export const LovingKindnessExtended: Story = {
  */
 export const AnxietyRelief: Story = {
   args: {
-    track: 'body_scan_short',
+    track: MEDITATION_TRACKS.body_scan_short,
 
     introduction:
       "I've chosen a meditation specifically for working with difficult emotions. Let's meet what you're feeling with mindfulness.",
