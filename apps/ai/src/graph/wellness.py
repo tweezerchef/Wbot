@@ -30,6 +30,7 @@ Graph Structure (Non-Blocking Parallel Execution):
     - breathing_exercise: Routes immediately, no memory dependency
     - generate_meditation_script: Waits for memories, personalized meditation
     - store_memory: Stores conversation pair
+    - analyze_profile: Analyzes conversation, updates wellness profile (post-response)
 
 This file defines the graph structure and compiles it for self-hosted deployment.
 The compiled `graph` is exported for use by the LangGraph server.
@@ -44,6 +45,7 @@ from src.graph.state import WellnessState
 
 # Import directly from node modules to avoid circular imports
 # (src/nodes/__init__.py -> src/nodes/generate_response -> src/graph/state -> src/graph/__init__.py -> wellness.py)
+from src.nodes.analyze_profile.node import analyze_profile
 from src.nodes.breathing_exercise.node import run_breathing_exercise
 from src.nodes.detect_activity.node import detect_activity_intent
 from src.nodes.generate_meditation_script.node import run_generate_meditation_script
@@ -154,6 +156,11 @@ def build_graph() -> StateGraph:
                      └──────────┬──────────┘
                                 │
                                 ▼
+                     ┌─────────────────────┐
+                     │   analyze_profile   │  ← Zero latency (post-response)
+                     └──────────┬──────────┘
+                                │
+                                ▼
                           ┌─────────┐
                           │   END   │
                           └─────────┘
@@ -186,6 +193,10 @@ def build_graph() -> StateGraph:
 
     # Memory storage - persists the conversation for future retrieval
     builder.add_node("store_memory", store_memory_node)
+
+    # Profile analysis - analyzes conversation and updates user wellness profile
+    # Runs AFTER store_memory (zero latency impact on user experience)
+    builder.add_node("analyze_profile", analyze_profile)
 
     # Barrier node for parallel branch convergence
     builder.add_node("prepare_routing", prepare_routing)
@@ -228,8 +239,12 @@ def build_graph() -> StateGraph:
     builder.add_edge("breathing_exercise", "store_memory")
     builder.add_edge("generate_meditation_script", "store_memory")
 
-    # After storing memory, end the turn
-    builder.add_edge("store_memory", END)
+    # After storing memory, analyze the conversation for profile updates
+    # This runs after the response is streamed (zero latency impact)
+    builder.add_edge("store_memory", "analyze_profile")
+
+    # After profile analysis, end the turn
+    builder.add_edge("analyze_profile", END)
 
     # -------------------------------------------------------------------------
     # Compile and Return
