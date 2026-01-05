@@ -36,7 +36,7 @@ import { parseActivityContent } from '../../../lib/parseActivity';
 import { supabase } from '../../../lib/supabase';
 import { ActivityOverlay } from '../../ActivityOverlay';
 import { BreathingConfirmation } from '../../BreathingConfirmation';
-import { BreathingExercise, type BreathingTechnique } from '../../BreathingExercise';
+import type { BreathingTechnique } from '../../BreathingExercise';
 import {
   MenuIcon,
   CloseIcon,
@@ -530,27 +530,19 @@ export function ChatPage() {
         }
 
         const client = createAIClient(session.access_token);
-        let fullResponse = '';
 
         // Resume with 'start' decision and the selected technique
+        // Note: We don't need to capture the response content since we don't add
+        // the activity message to local state during live HITL (user sees overlay)
         for await (const event of client.resumeInterrupt(
           { decision: 'start', technique_id: technique.id },
           conversationId
         )) {
           switch (event.type) {
-            case 'token':
-              fullResponse = event.content;
-              break;
-
             case 'done': {
-              // Add the activity message to the list (will be shown after exercise)
-              const assistantMessage: Message = {
-                id: `assistant-${String(Date.now())}`,
-                role: 'assistant',
-                content: fullResponse,
-                createdAt: new Date(),
-              };
-              setMessages((prev) => [...prev, assistantMessage]);
+              // During live HITL, we skip adding the activity message to local state
+              // because the user sees the activity in the ImmersiveBreathing overlay.
+              // The message is persisted via the backend and will appear when loading history.
               void touchConversation(conversationId);
               break;
             }
@@ -1066,27 +1058,38 @@ function MessageBubble({ message, isStreaming = false }: MessageBubbleProps) {
     );
   }
 
-  // Render continuous breathing exercise inline if detected
+  // Render continuous breathing exercise as completed summary (historical)
+  // During live HITL, activity messages are NOT added to messages state,
+  // so any activity messages here are from history (previous sessions/reloads).
+  // We render them as static summaries rather than interactive components.
   if (parsedContent?.hasActivity && parsedContent.activity?.activity === 'breathing') {
     const activity = parsedContent.activity;
-    // Convert the parsed technique to the expected format
-    const technique: BreathingTechnique = {
-      id: activity.technique.id,
-      name: activity.technique.name,
-      durations: activity.technique.durations,
-      description: activity.technique.description,
-      cycles: activity.technique.cycles,
-    };
+    const timingPattern = activity.technique.durations.join('-');
 
     return (
       <div className={styles.messageRow}>
-        <div className={`${styles.bubble} ${styles.bubbleAssistant} ${styles.bubbleActivity}`}>
-          {/* Render breathing exercise component */}
-          <BreathingExercise
-            technique={technique}
-            introduction={activity.introduction}
-            onComplete={handleExerciseComplete}
-          />
+        <div className={`${styles.bubble} ${styles.bubbleAssistant}`}>
+          <div className={styles.completedActivity}>
+            <div className={styles.completedIcon}>
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                <polyline points="22 4 12 14.01 9 11.01" />
+              </svg>
+            </div>
+            <div className={styles.completedInfo}>
+              <span className={styles.completedTitle}>Breathing Exercise</span>
+              <span className={styles.completedDetail}>
+                {activity.technique.name} ({timingPattern})
+              </span>
+            </div>
+          </div>
         </div>
       </div>
     );

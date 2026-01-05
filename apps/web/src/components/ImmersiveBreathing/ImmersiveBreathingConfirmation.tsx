@@ -53,6 +53,9 @@ export function ImmersiveBreathingConfirmation({
   // Track mood before
   const [moodBefore, setMoodBefore] = useState<MoodRating | null>(null);
 
+  // Track loading state while HITL resume is processing
+  const [isLoading, setIsLoading] = useState(false);
+
   // Handle technique selection
   const handleSelectTechnique = useCallback((technique: BreathingTechnique) => {
     setSelectedTechnique(technique);
@@ -64,6 +67,7 @@ export function ImmersiveBreathingConfirmation({
     if (showMoodCheck) {
       setCurrentStep('mood');
     } else {
+      setIsLoading(true);
       onConfirm(selectedTechnique, undefined);
     }
   }, [showMoodCheck, selectedTechnique, onConfirm]);
@@ -75,6 +79,7 @@ export function ImmersiveBreathingConfirmation({
 
   // Handle confirm after mood
   const handleConfirm = useCallback(() => {
+    setIsLoading(true);
     onConfirm(selectedTechnique, moodBefore ?? undefined);
   }, [selectedTechnique, moodBefore, onConfirm]);
 
@@ -159,10 +164,20 @@ export function ImmersiveBreathingConfirmation({
 
           {/* Actions */}
           <div className={styles.actions}>
-            <button type="button" className={styles.beginButton} onClick={handleBegin}>
-              {showMoodCheck ? 'Continue' : 'Begin Exercise'}
+            <button
+              type="button"
+              className={`${styles.beginButton} ${isLoading ? styles.beginButtonLoading : ''}`}
+              onClick={handleBegin}
+              disabled={isLoading}
+            >
+              {isLoading ? 'Preparing...' : showMoodCheck ? 'Continue' : 'Begin Exercise'}
             </button>
-            <button type="button" className={styles.declineButton} onClick={onDecline}>
+            <button
+              type="button"
+              className={styles.declineButton}
+              onClick={onDecline}
+              disabled={isLoading}
+            >
               Not now
             </button>
           </div>
@@ -183,13 +198,18 @@ export function ImmersiveBreathingConfirmation({
           <div className={styles.actions}>
             <button
               type="button"
-              className={styles.beginButton}
+              className={`${styles.beginButton} ${isLoading ? styles.beginButtonLoading : ''}`}
               onClick={handleConfirm}
-              disabled={moodBefore === null}
+              disabled={moodBefore === null || isLoading}
             >
-              Begin Exercise
+              {isLoading ? 'Preparing...' : 'Begin Exercise'}
             </button>
-            <button type="button" className={styles.declineButton} onClick={handleBack}>
+            <button
+              type="button"
+              className={styles.declineButton}
+              onClick={handleBack}
+              disabled={isLoading}
+            >
               Back
             </button>
           </div>

@@ -59,6 +59,8 @@ export interface ImmersiveBreathingProps {
   audioEnabled?: boolean;
   /** User's mood before starting (from confirmation screen) */
   moodBefore?: number;
+  /** Skip intro screen and start exercise immediately (when coming from confirmation flow) */
+  autoStart?: boolean;
 }
 
 /** Props for BreathingBackground component */

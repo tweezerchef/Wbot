@@ -45,9 +45,13 @@ export function ImmersiveBreathing({
   onExit,
   audioEnabled: initialAudioEnabled = true,
   moodBefore,
+  autoStart = false,
 }: ImmersiveBreathingProps) {
   // UI state - extended to include mood check after completion
-  const [uiState, setUiState] = useState<ImmersiveBreathingState | 'mood_check'>('intro');
+  // When autoStart is true, skip intro and go directly to active state
+  const [uiState, setUiState] = useState<ImmersiveBreathingState | 'mood_check'>(
+    autoStart ? 'active' : 'intro'
+  );
   const [audioEnabled, setAudioEnabled] = useState(initialAudioEnabled);
 
   // Mood after exercise
@@ -83,6 +87,15 @@ export function ImmersiveBreathing({
 
   // Haptic feedback hook
   const haptic = useHapticFeedback(true);
+
+  // Auto-start the breathing loop when autoStart is true
+  // This runs once on mount when coming from confirmation flow
+  useEffect(() => {
+    if (autoStart && !isActive && !isComplete) {
+      startTimeRef.current = Date.now();
+      breathing.start();
+    }
+  }, [autoStart, isActive, isComplete, breathing]);
 
   // Track phase changes for haptic feedback
   const previousPhaseRef = useRef(currentPhase);

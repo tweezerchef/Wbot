@@ -204,6 +204,40 @@
   outline-offset: 4px;
 }
 
+.beginButton:disabled {
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Loading state with animated gradient */
+.beginButtonLoading {
+  background: linear-gradient(
+    90deg,
+    var(--color-breath-inhale) 0%,
+    var(--color-breath-hold) 25%,
+    var(--color-breath-exhale) 50%,
+    var(--color-breath-hold) 75%,
+    var(--color-breath-inhale) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+  box-shadow: 0 4px 25px rgba(126, 200, 227, 0.4);
+}
+
+.beginButtonLoading:hover {
+  transform: none;
+  box-shadow: 0 4px 25px rgba(126, 200, 227, 0.4);
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
+}
+
 .declineButton {
   width: 100%;
   padding: var(--spacing-md);
@@ -223,6 +257,11 @@
   outline: 2px solid rgba(255, 255, 255, 0.5);
   outline-offset: 2px;
   border-radius: var(--radius-sm);
+}
+
+.declineButton:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 /* ============================================================================
@@ -253,5 +292,15 @@
 
   .dropdown {
     animation: none;
+  }
+
+  .beginButtonLoading {
+    animation: none;
+    background: linear-gradient(
+      135deg,
+      var(--color-breath-inhale) 0%,
+      var(--color-breath-hold) 100%
+    );
+    background-size: 100% 100%;
   }
 }
