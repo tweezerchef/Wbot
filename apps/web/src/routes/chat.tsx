@@ -14,7 +14,7 @@ import { createServerFn } from '@tanstack/react-start';
 
 import { ChatPage } from '../components/pages';
 import type { Message } from '../lib/ai-client';
-import { getMostRecentConversation, loadMessages } from '../lib/conversations';
+import { getMostRecentConversation, loadMessagesWithCache } from '../lib/conversations.server';
 import { createServerSupabaseClient } from '../lib/supabase/server';
 
 /* ----------------------------------------------------------------------------
@@ -56,8 +56,8 @@ const getConversationData = createServerFn({ method: 'GET' }).handler(
         return { conversationId: null, messages: [] };
       }
 
-      // Load all messages for the conversation
-      const messages = await loadMessages(conversationId, supabase);
+      // Load all messages for the conversation (with Redis cache)
+      const messages = await loadMessagesWithCache(conversationId, supabase);
 
       return { conversationId, messages };
     } catch (err) {

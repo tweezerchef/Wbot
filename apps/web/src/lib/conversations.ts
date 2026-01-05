@@ -1,13 +1,11 @@
 /**
- * Conversation management helpers with Redis caching.
+ * Conversation management helpers (client-safe).
  *
  * Provides functions for creating, loading, and managing conversations.
  * Used by ChatPage to persist conversation state across sessions.
  *
- * Caching strategy (read-through):
- * 1. Check Redis cache first
- * 2. On cache miss, load from Supabase and populate cache
- * 3. AI backend writes to cache when saving messages (write-through)
+ * NOTE: This file is client-safe (no Node.js-only imports).
+ * For server-side functions with Redis caching, see conversations.server.ts
  *
  * Functions accept an optional Supabase client parameter to support both:
  * - Browser usage (default client)
@@ -18,7 +16,6 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@wbot/shared';
 
 import type { Message } from './ai-client';
-import { cacheMessages, getCachedMessages } from './redis';
 import { supabase as defaultClient } from './supabase';
 
 // Type alias for the typed Supabase client
@@ -79,11 +76,10 @@ export async function getMostRecentConversation(
 }
 
 /**
- * Loads all messages for a conversation with cache-first strategy.
+ * Loads all messages for a conversation from Supabase.
  *
- * 1. Check Redis cache for messages
- * 2. If cache miss, load from Supabase
- * 3. Populate cache for next request
+ * This is the client-safe version that fetches directly from Supabase.
+ * For server-side loading with Redis cache, see conversations.server.ts
  *
  * Messages are returned in chronological order.
  *
@@ -95,13 +91,6 @@ export async function loadMessages(
   conversationId: string,
   client: TypedSupabaseClient = defaultClient
 ): Promise<Message[]> {
-  // 1. Try Redis cache first
-  const cached = await getCachedMessages(conversationId);
-  if (cached) {
-    return cached;
-  }
-
-  // 2. Cache miss - load from Supabase
   const { data, error } = await client
     .from('messages')
     .select('id, role, content, created_at')
@@ -113,19 +102,12 @@ export async function loadMessages(
     throw error;
   }
 
-  const messages = data.map((msg) => ({
+  return data.map((msg) => ({
     id: msg.id,
     role: msg.role as 'user' | 'assistant' | 'system',
     content: msg.content,
     createdAt: msg.created_at ? new Date(msg.created_at) : new Date(),
   }));
-
-  // 3. Populate cache for next request (fire-and-forget)
-  cacheMessages(conversationId, messages).catch(() => {
-    // Silent failure - caching is optional
-  });
-
-  return messages;
 }
 
 /**
