@@ -55,7 +55,6 @@ dependencies = [
     "python-dotenv>=1.2.1",
     # Data validation and serialization
     "pydantic>=2.12.5",
-    "langgraph-cli[inmem]>=0.4.11",
     # Redis client - constrained by LangGraph base image to <7.0 (server can be 7+)
     "redis>=6.4.0,<7.0",
     "anthropic>=0.75.0",
@@ -132,7 +131,7 @@ ignore = ["E501"]
 
 # Per-file ignores (tests don't need strict type annotations)
 [tool.ruff.lint.per-file-ignores]
-"tests/**/*.py" = ["ANN201", "ANN001", "ANN202"]  # Allow missing type annotations in tests
+"tests/**/*.py" = ["ANN201", "ANN001", "ANN202", "ANN401"]  # Allow missing/Any type annotations in tests
 
 [tool.ruff.lint.isort]
 # Mark our own modules as first-party for proper import grouping

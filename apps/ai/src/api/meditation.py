@@ -18,11 +18,11 @@ from collections.abc import AsyncGenerator
 from datetime import UTC, datetime
 from typing import Literal
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Path
+from fastapi import APIRouter, HTTPException, Path
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
-from src.auth import get_supabase_client
+from src.api.auth import CurrentUser, get_supabase_client
 from src.logging_config import NodeLogger
 from src.tts.openai_audio import MeditationScript, OpenAIAudio, stream_meditation_with_caching
 from src.tts.voices import get_all_voices, get_voice, validate_voice_id
@@ -30,48 +30,6 @@ from src.tts.voices import get_all_voices, get_voice, validate_voice_id
 logger = NodeLogger("meditation_api")
 
 router = APIRouter(prefix="/api/meditation", tags=["meditation"])
-
-
-# -----------------------------------------------------------------------------
-# Auth Dependency
-# -----------------------------------------------------------------------------
-
-
-async def get_current_user(authorization: str = Header(...)) -> dict:
-    """
-    Validate the Authorization header and return user info.
-
-    This is a FastAPI dependency that mirrors the LangGraph auth validation.
-    """
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(
-            status_code=401,
-            detail="Missing or invalid Authorization header",
-        )
-
-    token = authorization[7:]
-    if not token:
-        raise HTTPException(status_code=401, detail="Empty token")
-
-    try:
-        supabase = await get_supabase_client()
-        user_response = await supabase.auth.get_user(token)
-
-        if not user_response or not user_response.user:
-            raise HTTPException(status_code=401, detail="Invalid token")
-
-        user = user_response.user
-        return {"id": user.id, "email": user.email}
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Auth error: {e}")
-        raise HTTPException(status_code=401, detail="Authentication failed") from e
-
-
-# Module-level dependency for use in route handlers
-CurrentUser = Depends(get_current_user)
 
 
 # -----------------------------------------------------------------------------
@@ -445,7 +403,7 @@ async def get_script_from_db(script_id: str) -> MeditationScript | None:
 )
 async def generate_meditation(
     request: GenerateMeditationRequest,
-    user: dict = CurrentUser,
+    user: CurrentUser,
 ) -> GenerateMeditationResponse:
     """
     Generate a personalized meditation using OpenAI TTS.
@@ -458,7 +416,7 @@ async def generate_meditation(
 
     For streaming audio, use the /stream endpoint instead.
     """
-    logger.info("Generating meditation", script_id=request.script_id, user_id=user.get("id"))
+    logger.info("Generating meditation", script_id=request.script_id, user_id=user.id)
 
     # Get the script
     script = await get_script_from_db(request.script_id)
@@ -509,7 +467,7 @@ async def generate_meditation(
 )
 async def check_cache(
     request: CacheCheckRequest,
-    user: dict = CurrentUser,
+    user: CurrentUser,
 ) -> CacheCheckResponse:
     """
     Check if cached audio exists for a meditation script.
@@ -540,7 +498,7 @@ async def check_cache(
 )
 async def stream_meditation(
     request: GenerateMeditationRequest,
-    user: dict = CurrentUser,
+    user: CurrentUser,
 ) -> StreamingResponse:
     """
     Stream a personalized meditation audio as it's generated.
@@ -553,7 +511,7 @@ async def stream_meditation(
     Use this endpoint when you want immediate audio playback without
     waiting for the full file to generate.
     """
-    logger.info("Streaming meditation", script_id=request.script_id, user_id=user.get("id"))
+    logger.info("Streaming meditation", script_id=request.script_id, user_id=user.id)
 
     # Get the script
     script = await get_script_from_db(request.script_id)
@@ -594,7 +552,7 @@ async def stream_meditation(
     response_model=VoicesResponse,
 )
 async def get_voices(
-    user: dict = CurrentUser,
+    user: CurrentUser,
 ) -> VoicesResponse:
     """
     Get available voices for AI-generated meditations.
@@ -627,7 +585,7 @@ async def get_voices(
 )
 async def generate_ai_meditation(
     request: GenerateAIMeditationRequest,
-    user: dict = CurrentUser,
+    user: CurrentUser,
 ) -> StreamingResponse:
     """
     Generate an AI-personalized meditation with streaming.
@@ -643,7 +601,7 @@ async def generate_ai_meditation(
         "Generating AI meditation",
         meditation_id=request.meditation_id,
         voice_id=request.voice_id,
-        user_id=user.get("id"),
+        user_id=user.id,
     )
 
     # Validate voice ID
@@ -653,7 +611,7 @@ async def generate_ai_meditation(
             detail=f"Invalid voice ID: {request.voice_id}",
         )
 
-    user_id = user.get("id")
+    user_id = user.id
     if not user_id:
         raise HTTPException(status_code=401, detail="User ID not found")
 
@@ -750,9 +708,9 @@ async def generate_ai_meditation(
     responses={404: {"model": ErrorResponse}},
 )
 async def complete_meditation(
+    user: CurrentUser,
     meditation_id: str = Path(..., description="The meditation ID"),
-    request: CompleteMeditationRequest = None,
-    user: dict = CurrentUser,
+    request: CompleteMeditationRequest | None = None,
 ) -> CompleteMeditationResponse:
     """
     Mark an AI-generated meditation as complete.
@@ -763,10 +721,10 @@ async def complete_meditation(
     logger.info(
         "Completing meditation",
         meditation_id=meditation_id,
-        user_id=user.get("id"),
+        user_id=user.id,
     )
 
-    user_id = user.get("id")
+    user_id = user.id
     if not user_id:
         raise HTTPException(status_code=401, detail="User ID not found")
 

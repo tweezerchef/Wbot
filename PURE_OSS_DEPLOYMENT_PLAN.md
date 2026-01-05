@@ -719,16 +719,16 @@ Remove or comment out:
 
 ## Migration Checklist
 
-- [ ] Create `src/api/auth.py` with FastAPI auth
-- [ ] Create `src/api/graph.py` with chat endpoints
-- [ ] Update `src/api/server.py` with new routers
-- [ ] Create `Dockerfile` for custom build
-- [ ] Update `docker-compose.self-hosted.yml`
-- [ ] Update `package.json` scripts
-- [ ] Remove `langgraph-cli` from `pyproject.toml`
-- [ ] Delete `langgraph.json`
-- [ ] Update frontend `ai-client.ts`
-- [ ] Test locally with `docker-compose up`
+- [x] Create `src/api/auth.py` with FastAPI auth ✅
+- [x] Create `src/api/graph.py` with chat endpoints ✅
+- [x] Update `src/api/server.py` with new routers ✅
+- [x] Create `Dockerfile` for custom build ✅
+- [x] Update `docker-compose.self-hosted.yml` ✅
+- [x] Update `package.json` scripts ✅
+- [x] Remove `langgraph-cli` from `pyproject.toml` ✅
+- [x] Delete `langgraph.json` ✅
+- [x] Update frontend `ai-client.ts` ✅
+- [x] Test locally with `docker-compose up` ✅
 - [ ] Verify auth works with Supabase tokens
 - [ ] Verify streaming works in frontend
 - [ ] Deploy to production
@@ -744,6 +744,144 @@ Remove or comment out:
 | Upstash Redis (existing) | ~$0-10/month             | ~$0-10/month     |
 | Hosting (Railway/Fly)    | ~$5-20/month             | ~$5-20/month     |
 | **Total**                | **$69-100+/month**       | **$30-55/month** |
+
+---
+
+## Observability Options
+
+### Option A: LangSmith Cloud (Recommended - Free Tier)
+
+**Cost:** $0 (5,000 traces/month on Developer plan)
+
+LangSmith tracing works independently of LangGraph deployment licensing. You just need environment variables:
+
+```bash
+# Add to .env
+LANGSMITH_TRACING=true
+LANGSMITH_API_KEY=lsv2_pt_xxx  # Get from https://smith.langchain.com
+LANGSMITH_PROJECT=wbot-wellness
+```
+
+**Features on Free Tier:**
+
+- Full trace visualization
+- Token usage tracking
+- Latency analysis
+- Error debugging
+- 5,000 traces/month
+
+**Implementation:** Already supported! LangChain/LangGraph auto-trace when these env vars are set.
+
+---
+
+### Option B: Langfuse (Self-Hosted, Open Source)
+
+**Cost:** $0 (MIT licensed, self-hosted)
+
+[Langfuse](https://langfuse.com/integrations/frameworks/langchain) is a fully open-source alternative:
+
+```python
+# Install
+# Add to pyproject.toml: "langfuse>=2.0"
+
+# In src/api/server.py
+from langfuse.callback import CallbackHandler
+
+langfuse_handler = CallbackHandler(
+    public_key="pk-xxx",
+    secret_key="sk-xxx",
+    host="https://your-langfuse.com"  # or self-hosted URL
+)
+
+# Pass to graph invocation
+result = await graph.ainvoke(
+    {"messages": [HumanMessage(content=request.message)]},
+    config={**config, "callbacks": [langfuse_handler]}
+)
+```
+
+**Features:**
+
+- Full trace visualization
+- Prompt management
+- Evaluations
+- Self-hosted (data stays with you)
+- MIT licensed
+
+**Self-hosting:** Docker Compose or Kubernetes - see [Langfuse docs](https://langfuse.com/docs/deployment/self-host)
+
+---
+
+### Option C: Arize Phoenix (Local-First, Open Source)
+
+**Cost:** $0 (open source)
+
+[Arize Phoenix](https://phoenix.arize.com/) runs locally and uses OpenTelemetry:
+
+```python
+# Install: "arize-phoenix>=4.0"
+
+import phoenix as px
+
+# Start local Phoenix server
+px.launch_app()
+
+# Traces automatically captured via OpenTelemetry
+```
+
+**Features:**
+
+- Local-first (runs in your process)
+- OpenTelemetry native
+- Hallucination detection
+- No external dependencies
+
+---
+
+### Option D: OpenTelemetry (Any Backend)
+
+**Cost:** Depends on backend
+
+Send traces to any OpenTelemetry-compatible backend (Jaeger, Grafana Tempo, Datadog, etc.):
+
+```python
+# Install: "opentelemetry-api>=1.20" "opentelemetry-sdk>=1.20"
+
+from opentelemetry import trace
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+
+# Configure exporter
+trace.set_tracer_provider(TracerProvider())
+tracer = trace.get_tracer(__name__)
+
+otlp_exporter = OTLPSpanExporter(endpoint="http://localhost:4317")
+trace.get_tracer_provider().add_span_processor(
+    BatchSpanProcessor(otlp_exporter)
+)
+```
+
+---
+
+### Comparison Table
+
+| Feature          | LangSmith Free | Langfuse    | Phoenix | OpenTelemetry |
+| ---------------- | -------------- | ----------- | ------- | ------------- |
+| Cost             | $0 (5k traces) | $0          | $0      | Varies        |
+| Self-hosted      | No             | Yes         | Yes     | Yes           |
+| Setup effort     | 3 env vars     | Medium      | Low     | High          |
+| LangGraph native | Yes            | Plugin      | Plugin  | Manual        |
+| UI included      | Yes            | Yes         | Yes     | Need backend  |
+| Data privacy     | Cloud          | You control | Local   | You control   |
+
+### Recommendation
+
+**Start with LangSmith free tier** (already configured in your `.env`). If you need:
+
+- More than 5k traces/month → Upgrade to Plus ($39/seat) or switch to Langfuse
+- Full data sovereignty → Self-host Langfuse
+- Local debugging only → Use Phoenix
 
 ---
 
@@ -784,5 +922,62 @@ Remove or comment out:
 
 ---
 
+## Implementation Notes
+
+### Completed: January 5, 2026
+
+**Phase 1-3: Backend API** ✅
+
+- Created `src/api/auth.py` with FastAPI dependency injection
+- Created `src/api/graph.py` with streaming endpoints and HITL support
+- Updated `src/api/server.py` with lifespan context manager
+- Updated `src/api/meditation.py` to use shared auth module
+- Added 38 unit tests (13 auth + 25 graph) - all passing
+
+**Phase 4-5: Docker** ✅
+
+- Created custom `Dockerfile` using Python 3.13-slim + uv
+- Updated `docker-compose.self-hosted.yml` with simplified config
+- Removed 24 unnecessary packages by eliminating langgraph-cli
+
+**Phase 6: Scripts** ✅
+
+- Updated `dev:ai` to use uvicorn with --reload for local development
+- Changed `ai:*` scripts to use standard Docker commands
+
+**Phase 7: Frontend** ✅
+
+- Rewrote `ai-client.ts` with direct fetch + SSE parsing
+- Removed `@langchain/langgraph-sdk` dependency
+
+**Phase 8: Cleanup** ✅
+
+- Removed `langgraph-cli[inmem]` from pyproject.toml
+- Deleted `langgraph.json`
+
+### Key Changes from Original Plan
+
+1. **SSE Format**: Used JSON-wrapped format `{"event": "...", "data": ...}` for better type safety
+2. **Auth Module**: Added `CurrentUser` type alias and `build_langgraph_config()` helper
+3. **Content Filtering**: Moved technique ID and detect_activity filtering to backend
+4. **Linting**: Added ANN401 ignore for tests in ruff config
+5. **Supabase Pooler**: Changed checkpointer to use `AsyncConnectionPool` directly with `prepare_threshold=0` for Supabase Supavisor compatibility (avoids $4/mo IPv4 add-on)
+
+### Supabase Connection Details
+
+The checkpointer requires the Supabase **Session mode** pooler connection (port 5432):
+
+- Get from: Supabase Dashboard > Settings > Database > Connection string > Session mode
+- Format: `postgresql://postgres.[ref]:[pass]@aws-0-[region].pooler.supabase.com:5432/postgres`
+- **NOT** Transaction mode (port 6543) - doesn't work with LangGraph checkpointer
+
+### Remaining Tasks
+
+- E2E testing with real Supabase tokens
+- Verify streaming works in frontend
+- Production deployment
+
+---
+
 _Created: January 5, 2026_
-_Status: Ready for implementation_
+_Status: Implementation complete, pending production deployment_
