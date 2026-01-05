@@ -8,11 +8,14 @@ export { GuidedMeditation } from './GuidedMeditation';
 export { PersonalizedMeditation } from './PersonalizedMeditation';
 export { MeditationPlayer } from './MeditationPlayer';
 export { MeditationVisual } from './MeditationVisual';
-export { MoodCheck } from './MoodCheck';
 export { MeditationStreakBadge } from './MeditationStreakBadge';
 export { TimerMeditation } from './TimerMeditation';
 export { VoiceSelector } from './VoiceSelector';
-export { getMoodLabel, getMoodEmoji, MOOD_OPTIONS } from './moodHelpers';
+
+// Re-export MoodCheck from shared location for backwards compatibility
+export { MoodCheck } from '../MoodCheck';
+// Re-export mood helpers from shared package
+export { getMoodLabel, getMoodEmoji, MOOD_OPTIONS } from '@wbot/shared';
 
 // Hooks
 export { useMeditationAudio } from './useMeditationAudio';

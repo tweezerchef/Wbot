@@ -238,6 +238,33 @@
   outline-offset: 4px;
 }
 
+.doneButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Mood change display */
+.moodChange {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  margin-top: var(--spacing-lg);
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-md);
+  animation: fadeUp 0.4s ease-out 0.55s both;
+}
+
+.moodLabel {
+  font-size: var(--font-size-sm);
+  opacity: 0.8;
+}
+
+.moodDelta {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
+}
+
 @keyframes fadeUp {
   from {
     opacity: 0;

@@ -19,13 +19,14 @@
    ============================================================================ */
 
 import type { MeditationSessionData } from '@wbot/shared';
+import { getMoodLabel } from '@wbot/shared';
 import { useCallback, useEffect, useRef, useState } from 'react';
+
+import { MoodCheck } from '../MoodCheck';
 
 import styles from './GuidedMeditation.module.css';
 import { MeditationPlayer } from './MeditationPlayer';
 import { MeditationVisual } from './MeditationVisual';
-import { MoodCheck } from './MoodCheck';
-import { getMoodLabel } from './moodHelpers';
 import type { AmbientSoundType, GuidedMeditationProps, MoodRating } from './types';
 import { useAmbientMixer } from './useAmbientMixer';
 import { useMeditationAudio } from './useMeditationAudio';

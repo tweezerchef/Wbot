@@ -1,3 +1,4 @@
+import type { MoodRating } from '@wbot/shared';
 import { useState, useCallback, useEffect, useRef } from 'react';
 
 import { BreathingBackground } from './BreathingBackground';
@@ -10,6 +11,7 @@ import type { ImmersiveBreathingProps, ImmersiveBreathingState, BreathingStats }
 
 import { useBreathingAudio } from '@/components/BreathingExercise/useBreathingAudio';
 import { useBreathingLoop } from '@/components/BreathingExercise/useBreathingLoop';
+import { MoodCheck } from '@/components/MoodCheck';
 
 /**
  * ImmersiveBreathing - Full-screen immersive breathing experience
@@ -42,17 +44,26 @@ export function ImmersiveBreathing({
   onComplete,
   onExit,
   audioEnabled: initialAudioEnabled = true,
+  moodBefore,
 }: ImmersiveBreathingProps) {
-  // UI state
-  const [uiState, setUiState] = useState<ImmersiveBreathingState>('intro');
+  // UI state - extended to include mood check after completion
+  const [uiState, setUiState] = useState<ImmersiveBreathingState | 'mood_check'>('intro');
   const [audioEnabled, setAudioEnabled] = useState(initialAudioEnabled);
+
+  // Mood after exercise
+  const [moodAfter, setMoodAfter] = useState<MoodRating | null>(null);
 
   // Track start time for stats
   const startTimeRef = useRef<number | null>(null);
 
   // Breathing loop hook - returns { state, phaseProgress, start, pause, resume, stop, reset }
+  // When complete, show mood check if we had a moodBefore, otherwise go straight to complete
   const breathing = useBreathingLoop(technique, () => {
-    setUiState('complete');
+    if (moodBefore !== undefined) {
+      setUiState('mood_check');
+    } else {
+      setUiState('complete');
+    }
   });
 
   // Destructure state for easier access
@@ -132,6 +143,16 @@ export function ImmersiveBreathing({
     audio.toggleAudio();
   }, [audio]);
 
+  // Handle mood selection after exercise
+  const handleMoodAfterSelect = useCallback((mood: MoodRating) => {
+    setMoodAfter(mood);
+  }, []);
+
+  // Continue from mood check to completion screen
+  const handleMoodCheckContinue = useCallback(() => {
+    setUiState('complete');
+  }, []);
+
   // Complete and call onComplete with stats
   const handleDone = useCallback(() => {
     const endTime = Date.now();
@@ -141,13 +162,16 @@ export function ImmersiveBreathing({
 
     const stats: BreathingStats = {
       techniqueName: technique.name,
+      techniqueId: technique.id,
       cyclesCompleted: currentCycle,
       totalDuration,
       completedFully: isComplete,
+      moodBefore,
+      moodAfter: moodAfter ?? undefined,
     };
 
     onComplete(stats);
-  }, [technique.name, currentCycle, isComplete, onComplete]);
+  }, [technique.name, technique.id, currentCycle, isComplete, moodBefore, moodAfter, onComplete]);
 
   // Format technique timing for display (e.g., "4-4-4-4")
   const timingDisplay = technique.durations.join('-');
@@ -205,6 +229,28 @@ export function ImmersiveBreathing({
         </>
       )}
 
+      {/* Mood check after exercise */}
+      {uiState === 'mood_check' && (
+        <div className={styles.complete}>
+          <h2 className={styles.completeTitle}>How do you feel now?</h2>
+          <MoodCheck
+            label="After the exercise, how are you feeling?"
+            value={moodAfter ?? undefined}
+            onSelect={handleMoodAfterSelect}
+            allowSkip={false}
+          />
+
+          <button
+            type="button"
+            className={styles.doneButton}
+            onClick={handleMoodCheckContinue}
+            disabled={moodAfter === null}
+          >
+            Continue
+          </button>
+        </div>
+      )}
+
       {/* Completion state */}
       {uiState === 'complete' && (
         <div className={styles.complete}>
@@ -227,6 +273,17 @@ export function ImmersiveBreathing({
               <span className={styles.statLabel}>Pattern</span>
             </div>
           </div>
+
+          {/* Show mood change if we tracked it */}
+          {moodBefore !== undefined && moodAfter !== null && (
+            <div className={styles.moodChange}>
+              <span className={styles.moodLabel}>Mood change:</span>
+              <span className={styles.moodDelta}>
+                {moodAfter > moodBefore ? '+' : ''}
+                {moodAfter - moodBefore}
+              </span>
+            </div>
+          )}
 
           <button type="button" className={styles.doneButton} onClick={handleDone}>
             Done

@@ -56,6 +56,10 @@ export interface ContinuousSessionData {
   totalDuration?: number;
   /** Whether session was completed fully */
   completedFully: boolean;
+  /** Optional user mood rating before (1-5) */
+  moodBefore?: number;
+  /** Optional user mood rating after (1-5) */
+  moodAfter?: number;
 }
 
 /**

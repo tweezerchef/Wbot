@@ -31,12 +31,18 @@ export {
 export interface BreathingStats {
   /** Technique used */
   techniqueName: string;
+  /** Technique ID */
+  techniqueId: string;
   /** Number of cycles completed */
   cyclesCompleted: number;
   /** Total duration in seconds */
   totalDuration: number;
   /** Whether the exercise was completed fully or stopped early */
   completedFully: boolean;
+  /** Optional user mood rating before (1-5) */
+  moodBefore?: number;
+  /** Optional user mood rating after (1-5) */
+  moodAfter?: number;
 }
 
 /** Props for the ImmersiveBreathing component */
@@ -51,6 +57,8 @@ export interface ImmersiveBreathingProps {
   onExit: () => void;
   /** Whether audio is enabled by default */
   audioEnabled?: boolean;
+  /** User's mood before starting (from confirmation screen) */
+  moodBefore?: number;
 }
 
 /** Props for BreathingBackground component */
@@ -114,8 +122,10 @@ export interface ImmersiveBreathingConfirmationProps {
   message: string;
   /** All available techniques for selection */
   availableTechniques: BreathingTechniqueType[];
-  /** Callback when user confirms with selected technique */
-  onConfirm: (technique: BreathingTechniqueType) => void;
+  /** Callback when user confirms with selected technique and optional mood */
+  onConfirm: (technique: BreathingTechniqueType, moodBefore?: number) => void;
   /** Callback when user declines */
   onDecline: () => void;
+  /** Whether to show mood check before starting */
+  showMoodCheck?: boolean;
 }

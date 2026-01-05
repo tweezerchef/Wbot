@@ -5,16 +5,18 @@
    These types define the structure for tracks, playback state, and props.
    ============================================================================ */
 
-import type { MeditationSessionData, MeditationTrack, MeditationType } from '@wbot/shared';
+import type {
+  MeditationSessionData,
+  MeditationTrack,
+  MeditationType,
+  MoodRating,
+} from '@wbot/shared';
 
 // Re-export shared types for convenience
-export type { MeditationSessionData, MeditationTrack, MeditationType };
+export type { MeditationSessionData, MeditationTrack, MeditationType, MoodRating };
 
 /** Available ambient sound types for meditation */
 export type AmbientSoundType = 'none' | 'ocean' | 'rain' | 'forest';
-
-/** Mood rating scale (1-5) */
-export type MoodRating = 1 | 2 | 3 | 4 | 5;
 
 /** Playback state of the meditation */
 export type MeditationPlaybackState = 'idle' | 'loading' | 'playing' | 'paused' | 'complete';

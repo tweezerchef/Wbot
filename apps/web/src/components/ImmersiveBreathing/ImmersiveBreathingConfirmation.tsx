@@ -1,3 +1,4 @@
+import type { MoodRating } from '@wbot/shared';
 import { useState, useCallback, useMemo } from 'react';
 
 import { BreathingBackground } from './BreathingBackground';
@@ -5,6 +6,7 @@ import styles from './ImmersiveBreathingConfirmation.module.css';
 import type { ImmersiveBreathingConfirmationProps } from './types';
 
 import type { BreathingTechnique } from '@/components/BreathingExercise/types';
+import { MoodCheck } from '@/components/MoodCheck';
 
 /**
  * ImmersiveBreathingConfirmation - Full-screen HITL confirmation
@@ -37,6 +39,7 @@ export function ImmersiveBreathingConfirmation({
   availableTechniques,
   onConfirm,
   onDecline,
+  showMoodCheck = true,
 }: ImmersiveBreathingConfirmationProps) {
   // Track selected technique (starts with proposed)
   const [selectedTechnique, setSelectedTechnique] = useState<BreathingTechnique>(proposedTechnique);
@@ -44,16 +47,42 @@ export function ImmersiveBreathingConfirmation({
   // Track if technique selector is expanded
   const [selectorExpanded, setSelectorExpanded] = useState(false);
 
+  // Track current step: 'technique' or 'mood'
+  const [currentStep, setCurrentStep] = useState<'technique' | 'mood'>('technique');
+
+  // Track mood before
+  const [moodBefore, setMoodBefore] = useState<MoodRating | null>(null);
+
   // Handle technique selection
   const handleSelectTechnique = useCallback((technique: BreathingTechnique) => {
     setSelectedTechnique(technique);
     setSelectorExpanded(false);
   }, []);
 
-  // Handle confirm
+  // Handle begin button - either go to mood check or confirm directly
+  const handleBegin = useCallback(() => {
+    if (showMoodCheck) {
+      setCurrentStep('mood');
+    } else {
+      onConfirm(selectedTechnique, undefined);
+    }
+  }, [showMoodCheck, selectedTechnique, onConfirm]);
+
+  // Handle mood selection
+  const handleMoodSelect = useCallback((mood: MoodRating) => {
+    setMoodBefore(mood);
+  }, []);
+
+  // Handle confirm after mood
   const handleConfirm = useCallback(() => {
-    onConfirm(selectedTechnique);
-  }, [selectedTechnique, onConfirm]);
+    onConfirm(selectedTechnique, moodBefore ?? undefined);
+  }, [selectedTechnique, moodBefore, onConfirm]);
+
+  // Handle going back from mood to technique
+  const handleBack = useCallback(() => {
+    setCurrentStep('technique');
+    setMoodBefore(null);
+  }, []);
 
   // Format timing display
   const timingDisplay = useMemo(() => {
@@ -70,67 +99,102 @@ export function ImmersiveBreathingConfirmation({
       {/* Background animation */}
       <BreathingBackground phase="inhale" isActive={false} />
 
-      {/* Card content */}
-      <div className={styles.card}>
-        {/* AI message */}
-        <p className={styles.message}>{message}</p>
+      {/* Step 1: Technique Selection */}
+      {currentStep === 'technique' && (
+        <div className={styles.card}>
+          {/* AI message */}
+          <p className={styles.message}>{message}</p>
 
-        {/* Technique selector */}
-        <div className={styles.techniqueSection}>
-          <button
-            type="button"
-            className={`${styles.selectedTechnique} ${selectorExpanded ? styles.expanded : ''}`}
-            onClick={() => {
-              setSelectorExpanded(!selectorExpanded);
-            }}
-            aria-expanded={selectorExpanded}
-            aria-haspopup="listbox"
-          >
-            <div className={styles.techniqueInfo}>
-              <span className={styles.techniqueName}>{selectedTechnique.name}</span>
-              <span className={styles.techniqueTiming}>{timingDisplay} seconds</span>
-            </div>
-            <span className={styles.dropdownIcon} aria-hidden="true">
-              {selectorExpanded ? '▲' : '▼'}
-            </span>
-          </button>
+          {/* Technique selector */}
+          <div className={styles.techniqueSection}>
+            <button
+              type="button"
+              className={`${styles.selectedTechnique} ${selectorExpanded ? styles.expanded : ''}`}
+              onClick={() => {
+                setSelectorExpanded(!selectorExpanded);
+              }}
+              aria-expanded={selectorExpanded}
+              aria-haspopup="listbox"
+            >
+              <div className={styles.techniqueInfo}>
+                <span className={styles.techniqueName}>{selectedTechnique.name}</span>
+                <span className={styles.techniqueTiming}>{timingDisplay} seconds</span>
+              </div>
+              <span className={styles.dropdownIcon} aria-hidden="true">
+                {selectorExpanded ? '▲' : '▼'}
+              </span>
+            </button>
 
-          {/* Dropdown */}
-          {selectorExpanded && otherTechniques.length > 0 && (
-            <ul className={styles.dropdown} role="listbox" aria-label="Select breathing technique">
-              {otherTechniques.map((technique) => (
-                <li key={technique.id}>
-                  <button
-                    type="button"
-                    className={styles.dropdownItem}
-                    onClick={() => {
-                      handleSelectTechnique(technique);
-                    }}
-                    role="option"
-                    aria-selected={false}
-                  >
-                    <span className={styles.techniqueName}>{technique.name}</span>
-                    <span className={styles.techniqueTiming}>{technique.durations.join('-')}s</span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
+            {/* Dropdown */}
+            {selectorExpanded && otherTechniques.length > 0 && (
+              <ul
+                className={styles.dropdown}
+                role="listbox"
+                aria-label="Select breathing technique"
+              >
+                {otherTechniques.map((technique) => (
+                  <li key={technique.id}>
+                    <button
+                      type="button"
+                      className={styles.dropdownItem}
+                      onClick={() => {
+                        handleSelectTechnique(technique);
+                      }}
+                      role="option"
+                      aria-selected={false}
+                    >
+                      <span className={styles.techniqueName}>{technique.name}</span>
+                      <span className={styles.techniqueTiming}>
+                        {technique.durations.join('-')}s
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          {/* Description */}
+          <p className={styles.description}>{selectedTechnique.description}</p>
+
+          {/* Actions */}
+          <div className={styles.actions}>
+            <button type="button" className={styles.beginButton} onClick={handleBegin}>
+              {showMoodCheck ? 'Continue' : 'Begin Exercise'}
+            </button>
+            <button type="button" className={styles.declineButton} onClick={onDecline}>
+              Not now
+            </button>
+          </div>
         </div>
+      )}
 
-        {/* Description */}
-        <p className={styles.description}>{selectedTechnique.description}</p>
+      {/* Step 2: Mood Check Before */}
+      {currentStep === 'mood' && (
+        <div className={styles.card}>
+          <MoodCheck
+            label="How are you feeling right now?"
+            value={moodBefore ?? undefined}
+            onSelect={handleMoodSelect}
+            allowSkip={false}
+          />
 
-        {/* Actions */}
-        <div className={styles.actions}>
-          <button type="button" className={styles.beginButton} onClick={handleConfirm}>
-            Begin Exercise
-          </button>
-          <button type="button" className={styles.declineButton} onClick={onDecline}>
-            Not now
-          </button>
+          {/* Actions */}
+          <div className={styles.actions}>
+            <button
+              type="button"
+              className={styles.beginButton}
+              onClick={handleConfirm}
+              disabled={moodBefore === null}
+            >
+              Begin Exercise
+            </button>
+            <button type="button" className={styles.declineButton} onClick={handleBack}>
+              Back
+            </button>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
