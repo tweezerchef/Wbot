@@ -16,9 +16,9 @@
 #   3. Stop the services:
 #      docker-compose -f docker-compose.self-hosted.yml down
 #
-# Environment variables (set in .env or pass via command line):
+# Environment variables (set in root ../../.env):
+#   - DATABASE_URI: Full Postgres connection string from Supabase
 #   - SUPABASE_URL: Your Supabase project URL
-#   - SUPABASE_DB_PASSWORD: Database password from Supabase
 #   - SUPABASE_SERVICE_KEY: Service role key for auth
 #   - ANTHROPIC_API_KEY: Claude API key
 #   - LANGSMITH_API_KEY: (Optional) LangSmith API key for tracing
@@ -27,6 +27,15 @@
 volumes:
   redis-data:
     driver: local
+
+networks:
+  default:
+    driver: bridge
+    enable_ipv6: true
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
+        - subnet: "fd00:db8::/64"
 
 services:
   # ---------------------------------------------------------------------------
@@ -55,15 +64,19 @@ services:
     depends_on:
       langgraph-redis:
         condition: service_healthy
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+      - 1.1.1.1
     env_file:
-      - .env
+      - ../../.env
     environment:
       # Database: Use Supabase PostgreSQL (external)
-      # The checkpointer.py module constructs this from SUPABASE_URL and SUPABASE_DB_PASSWORD
-      # But LangGraph runtime also needs DATABASE_URI for its internal operations
-      DATABASE_URI: postgresql://postgres.${SUPABASE_PROJECT_REF}:${SUPABASE_DB_PASSWORD}@db.${SUPABASE_PROJECT_REF}.supabase.co:5432/postgres?sslmode=require
+      # Set DATABASE_URI in your root .env file
+      # Get it from: Supabase Dashboard > Settings > Database > Connection string (URI format)
+      DATABASE_URI: ${DATABASE_URI}
 
-      # Redis: Local service for pub/sub
+      # Redis: Local service for pub/sub (overrides any .env REDIS_URL)
       REDIS_URI: redis://langgraph-redis:6379
 
       # LangSmith: Enable tracing (optional but recommended)

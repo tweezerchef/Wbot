@@ -4,8 +4,11 @@
     "wellness": "./src/graph/wellness.py:graph"
   },
   "env": "../../.env",
-  "python_version": "3.11",
+  "python_version": "3.13",
   "dependencies": ["."],
+  "dockerfile_lines": [
+    "RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg && rm -rf /var/lib/apt/lists/*"
+  ],
   "auth": {
     "path": "./src/auth.py:auth"
   },
