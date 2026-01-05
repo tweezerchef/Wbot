@@ -1,19 +1,18 @@
 /* ============================================================================
-   AI Client - Direct LangGraph Connection
+   AI Client - Direct API Connection (Pure OSS)
    ============================================================================
-   This module provides a client for communicating directly with LangGraph.
+   This module provides a client for communicating with the Wbot AI backend.
 
    Architecture:
-   - Client connects directly to LangGraph Deploy (no intermediate server)
+   - Client connects directly to the FastAPI backend via fetch + SSE
    - Supabase auth tokens are passed for authorization
-   - LangGraph validates tokens before processing requests
-   - This reduces latency by eliminating a hop through our backend
+   - Backend validates tokens before processing requests
+   - No LangGraph SDK dependency - pure fetch + SSE parsing
 
-   The LangGraph SDK handles:
-   - WebSocket/SSE connections for streaming
-   - Automatic reconnection
+   The client handles:
+   - SSE connections for streaming
    - Thread (conversation) management
-   - Message streaming with async iterators
+   - HITL (Human-in-the-Loop) interrupts for activities
 
    Usage:
    import { createAIClient } from '@/lib/ai-client';
@@ -24,21 +23,15 @@
    }
    ============================================================================ */
 
-import { Client } from '@langchain/langgraph-sdk';
-
 /* ----------------------------------------------------------------------------
    Configuration
    ---------------------------------------------------------------------------- */
 
-// LangGraph Deploy URL
-// In development: Local LangGraph server (usually http://localhost:8123)
-// In production: Your LangGraph Deploy URL from LangGraph Cloud
-const LANGGRAPH_URL =
+// Backend API URL
+// In development: Local FastAPI server (usually http://localhost:2024)
+// In production: Your deployed backend URL
+const API_URL =
   (import.meta.env.VITE_LANGGRAPH_API_URL as string | undefined) ?? 'http://localhost:2024';
-
-// The name of the graph to invoke (defined in apps/ai)
-// This matches the graph name in langgraph.json
-const GRAPH_NAME = 'wellness';
 
 /* ----------------------------------------------------------------------------
    Types
@@ -122,63 +115,96 @@ export type StreamEvent =
   // Graph paused for human-in-the-loop input (breathing or meditation confirmation)
   | { type: 'interrupt'; payload: InterruptPayload };
 
-// Technique IDs that should be filtered from streaming output
-// These are internal LLM responses that shouldn't be shown to users
-const TECHNIQUE_IDS = ['box', 'relaxing_478', 'coherent', 'deep_calm'];
-
 /* ----------------------------------------------------------------------------
-   LangGraph Stream Types
+   SSE Parser Types
    ---------------------------------------------------------------------------- */
 
-/** Content block format (used by some LLM providers like Gemini) */
-interface ContentBlock {
-  type: string;
-  text?: string;
-  index?: number;
+/** Parsed SSE event from the backend */
+interface SSEEvent {
+  event: string;
+  data: unknown;
 }
 
-/** Message format from LangGraph stream */
-interface LangGraphMessage {
+/** Message format from SSE stream */
+interface SSEMessage {
   role?: string;
-  type?: string;
-  content?: string | ContentBlock[];
+  content?: string;
   id?: string;
 }
 
+/* ----------------------------------------------------------------------------
+   SSE Parser
+   ---------------------------------------------------------------------------- */
+
 /**
- * Extracts text content from a message.
- * Handles both string content (Claude) and array content blocks (Gemini).
+ * Parses Server-Sent Events from a ReadableStream.
+ *
+ * Handles the SSE format:
+ * - data: {"event": "...", "data": ...}\n\n
+ * - data: [DONE]\n\n
+ *
+ * @param reader - ReadableStream reader from fetch response
+ * @yields Parsed SSE events
  */
-function extractTextContent(content: string | ContentBlock[] | undefined): string {
-  if (!content) {
-    return '';
-  }
+async function* parseSSE(
+  reader: ReadableStreamDefaultReader<Uint8Array>
+): AsyncGenerator<SSEEvent | 'DONE'> {
+  const decoder = new TextDecoder();
+  let buffer = '';
 
-  // If it's already a string, return it
-  if (typeof content === 'string') {
-    return content;
-  }
+  for (;;) {
+    const { done, value } = await reader.read();
 
-  // If it's an array of content blocks, extract text from text blocks
-  if (Array.isArray(content)) {
-    return content
-      .filter((block) => block.type === 'text' && block.text)
-      .map((block) => block.text)
-      .join('');
-  }
+    if (done) {
+      break;
+    }
 
-  return '';
+    // Decode the chunk and add to buffer
+    buffer += decoder.decode(value, { stream: true });
+
+    // Process complete events (terminated by double newline)
+    const events = buffer.split('\n\n');
+    // Keep the last incomplete event in the buffer
+    buffer = events.pop() ?? '';
+
+    for (const eventStr of events) {
+      // Skip empty events
+      if (!eventStr.trim()) {
+        continue;
+      }
+
+      // Parse SSE format: "data: ..." lines
+      const lines = eventStr.split('\n');
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          const dataStr = line.slice(6); // Remove "data: " prefix
+
+          // Check for stream termination marker
+          if (dataStr === '[DONE]') {
+            yield 'DONE';
+            continue;
+          }
+
+          // Parse JSON payload
+          try {
+            const parsed = JSON.parse(dataStr) as SSEEvent;
+            yield parsed;
+          } catch {
+            // Skip malformed JSON
+            console.warn('Failed to parse SSE data:', dataStr);
+          }
+        }
+      }
+    }
+  }
 }
-
-/** Data format for messages/partial events */
-type LangGraphMessagesData = LangGraphMessage[];
 
 /* ----------------------------------------------------------------------------
    AI Client Class
    ---------------------------------------------------------------------------- */
 
 /**
- * Client for interacting with the LangGraph AI backend.
+ * Client for interacting with the Wbot AI backend.
  *
  * Each instance is tied to an authenticated user session.
  * Create a new instance when the auth token changes.
@@ -194,32 +220,38 @@ type LangGraphMessagesData = LangGraphMessage[];
  * }
  */
 export class AIClient {
-  // The LangGraph SDK client instance
-  private client: Client;
+  // Auth token for API requests
+  private authToken: string;
 
   /**
    * Creates a new AI client instance.
    *
    * @param authToken - Supabase JWT access token for authentication
-   *                    LangGraph validates this token before processing requests
+   *                    Backend validates this token before processing requests
    */
   constructor(authToken: string) {
-    // Create the LangGraph client with auth headers
-    // The SDK will include these headers in all requests
-    this.client = new Client({
-      apiUrl: LANGGRAPH_URL,
-      defaultHeaders: {
-        // Pass the Supabase token as a Bearer token
-        // LangGraph backend validates this against Supabase
-        Authorization: `Bearer ${authToken}`,
-      },
+    this.authToken = authToken;
+  }
+
+  /**
+   * Makes an authenticated fetch request to the backend.
+   */
+  private async fetch(path: string, options: RequestInit = {}): Promise<Response> {
+    const url = `${API_URL}${path}`;
+    const headers = new Headers(options.headers);
+    headers.set('Authorization', `Bearer ${this.authToken}`);
+    headers.set('Content-Type', 'application/json');
+
+    return fetch(url, {
+      ...options,
+      headers,
     });
   }
 
   /**
    * Streams a message to the AI and yields events as they arrive.
    *
-   * This uses LangGraph's thread (conversation) system:
+   * This uses the backend's thread (conversation) system:
    * - Each thread maintains conversation history
    * - Messages are automatically persisted
    * - The AI has context from previous messages
@@ -236,7 +268,7 @@ export class AIClient {
    *       showLoadingIndicator();
    *       break;
    *     case 'token':
-   *       fullResponse += event.content;
+   *       fullResponse = event.content; // content is accumulated
    *       updateMessageUI(fullResponse);
    *       break;
    *     case 'done':
@@ -253,116 +285,87 @@ export class AIClient {
     yield { type: 'start' };
 
     try {
-      // Get or create the thread (conversation) in LangGraph
-      // This syncs with our Supabase conversations table via the thread_id
-      const thread = await this.client.threads.get(threadId).catch(async () => {
-        // Thread doesn't exist, create it
-        // The thread_id matches our Supabase conversation ID for consistency
-        return this.client.threads.create({ threadId });
+      // Start the streaming request
+      const response = await this.fetch('/api/chat/stream', {
+        method: 'POST',
+        body: JSON.stringify({
+          message,
+          thread_id: threadId,
+        }),
       });
 
-      // Stream the response from LangGraph
-      // The SDK handles the SSE connection and parsing
-      const stream = this.client.runs.stream(thread.thread_id, GRAPH_NAME, {
-        input: {
-          // Pass the user's message to the graph
-          messages: [{ role: 'user', content: message }],
-        },
-        // Stream modes: 'messages' for token-by-token output,
-        // 'updates' for graph events including interrupts
-        streamMode: ['messages', 'updates'],
-      });
+      if (!response.ok) {
+        const error = await response.text();
+        yield { type: 'error', error: `Request failed: ${error}` };
+        return;
+      }
 
-      // Track the accumulated response for incremental streaming
-      let lastContent = '';
+      if (!response.body) {
+        yield { type: 'error', error: 'No response body' };
+        return;
+      }
 
-      // Helper to check if a message is from the assistant
-      const isAssistantMessage = (msg: LangGraphMessage): boolean =>
-        msg.role === 'assistant' || msg.role === 'ai' || msg.type === 'ai';
+      // Parse SSE stream
+      const reader = response.body.getReader();
 
-      // Process each chunk from the stream
-      for await (const chunk of stream) {
-        // Debug: Log all events to understand the stream structure
-        // eslint-disable-next-line no-console
-        console.log('Stream event:', chunk.event, JSON.stringify(chunk.data));
+      for await (const event of parseSSE(reader)) {
+        // Handle stream termination
+        if (event === 'DONE') {
+          yield { type: 'done' };
+          return;
+        }
 
-        // Check for interrupt events (HITL - Human-in-the-Loop)
-        // This happens when the graph pauses for user confirmation (e.g., breathing or meditation)
-        const chunkData = chunk.data as Record<string, unknown> | null;
-        if (chunkData && '__interrupt__' in chunkData) {
-          const interruptArray = chunkData.__interrupt__ as { value: unknown }[];
-          if (interruptArray.length > 0) {
-            // Cast to union type - the `type` field discriminates between interrupt types
-            const interruptPayload = interruptArray[0].value as InterruptPayload;
-            yield { type: 'interrupt', payload: interruptPayload };
-            // Stop streaming here - frontend will handle the interrupt and resume
+        // Handle different event types
+        switch (event.event) {
+          case 'messages/partial': {
+            // Streaming token - data is array of messages
+            const messages = event.data as SSEMessage[];
+            if (Array.isArray(messages) && messages.length > 0) {
+              const lastMsg = messages[messages.length - 1];
+              // After checking length > 0, we know lastMsg exists
+              if (lastMsg.role === 'assistant' && lastMsg.content) {
+                yield { type: 'token', content: lastMsg.content };
+              }
+            }
+            break;
+          }
+
+          case 'messages/complete': {
+            // Stream complete - data is array of messages
+            const messages = event.data as SSEMessage[];
+            if (Array.isArray(messages) && messages.length > 0) {
+              const lastMsg = messages[messages.length - 1];
+              // After checking length > 0, we know lastMsg exists
+              if (lastMsg.role === 'assistant' && lastMsg.content) {
+                yield { type: 'token', content: lastMsg.content };
+              }
+            }
+            yield { type: 'done' };
+            return;
+          }
+
+          case 'updates': {
+            // Check for interrupt (HITL)
+            const data = event.data as { __interrupt__?: { value: InterruptPayload }[] };
+            if (data.__interrupt__ && data.__interrupt__.length > 0) {
+              const interruptPayload = data.__interrupt__[0].value;
+              yield { type: 'interrupt', payload: interruptPayload };
+              return;
+            }
+            break;
+          }
+
+          case 'error': {
+            // Backend error
+            const data = event.data as { message?: string };
+            yield { type: 'error', error: data.message ?? 'Unknown error' };
             return;
           }
         }
-
-        // Handle message streaming events
-        if (chunk.event === 'messages/partial') {
-          const data = chunk.data as LangGraphMessagesData;
-          if (Array.isArray(data) && data.length > 0) {
-            // Get the last message (most recent assistant response)
-            const lastMsg = data.at(-1);
-            if (lastMsg && isAssistantMessage(lastMsg)) {
-              // Extract text content, handling both string and array formats
-              const content = extractTextContent(lastMsg.content);
-
-              // Filter out technique IDs (internal LLM responses)
-              // These are short single-word responses from technique selection
-              const trimmedContent = content.trim().toLowerCase();
-              if (TECHNIQUE_IDS.includes(trimmedContent)) {
-                // Skip this content - it's an internal LLM response
-                continue;
-              }
-
-              // Filter out detect_activity structured output JSON
-              // This is internal routing data, not user-facing content
-              if (content.includes('"detected_activity"') && content.includes('"confidence"')) {
-                continue;
-              }
-
-              if (content && content !== lastContent) {
-                yield { type: 'token', content };
-                lastContent = content;
-              }
-            }
-          }
-        }
-
-        // Check for completion events
-        // Process content from messages/complete that may not have been in messages/partial
-        if (chunk.event === 'messages/complete') {
-          const data = chunk.data as LangGraphMessagesData;
-          if (Array.isArray(data) && data.length > 0) {
-            const lastMsg = data.at(-1);
-            if (lastMsg && isAssistantMessage(lastMsg)) {
-              const content = extractTextContent(lastMsg.content);
-
-              // Skip filtered content
-              const trimmedContent = content.trim().toLowerCase();
-              if (
-                !TECHNIQUE_IDS.includes(trimmedContent) &&
-                !(content.includes('"detected_activity"') && content.includes('"confidence"'))
-              ) {
-                // Only yield if we have new content not already yielded via messages/partial
-                if (content && content !== lastContent) {
-                  yield { type: 'token', content };
-                  lastContent = content;
-                }
-              }
-            }
-          }
-          yield { type: 'done' };
-        }
       }
 
-      // If we received content but no explicit 'done' event, signal completion
-      if (lastContent) {
-        yield { type: 'done' };
-      }
+      // If we get here without an explicit done, signal completion
+      yield { type: 'done' };
     } catch (error) {
       // Handle and report errors
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
@@ -386,7 +389,7 @@ export class AIClient {
 
     for await (const event of this.streamMessage(message, threadId)) {
       if (event.type === 'token') {
-        fullResponse += event.content;
+        fullResponse = event.content; // Content is accumulated by backend
       } else if (event.type === 'error') {
         throw new Error(event.error);
       }
@@ -403,27 +406,22 @@ export class AIClient {
    */
   async getHistory(threadId: string): Promise<Message[]> {
     try {
-      const state = await this.client.threads.getState(threadId);
+      const response = await this.fetch(`/api/threads/${threadId}/history`);
 
-      // Extract messages from the graph state
-      // The structure depends on how the graph stores messages
-      const messages =
-        (
-          state.values as {
-            messages?: {
-              id?: string;
-              role: string;
-              content: string;
-              created_at?: string;
-            }[];
-          }
-        ).messages ?? [];
+      if (!response.ok) {
+        // Thread might not exist yet
+        return [];
+      }
 
-      return messages.map((msg, index) => ({
-        id: msg.id ?? `msg-${String(index)}`,
+      const data = (await response.json()) as {
+        messages: { id: string; role: string; content: string }[];
+      };
+
+      return data.messages.map((msg) => ({
+        id: msg.id,
         role: msg.role as 'user' | 'assistant' | 'system',
         content: msg.content,
-        createdAt: msg.created_at ? new Date(msg.created_at) : new Date(),
+        createdAt: new Date(),
       }));
     } catch {
       // Thread might not exist yet
@@ -470,84 +468,85 @@ export class AIClient {
     yield { type: 'start' };
 
     try {
-      // Resume the graph with the user's decision
-      // The SDK's stream method with Command(resume=...) pattern
-      const stream = this.client.runs.stream(threadId, GRAPH_NAME, {
-        // Pass the resume data as a Command
-        // This continues the graph from the interrupt point
-        command: {
-          resume: resumeData,
-        },
-        // Stream modes: 'messages' for token-by-token output,
-        // 'updates' for graph events including interrupts
-        streamMode: ['messages', 'updates'],
+      // Start the resume streaming request
+      const response = await this.fetch('/api/chat/resume', {
+        method: 'POST',
+        body: JSON.stringify({
+          thread_id: threadId,
+          decision: resumeData.decision,
+          technique_id: resumeData.technique_id,
+          voice_id: resumeData.voice_id,
+        }),
       });
 
-      let lastContent = '';
+      if (!response.ok) {
+        const error = await response.text();
+        yield { type: 'error', error: `Resume failed: ${error}` };
+        return;
+      }
 
-      const isAssistantMessage = (msg: LangGraphMessage): boolean =>
-        msg.role === 'assistant' || msg.role === 'ai' || msg.type === 'ai';
+      if (!response.body) {
+        yield { type: 'error', error: 'No response body' };
+        return;
+      }
 
-      for await (const chunk of stream) {
-        // eslint-disable-next-line no-console
-        console.log('Resume stream event:', chunk.event, JSON.stringify(chunk.data));
+      // Parse SSE stream
+      const reader = response.body.getReader();
 
-        if (chunk.event === 'messages/partial') {
-          const data = chunk.data as LangGraphMessagesData;
-          if (Array.isArray(data) && data.length > 0) {
-            const lastMsg = data.at(-1);
-            if (lastMsg && isAssistantMessage(lastMsg)) {
-              const content = extractTextContent(lastMsg.content);
-
-              // Filter out technique IDs
-              const trimmedContent = content.trim().toLowerCase();
-              if (TECHNIQUE_IDS.includes(trimmedContent)) {
-                continue;
-              }
-
-              // Filter out detect_activity structured output JSON
-              if (content.includes('"detected_activity"') && content.includes('"confidence"')) {
-                continue;
-              }
-
-              if (content && content !== lastContent) {
-                yield { type: 'token', content };
-                lastContent = content;
-              }
-            }
-          }
-        }
-
-        // Check for completion events
-        // Process content from messages/complete that may not have been in messages/partial
-        if (chunk.event === 'messages/complete') {
-          const data = chunk.data as LangGraphMessagesData;
-          if (Array.isArray(data) && data.length > 0) {
-            const lastMsg = data.at(-1);
-            if (lastMsg && isAssistantMessage(lastMsg)) {
-              const content = extractTextContent(lastMsg.content);
-
-              // Skip filtered content
-              const trimmedContent = content.trim().toLowerCase();
-              if (
-                !TECHNIQUE_IDS.includes(trimmedContent) &&
-                !(content.includes('"detected_activity"') && content.includes('"confidence"'))
-              ) {
-                // Only yield if we have new content not already yielded via messages/partial
-                if (content && content !== lastContent) {
-                  yield { type: 'token', content };
-                  lastContent = content;
-                }
-              }
-            }
-          }
+      for await (const event of parseSSE(reader)) {
+        // Handle stream termination
+        if (event === 'DONE') {
           yield { type: 'done' };
+          return;
+        }
+
+        // Handle different event types
+        switch (event.event) {
+          case 'messages/partial': {
+            const messages = event.data as SSEMessage[];
+            if (Array.isArray(messages) && messages.length > 0) {
+              const lastMsg = messages[messages.length - 1];
+              // After checking length > 0, we know lastMsg exists
+              if (lastMsg.role === 'assistant' && lastMsg.content) {
+                yield { type: 'token', content: lastMsg.content };
+              }
+            }
+            break;
+          }
+
+          case 'messages/complete': {
+            const messages = event.data as SSEMessage[];
+            if (Array.isArray(messages) && messages.length > 0) {
+              const lastMsg = messages[messages.length - 1];
+              // After checking length > 0, we know lastMsg exists
+              if (lastMsg.role === 'assistant' && lastMsg.content) {
+                yield { type: 'token', content: lastMsg.content };
+              }
+            }
+            yield { type: 'done' };
+            return;
+          }
+
+          case 'updates': {
+            // Check for nested interrupt (chained HITL)
+            const data = event.data as { __interrupt__?: { value: InterruptPayload }[] };
+            if (data.__interrupt__ && data.__interrupt__.length > 0) {
+              const interruptPayload = data.__interrupt__[0].value;
+              yield { type: 'interrupt', payload: interruptPayload };
+              return;
+            }
+            break;
+          }
+
+          case 'error': {
+            const data = event.data as { message?: string };
+            yield { type: 'error', error: data.message ?? 'Unknown error' };
+            return;
+          }
         }
       }
 
-      if (lastContent) {
-        yield { type: 'done' };
-      }
+      yield { type: 'done' };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
       yield { type: 'error', error: errorMessage };
