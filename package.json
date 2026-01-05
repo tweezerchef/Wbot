@@ -38,6 +38,13 @@
     "redis:local:start": "docker run -d --name wbot-redis -p 6379:6379 redis:alpine && echo 'Redis started on localhost:6379'",
     "redis:local:stop": "docker stop wbot-redis && docker rm wbot-redis && echo 'Redis stopped'",
     "redis:local:status": "docker ps --filter name=wbot-redis --format '{{.Status}}' || echo 'Redis not running'",
+    "ai:prod:build": "cd apps/ai && uv run langgraph build -t wbot-ai:latest",
+    "ai:prod:build:fresh": "cd apps/ai && uv run langgraph build -t wbot-ai:latest --no-cache",
+    "ai:prod:up": "cd apps/ai && docker-compose -f docker-compose.self-hosted.yml --env-file ../../.env up -d",
+    "ai:prod:down": "cd apps/ai && docker-compose -f docker-compose.self-hosted.yml --env-file ../../.env down",
+    "ai:prod:logs": "cd apps/ai && docker-compose -f docker-compose.self-hosted.yml --env-file ../../.env logs -f langgraph-api",
+    "ai:prod:restart": "cd apps/ai && docker-compose -f docker-compose.self-hosted.yml --env-file ../../.env restart langgraph-api",
+    "ai:prod:status": "docker ps --filter name=langgraph --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'",
     "prepare": "husky"
   },
   "devDependencies": {
