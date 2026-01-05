@@ -15,9 +15,11 @@ Directory structure:
 - breathing_exercise/   Guide breathing exercises
 - meditation_guidance/  Provide meditation guidance
 - journaling_prompt/    Offer journaling prompts
+
+Note: Nodes are NOT re-exported here to avoid circular imports.
+Import directly from node modules, e.g.:
+    from src.nodes.generate_response.node import generate_response
 ============================================================================
 """
 
-from src.nodes.generate_response import generate_response
-
-__all__ = ["generate_response"]
+__all__: list[str] = []

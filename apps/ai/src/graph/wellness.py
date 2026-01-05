@@ -4,38 +4,53 @@ Wellness Conversation Graph
 ============================================================================
 The main LangGraph graph definition for Wbot's wellness chatbot.
 
-Graph Structure (With Activity Routing):
-    START -> inject_user_context -> retrieve_memories -> detect_activity -> [routing decision]
-        -> generate_response -> store_memory -> END
-        -> breathing_exercise -> store_memory -> END
-        -> generate_meditation_script -> store_memory -> END
-        (future: journaling_prompt)
+Graph Structure (Non-Blocking Parallel Execution):
+    START -> [parallel paths]
+        Path 1: retrieve_memories -> [memory-dependent nodes only]
+        Path 2: inject_user_context -> prepare_routing (barrier)
+        Path 3: detect_activity -----^
 
-    - inject_user_context: Injects auth user info into state for downstream nodes
-    - retrieve_memories: Semantic search for relevant past conversations (~50ms)
-    - detect_activity: LLM-based classification to detect activity needs
-    - generate_response: Streams AI response to user in real-time
-    - breathing_exercise: Interactive breathing exercise with HITL confirmation
-    - generate_meditation_script: AI-generated personalized meditation with voice selection HITL
-    - store_memory: Stores conversation pair after streaming completes
+    Routing (from barrier):
+        -> breathing_exercise (immediate, no memory wait) -> store_memory -> END
+        -> generate_response (waits for memories) -> store_memory -> END
+        -> generate_meditation_script (waits for memories) -> store_memory -> END
 
-This file defines the graph structure and compiles it for deployment.
-The compiled `graph` is exported for use by LangGraph Deploy.
+    Key Design:
+    - retrieve_memories runs independently from START (non-blocking)
+    - Only memory-dependent nodes wait for retrieve_memories
+    - breathing_exercise routes immediately (doesn't use memories)
+
+    Parallel Nodes (run simultaneously from START):
+    - retrieve_memories: Semantic search (~50ms), feeds to memory-dependent nodes
+    - inject_user_context: Injects auth user info into state
+    - detect_activity: LLM-based activity classification
+
+    Activity Nodes:
+    - generate_response: Waits for memories, streams AI response
+    - breathing_exercise: Routes immediately, no memory dependency
+    - generate_meditation_script: Waits for memories, personalized meditation
+    - store_memory: Stores conversation pair
+
+This file defines the graph structure and compiles it for self-hosted deployment.
+The compiled `graph` is exported for use by the LangGraph server.
 ============================================================================
 """
 
-from langgraph.graph import END, StateGraph
+from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 
 from src.checkpointer import get_checkpointer, setup_checkpointer
 from src.graph.state import WellnessState
-from src.nodes.breathing_exercise import run_breathing_exercise
-from src.nodes.detect_activity import detect_activity_intent
-from src.nodes.generate_meditation_script import run_generate_meditation_script
-from src.nodes.generate_response import generate_response
-from src.nodes.inject_user_context import inject_user_context
-from src.nodes.retrieve_memories import retrieve_memories
-from src.nodes.store_memory import store_memory_node
+
+# Import directly from node modules to avoid circular imports
+# (src/nodes/__init__.py -> src/nodes/generate_response -> src/graph/state -> src/graph/__init__.py -> wellness.py)
+from src.nodes.breathing_exercise.node import run_breathing_exercise
+from src.nodes.detect_activity.node import detect_activity_intent
+from src.nodes.generate_meditation_script.node import run_generate_meditation_script
+from src.nodes.generate_response.node import generate_response
+from src.nodes.inject_user_context.node import inject_user_context
+from src.nodes.retrieve_memories.node import retrieve_memories
+from src.nodes.store_memory.node import store_memory_node
 
 
 def route_activity(state: WellnessState) -> str:
@@ -65,64 +80,83 @@ def route_activity(state: WellnessState) -> str:
     return "generate_response"
 
 
+async def prepare_routing(state: WellnessState) -> dict:
+    """
+    Barrier node for routing decision synchronization.
+
+    Ensures inject_user_context and detect_activity complete before routing.
+    retrieve_memories is NOT part of this barrier - it runs independently
+    and feeds directly to memory-dependent nodes (generate_response, meditation).
+
+    This node does not modify state - it only serves as a synchronization point.
+    """
+    return {}
+
+
 def build_graph() -> StateGraph:
     """
-        Constructs the wellness conversation graph with activity routing.
+    Constructs the wellness conversation graph with non-blocking parallel execution.
 
-        Implementation:
-        1. Retrieves relevant memories from past conversations
-        2. Detects if user needs a wellness activity
-        3. Routes to activity handler OR generates normal response
-        4. Stores the conversation pair for future retrieval
+    Implementation (Non-Blocking Parallel Pattern):
+    1. Fan-out from START: Three parallel paths
+       - retrieve_memories: Independent path to memory-dependent nodes
+       - inject_user_context + detect_activity: Routing path to barrier
+    2. Barrier: Only routing-relevant nodes converge (NOT retrieve_memories)
+    3. Conditional routing to activity handlers
+       - breathing_exercise: Routes immediately (no memory wait)
+       - generate_response/meditation: Wait for memories
+    4. Store conversation pair
 
-        Returns:
-            A compiled StateGraph ready for execution by LangGraph Deploy.
+    Returns:
+        A StateGraph builder for the self-hosted LangGraph server.
 
-        Graph Visualization:
+    Graph Visualization:
 
-            ┌─────────┐
-            │  START  │
-            └────┬────┘
-                 │
-                 ▼
-        ┌───────────────────────┐
-        │  inject_user_context  │  ← Populates user_context from auth
-        └──────────┬────────────┘
-                   │
-                   ▼
-        ┌─────────────────────┐
-        │  retrieve_memories  │  ← Fast DB query (~50ms)
-        └──────────┬──────────┘
-                   │
-                   ▼
-        ┌─────────────────────┐
-        │   detect_activity   │  ← LLM classification
-        └──────────┬──────────┘
-                   │
-            ┌──────┴──────┐
-            │  suggested  │
-            │  activity?  │
-            └──────┬──────┘
-                   │
-        ┌──────────┼──────────┐
-        │          │          │
-        ▼          ▼          ▼
-    ┌────────┐ ┌────────┐ ┌────────┐
-    │breathing│ │  ...  │ │generate│
-    │exercise │ │(future)│ │response│
-    └────┬────┘ └────┬───┘ └───┬────┘
-         │           │         │
-         └───────────┴─────────┘
-                   │
-                   ▼
-        ┌─────────────────────┐
-        │    store_memory     │
-        └──────────┬──────────┘
-                   │
-                   ▼
-             ┌─────────┐
-             │   END   │
-             └─────────┘
+                        ┌─────────┐
+                        │  START  │
+                        └────┬────┘
+                             │
+           ┌─────────────────┼─────────────────┐
+           │                 │                 │
+           ▼                 ▼                 ▼
+    ┌─────────────┐  ┌─────────────┐  ┌─────────────┐
+    │  retrieve   │  │   inject    │  │   detect    │
+    │  memories   │  │user_context │  │  activity   │
+    └──────┬──────┘  └──────┬──────┘  └──────┬──────┘
+           │                │                 │
+           │                └────────┬────────┘
+           │                         ▼
+           │             ┌───────────────────────┐
+           │             │    prepare_routing    │ ← Barrier (NO memory wait)
+           │             └──────────┬────────────┘
+           │                        │ routing
+           │         ┌──────────────┼──────────────┐
+           │         │              │              │
+           │         ▼              │              ▼
+           │    ┌────────┐          │        ┌────────────┐
+           │    │breathing│          │        │  generate  │◄──┐
+           │    │exercise │          │        │  response  │   │
+           │    └────┬────┘          │        └─────┬──────┘   │
+           │         │               │              │          │
+           │         │               ▼              │          │
+           │         │        ┌────────────┐        │          │
+           │         │        │ meditation │◄───────┼──────────┤
+           │         │        │   script   │        │          │
+           │         │        └─────┬──────┘        │          │
+           │         │              │               │          │
+           └─────────┼──────────────┼───────────────┘          │
+                     │              │         (memory edges)───┘
+                     └──────────────┴────────────┘
+                                    │
+                                    ▼
+                     ┌─────────────────────┐
+                     │    store_memory     │
+                     └──────────┬──────────┘
+                                │
+                                ▼
+                          ┌─────────┐
+                          │   END   │
+                          └─────────┘
     """
     # Create the graph builder with our state type
     builder = StateGraph(WellnessState)
@@ -153,22 +187,28 @@ def build_graph() -> StateGraph:
     # Memory storage - persists the conversation for future retrieval
     builder.add_node("store_memory", store_memory_node)
 
+    # Barrier node for parallel branch convergence
+    builder.add_node("prepare_routing", prepare_routing)
+
     # -------------------------------------------------------------------------
-    # Define Edges (Flow)
+    # Define Edges (Flow) - Non-Blocking Parallel Execution Pattern
     # -------------------------------------------------------------------------
 
-    # Entry point: first inject user context from auth
-    builder.set_entry_point("inject_user_context")
+    # Fan-out from START: Three parallel paths
+    # - retrieve_memories: Independent path, feeds directly to memory-dependent nodes
+    # - inject_user_context + detect_activity: Routing path, converge at barrier
+    builder.add_edge(START, "retrieve_memories")
+    builder.add_edge(START, "inject_user_context")
+    builder.add_edge(START, "detect_activity")
 
-    # After user context is set, retrieve relevant memories
-    builder.add_edge("inject_user_context", "retrieve_memories")
+    # Routing convergence - only routing-relevant nodes wait at barrier
+    # Memory retrieval is NOT part of this barrier (non-blocking)
+    builder.add_edge("inject_user_context", "prepare_routing")
+    builder.add_edge("detect_activity", "prepare_routing")
 
-    # After memories, detect if activity is needed
-    builder.add_edge("retrieve_memories", "detect_activity")
-
-    # Conditional routing based on detected activity
+    # Conditional routing based on detected activity (from barrier node)
     builder.add_conditional_edges(
-        "detect_activity",
+        "prepare_routing",
         route_activity,
         {
             "breathing_exercise": "breathing_exercise",
@@ -176,6 +216,12 @@ def build_graph() -> StateGraph:
             "generate_response": "generate_response",
         },
     )
+
+    # Memory-dependent nodes wait for BOTH routing AND memory retrieval
+    # These edges create a join: node waits for all incoming edges
+    # breathing_exercise does NOT have this edge - it routes immediately
+    builder.add_edge("retrieve_memories", "generate_response")
+    builder.add_edge("retrieve_memories", "generate_meditation_script")
 
     # All response paths lead to memory storage
     builder.add_edge("generate_response", "store_memory")
@@ -192,8 +238,8 @@ def build_graph() -> StateGraph:
     return builder
 
 
-# Compile the graph for LangGraph Deploy (stateless, uses Cloud persistence)
-# This is the object referenced in langgraph.json
+# Compile the graph (stateless version for simple use cases)
+# For self-hosted deployments with persistence, use get_compiled_graph() instead
 graph = build_graph().compile()
 
 

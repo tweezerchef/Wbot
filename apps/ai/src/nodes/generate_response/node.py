@@ -60,7 +60,7 @@ async def generate_response(state: WellnessState) -> dict[str, list[object]]:
 
     Streaming:
         This function is async and the LLM call (ainvoke) supports streaming.
-        When running in LangGraph Deploy, tokens are streamed to the client
+        The self-hosted LangGraph server streams tokens to the client
         as they're generated, providing a real-time typing effect.
 
     Example:
