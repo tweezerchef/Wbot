@@ -1,21 +1,41 @@
 /**
- * Conversation management helpers for Supabase.
+ * Conversation management helpers with Redis caching.
  *
  * Provides functions for creating, loading, and managing conversations.
  * Used by ChatPage to persist conversation state across sessions.
+ *
+ * Caching strategy (read-through):
+ * 1. Check Redis cache first
+ * 2. On cache miss, load from Supabase and populate cache
+ * 3. AI backend writes to cache when saving messages (write-through)
+ *
+ * Functions accept an optional Supabase client parameter to support both:
+ * - Browser usage (default client)
+ * - Server usage (pass server client from route loader)
  */
 
+import type { SupabaseClient } from '@supabase/supabase-js';
+import type { Database } from '@wbot/shared';
+
 import type { Message } from './ai-client';
-import { supabase } from './supabase';
+import { cacheMessages, getCachedMessages } from './redis';
+import { supabase as defaultClient } from './supabase';
+
+// Type alias for the typed Supabase client
+type TypedSupabaseClient = SupabaseClient<Database>;
 
 /**
  * Creates a new conversation for the user.
  *
  * @param userId - The authenticated user's ID
+ * @param client - Optional Supabase client (defaults to browser client)
  * @returns The new conversation's UUID
  */
-export async function createConversation(userId: string): Promise<string> {
-  const { data, error } = await supabase
+export async function createConversation(
+  userId: string,
+  client: TypedSupabaseClient = defaultClient
+): Promise<string> {
+  const { data, error } = await client
     .from('conversations')
     .insert({ user_id: userId })
     .select('id')
@@ -35,10 +55,14 @@ export async function createConversation(userId: string): Promise<string> {
  * Used on page load to auto-restore the last conversation.
  *
  * @param userId - The authenticated user's ID
+ * @param client - Optional Supabase client (defaults to browser client)
  * @returns The conversation ID, or null if no conversations exist
  */
-export async function getMostRecentConversation(userId: string): Promise<string | null> {
-  const { data, error } = await supabase
+export async function getMostRecentConversation(
+  userId: string,
+  client: TypedSupabaseClient = defaultClient
+): Promise<string | null> {
+  const { data, error } = await client
     .from('conversations')
     .select('id')
     .eq('user_id', userId)
@@ -55,15 +79,30 @@ export async function getMostRecentConversation(userId: string): Promise<string 
 }
 
 /**
- * Loads all messages for a conversation.
+ * Loads all messages for a conversation with cache-first strategy.
+ *
+ * 1. Check Redis cache for messages
+ * 2. If cache miss, load from Supabase
+ * 3. Populate cache for next request
  *
  * Messages are returned in chronological order.
  *
  * @param conversationId - The conversation UUID
+ * @param client - Optional Supabase client (defaults to browser client)
  * @returns Array of messages in the conversation
  */
-export async function loadMessages(conversationId: string): Promise<Message[]> {
-  const { data, error } = await supabase
+export async function loadMessages(
+  conversationId: string,
+  client: TypedSupabaseClient = defaultClient
+): Promise<Message[]> {
+  // 1. Try Redis cache first
+  const cached = await getCachedMessages(conversationId);
+  if (cached) {
+    return cached;
+  }
+
+  // 2. Cache miss - load from Supabase
+  const { data, error } = await client
     .from('messages')
     .select('id, role, content, created_at')
     .eq('conversation_id', conversationId)
@@ -74,12 +113,19 @@ export async function loadMessages(conversationId: string): Promise<Message[]> {
     throw error;
   }
 
-  return data.map((msg) => ({
+  const messages = data.map((msg) => ({
     id: msg.id,
     role: msg.role as 'user' | 'assistant' | 'system',
     content: msg.content,
     createdAt: msg.created_at ? new Date(msg.created_at) : new Date(),
   }));
+
+  // 3. Populate cache for next request (fire-and-forget)
+  cacheMessages(conversationId, messages).catch(() => {
+    // Silent failure - caching is optional
+  });
+
+  return messages;
 }
 
 /**
@@ -89,9 +135,13 @@ export async function loadMessages(conversationId: string): Promise<Message[]> {
  * at the top of the "most recent" list.
  *
  * @param conversationId - The conversation UUID
+ * @param client - Optional Supabase client (defaults to browser client)
  */
-export async function touchConversation(conversationId: string): Promise<void> {
-  const { error } = await supabase
+export async function touchConversation(
+  conversationId: string,
+  client: TypedSupabaseClient = defaultClient
+): Promise<void> {
+  const { error } = await client
     .from('conversations')
     .update({ updated_at: new Date().toISOString() })
     .eq('id', conversationId);
