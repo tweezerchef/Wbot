@@ -4,33 +4,35 @@ Wellness Conversation Graph
 ============================================================================
 The main LangGraph graph definition for Wbot's wellness chatbot.
 
-Graph Structure (Non-Blocking Parallel Execution):
-    START -> [parallel paths]
-        Path 1: retrieve_memories -> [memory-dependent nodes only]
-        Path 2: inject_user_context -> prepare_routing (barrier)
-        Path 3: detect_activity -----^
+Graph Structure (Parallel Execution with Barrier):
+    START -> [three parallel paths]
+        - retrieve_memories: Semantic memory search (~50-100ms)
+        - inject_user_context: User profile injection
+        - detect_activity: LLM-based activity classification (~200ms)
 
-    Routing (from barrier):
-        -> breathing_exercise (immediate, no memory wait) -> store_memory -> END
-        -> generate_response (waits for memories) -> store_memory -> END
-        -> generate_meditation_script (waits for memories) -> store_memory -> END
+    All paths converge at prepare_routing barrier, then:
+        -> breathing_exercise -> store_memory -> analyze_profile -> END
+        -> generate_response -> store_memory -> analyze_profile -> END
+        -> generate_meditation_script -> store_memory -> analyze_profile -> END
 
     Key Design:
-    - retrieve_memories runs independently from START (non-blocking)
-    - Only memory-dependent nodes wait for retrieve_memories
-    - breathing_exercise routes immediately (doesn't use memories)
+    - All parallel paths converge at barrier before routing
+    - Conditional routing sends to exactly ONE activity node
+    - Memories are available in state for any node that needs them
+    - detect_activity is the slowest path (~200ms), so memory retrieval
+      adds no additional latency to the barrier
 
     Parallel Nodes (run simultaneously from START):
-    - retrieve_memories: Semantic search (~50ms), feeds to memory-dependent nodes
+    - retrieve_memories: Semantic search, stores results in state
     - inject_user_context: Injects auth user info into state
     - detect_activity: LLM-based activity classification
 
-    Activity Nodes:
-    - generate_response: Waits for memories, streams AI response
-    - breathing_exercise: Routes immediately, no memory dependency
-    - generate_meditation_script: Waits for memories, personalized meditation
+    Activity Nodes (only ONE runs per request):
+    - generate_response: Streams AI response with memory context
+    - breathing_exercise: Interactive breathing with HITL
+    - generate_meditation_script: Personalized meditation with voice selection
     - store_memory: Stores conversation pair
-    - analyze_profile: Analyzes conversation, updates wellness profile (post-response)
+    - analyze_profile: Updates wellness profile (post-response, zero latency impact)
 
 This file defines the graph structure and compiles it for self-hosted deployment.
 The compiled `graph` is exported for use by the LangGraph server.
@@ -86,28 +88,26 @@ async def prepare_routing(state: WellnessState) -> dict:
     """
     Barrier node for routing decision synchronization.
 
-    Ensures inject_user_context and detect_activity complete before routing.
-    retrieve_memories is NOT part of this barrier - it runs independently
-    and feeds directly to memory-dependent nodes (generate_response, meditation).
+    Ensures all three parallel paths complete before routing:
+    - retrieve_memories: Semantic memory search (available in state)
+    - inject_user_context: User profile and preferences
+    - detect_activity: Activity classification for routing decision
 
     This node does not modify state - it only serves as a synchronization point.
+    After this barrier, conditional routing sends to exactly ONE activity node.
     """
     return {}
 
 
 def build_graph() -> StateGraph:
     """
-    Constructs the wellness conversation graph with non-blocking parallel execution.
+    Constructs the wellness conversation graph with parallel execution and barrier.
 
-    Implementation (Non-Blocking Parallel Pattern):
-    1. Fan-out from START: Three parallel paths
-       - retrieve_memories: Independent path to memory-dependent nodes
-       - inject_user_context + detect_activity: Routing path to barrier
-    2. Barrier: Only routing-relevant nodes converge (NOT retrieve_memories)
-    3. Conditional routing to activity handlers
-       - breathing_exercise: Routes immediately (no memory wait)
-       - generate_response/meditation: Wait for memories
-    4. Store conversation pair
+    Implementation:
+    1. Fan-out from START: Three parallel paths run simultaneously
+    2. All paths converge at prepare_routing barrier
+    3. Conditional routing sends to exactly ONE activity node
+    4. Store conversation pair and analyze profile
 
     Returns:
         A StateGraph builder for the self-hosted LangGraph server.
@@ -126,44 +126,35 @@ def build_graph() -> StateGraph:
     │  memories   │  │user_context │  │  activity   │
     └──────┬──────┘  └──────┬──────┘  └──────┬──────┘
            │                │                 │
-           │                └────────┬────────┘
-           │                         ▼
-           │             ┌───────────────────────┐
-           │             │    prepare_routing    │ ← Barrier (NO memory wait)
-           │             └──────────┬────────────┘
-           │                        │ routing
-           │         ┌──────────────┼──────────────┐
-           │         │              │              │
-           │         ▼              │              ▼
-           │    ┌────────┐          │        ┌────────────┐
-           │    │breathing│          │        │  generate  │◄──┐
-           │    │exercise │          │        │  response  │   │
-           │    └────┬────┘          │        └─────┬──────┘   │
-           │         │               │              │          │
-           │         │               ▼              │          │
-           │         │        ┌────────────┐        │          │
-           │         │        │ meditation │◄───────┼──────────┤
-           │         │        │   script   │        │          │
-           │         │        └─────┬──────┘        │          │
-           │         │              │               │          │
-           └─────────┼──────────────┼───────────────┘          │
-                     │              │         (memory edges)───┘
-                     └──────────────┴────────────┘
-                                    │
-                                    ▼
-                     ┌─────────────────────┐
-                     │    store_memory     │
-                     └──────────┬──────────┘
-                                │
-                                ▼
-                     ┌─────────────────────┐
-                     │   analyze_profile   │  ← Zero latency (post-response)
-                     └──────────┬──────────┘
-                                │
-                                ▼
-                          ┌─────────┐
-                          │   END   │
-                          └─────────┘
+           └────────────────┼─────────────────┘
+                            ▼
+                ┌───────────────────────┐
+                │    prepare_routing    │ ← All paths converge here
+                └──────────┬────────────┘
+                           │ conditional routing
+            ┌──────────────┼──────────────┐
+            │              │              │
+            ▼              ▼              ▼
+       ┌────────┐    ┌────────────┐  ┌────────────┐
+       │breathing│    │  generate  │  │ meditation │
+       │exercise │    │  response  │  │   script   │
+       └────┬────┘    └─────┬──────┘  └─────┬──────┘
+            │               │               │
+            └───────────────┼───────────────┘
+                            ▼
+                 ┌─────────────────────┐
+                 │    store_memory     │
+                 └──────────┬──────────┘
+                            │
+                            ▼
+                 ┌─────────────────────┐
+                 │   analyze_profile   │  ← Post-response (zero latency impact)
+                 └──────────┬──────────┘
+                            │
+                            ▼
+                      ┌─────────┐
+                      │   END   │
+                      └─────────┘
     """
     # Create the graph builder with our state type
     builder = StateGraph(WellnessState)
@@ -202,18 +193,17 @@ def build_graph() -> StateGraph:
     builder.add_node("prepare_routing", prepare_routing)
 
     # -------------------------------------------------------------------------
-    # Define Edges (Flow) - Non-Blocking Parallel Execution Pattern
+    # Define Edges (Flow) - Parallel Execution with Barrier Pattern
     # -------------------------------------------------------------------------
 
-    # Fan-out from START: Three parallel paths
-    # - retrieve_memories: Independent path, feeds directly to memory-dependent nodes
-    # - inject_user_context + detect_activity: Routing path, converge at barrier
+    # Fan-out from START: Three parallel paths run simultaneously
     builder.add_edge(START, "retrieve_memories")
     builder.add_edge(START, "inject_user_context")
     builder.add_edge(START, "detect_activity")
 
-    # Routing convergence - only routing-relevant nodes wait at barrier
-    # Memory retrieval is NOT part of this barrier (non-blocking)
+    # All parallel paths converge at routing barrier
+    # This ensures memories are in state before any activity node runs
+    builder.add_edge("retrieve_memories", "prepare_routing")
     builder.add_edge("inject_user_context", "prepare_routing")
     builder.add_edge("detect_activity", "prepare_routing")
 
@@ -228,13 +218,7 @@ def build_graph() -> StateGraph:
         },
     )
 
-    # Memory-dependent nodes wait for BOTH routing AND memory retrieval
-    # These edges create a join: node waits for all incoming edges
-    # breathing_exercise does NOT have this edge - it routes immediately
-    builder.add_edge("retrieve_memories", "generate_response")
-    builder.add_edge("retrieve_memories", "generate_meditation_script")
-
-    # All response paths lead to memory storage
+    # All activity paths lead to memory storage
     builder.add_edge("generate_response", "store_memory")
     builder.add_edge("breathing_exercise", "store_memory")
     builder.add_edge("generate_meditation_script", "store_memory")

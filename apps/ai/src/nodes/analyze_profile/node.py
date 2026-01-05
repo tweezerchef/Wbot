@@ -23,7 +23,7 @@ from langchain_core.messages import BaseMessage, HumanMessage
 from langchain_core.runnables import RunnableConfig
 
 from src.graph.state import WellnessState
-from src.llm.providers import ModelTier, create_llm
+from src.llm.providers import ModelTier, create_resilient_llm
 from src.logging_config import NodeLogger
 
 from .models import ConversationAnalysis
@@ -94,8 +94,9 @@ async def analyze_profile(state: WellnessState, config: RunnableConfig) -> dict[
         # Build analysis prompt
         analysis_prompt = _build_analysis_prompt(messages)
 
-        # Use FAST tier for cost-effective analysis (~100ms)
-        llm = create_llm(tier=ModelTier.FAST, temperature=0.1)
+        # Use resilient LLM with FAST tier for structured extraction
+        # Falls back to Haiku → Flash-Lite on rate limits
+        llm = create_resilient_llm(tier=ModelTier.FAST, temperature=0.1)
         structured_llm = llm.with_structured_output(ConversationAnalysis)
 
         # Run analysis

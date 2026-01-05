@@ -181,14 +181,24 @@ def message_to_history(msg: BaseMessage, index: int) -> HistoryMessage:
 # Technique IDs to filter from streaming output (internal LLM responses)
 TECHNIQUE_IDS = {"box", "relaxing_478", "coherent", "deep_calm"}
 
+# Nodes whose LLM output should be streamed to the user
+# Internal nodes like detect_activity and analyze_profile use structured output
+# that produces JSON - we don't want to stream that to the frontend
+# NOTE: breathing_exercise is NOT included because its internal technique selection
+# LLM call returns technique IDs that shouldn't be streamed to the user
+STREAMING_NODES = {"generate_response", "generate_meditation_script"}
+
 
 def should_filter_content(content: str) -> bool:
-    """Check if content should be filtered from streaming output."""
+    """
+    Check if content should be filtered from streaming output.
+
+    Note: Most filtering is now done by STREAMING_NODES (node-level filter).
+    This function handles edge cases like technique IDs that might slip through.
+    """
     trimmed = content.strip().lower()
-    # Filter technique IDs and detect_activity structured output
-    return trimmed in TECHNIQUE_IDS or (
-        '"detected_activity"' in content and '"confidence"' in content
-    )
+    # Filter technique IDs (short responses from technique selection LLM)
+    return trimmed in TECHNIQUE_IDS
 
 
 # -----------------------------------------------------------------------------
@@ -250,20 +260,25 @@ async def chat_stream(request: ChatRequest, user: CurrentUser) -> StreamingRespo
         accumulated_content = ""
 
         try:
-            # Use astream_events for token-by-token streaming
-            async for event in graph.astream_events(
+            # Use astream with stream_mode=["updates", "messages"] to properly capture
+            # both LLM token streaming AND interrupt events (HITL).
+            # astream_events() does NOT properly emit interrupt events.
+            async for mode, chunk in graph.astream(
                 {"messages": [HumanMessage(content=request.message)]},
                 config=config,
-                version="v2",
+                stream_mode=["updates", "messages"],
             ):
-                event_type = event.get("event", "")
-                event_data = event.get("data", {})
+                if mode == "messages":
+                    # LLM token streaming - chunk is (message_chunk, metadata)
+                    message_chunk, metadata = chunk
+                    node_name = metadata.get("langgraph_node")
 
-                # Handle LLM token streaming
-                if event_type == "on_chat_model_stream":
-                    chunk = event_data.get("chunk")
-                    if chunk and hasattr(chunk, "content") and chunk.content:
-                        content = chunk.content
+                    # Only stream from user-facing nodes
+                    if node_name not in STREAMING_NODES:
+                        continue
+
+                    content = message_chunk.content
+                    if content:
                         # Handle list content (Gemini format)
                         if isinstance(content, list):
                             content = "".join(
@@ -274,13 +289,16 @@ async def chat_stream(request: ChatRequest, user: CurrentUser) -> StreamingRespo
                             accumulated_content += content
                             yield format_messages_partial(accumulated_content)
 
-                # Handle graph interrupts (HITL)
-                elif event_type == "on_chain_end":
-                    output = event_data.get("output", {})
-                    if isinstance(output, dict) and "__interrupt__" in output:
-                        interrupt_data = output["__interrupt__"]
+                elif mode == "updates":
+                    # Check for interrupt events (HITL)
+                    if isinstance(chunk, dict) and "__interrupt__" in chunk:
+                        interrupt_data = chunk["__interrupt__"]
                         if interrupt_data and len(interrupt_data) > 0:
-                            interrupt_value = interrupt_data[0].get("value")
+                            # Extract the interrupt value from the Interrupt object
+                            interrupt_obj = interrupt_data[0]
+                            interrupt_value = getattr(
+                                interrupt_obj, "value", None
+                            ) or interrupt_obj.get("value")
                             if interrupt_value:
                                 yield format_interrupt_event(interrupt_value)
                                 return  # Stop streaming, wait for resume
@@ -336,23 +354,27 @@ async def chat_resume(request: ResumeRequest, user: CurrentUser) -> StreamingRes
 
         try:
             # Use Command pattern to resume the interrupted graph
-            # LangGraph handles this via astream_events with no input
-            # and the resume data passed through update_state
             from langgraph.types import Command
 
-            async for event in graph.astream_events(
+            # Use astream with stream_mode=["updates", "messages"] to properly capture
+            # both LLM token streaming AND interrupt events (for chained HITL).
+            async for mode, chunk in graph.astream(
                 Command(resume=resume_data),
                 config=config,
-                version="v2",
+                stream_mode=["updates", "messages"],
             ):
-                event_type = event.get("event", "")
-                event_data = event.get("data", {})
+                if mode == "messages":
+                    # LLM token streaming - chunk is (message_chunk, metadata)
+                    message_chunk, metadata = chunk
+                    node_name = metadata.get("langgraph_node")
 
-                # Handle LLM token streaming
-                if event_type == "on_chat_model_stream":
-                    chunk = event_data.get("chunk")
-                    if chunk and hasattr(chunk, "content") and chunk.content:
-                        content = chunk.content
+                    # Only stream from user-facing nodes
+                    if node_name not in STREAMING_NODES:
+                        continue
+
+                    content = message_chunk.content
+                    if content:
+                        # Handle list content (Gemini format)
                         if isinstance(content, list):
                             content = "".join(
                                 block.get("text", "") if isinstance(block, dict) else str(block)
@@ -362,13 +384,16 @@ async def chat_resume(request: ResumeRequest, user: CurrentUser) -> StreamingRes
                             accumulated_content += content
                             yield format_messages_partial(accumulated_content)
 
-                # Handle nested interrupts (if HITL chains)
-                elif event_type == "on_chain_end":
-                    output = event_data.get("output", {})
-                    if isinstance(output, dict) and "__interrupt__" in output:
-                        interrupt_data = output["__interrupt__"]
+                elif mode == "updates":
+                    # Check for interrupt events (chained HITL)
+                    if isinstance(chunk, dict) and "__interrupt__" in chunk:
+                        interrupt_data = chunk["__interrupt__"]
                         if interrupt_data and len(interrupt_data) > 0:
-                            interrupt_value = interrupt_data[0].get("value")
+                            # Extract the interrupt value from the Interrupt object
+                            interrupt_obj = interrupt_data[0]
+                            interrupt_value = getattr(
+                                interrupt_obj, "value", None
+                            ) or interrupt_obj.get("value")
                             if interrupt_value:
                                 yield format_interrupt_event(interrupt_value)
                                 return
