@@ -9,8 +9,7 @@ Uses the official langgraph-checkpoint-postgres package to store:
 - Checkpoint blobs (large channel values)
 - Checkpoint writes (pending/intermediate writes)
 
-Connects to Supabase PostgreSQL using the direct connection string
-(not the pooler) since the checkpointer manages its own connection pool.
+Connects to Supabase PostgreSQL using the connection pooler.
 
 Usage:
     # At application startup
@@ -30,6 +29,7 @@ from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+from psycopg_pool import AsyncConnectionPool
 
 from src.env import load_monorepo_dotenv
 from src.logging_config import NodeLogger
@@ -39,55 +39,37 @@ load_monorepo_dotenv()
 
 logger = NodeLogger("checkpointer")
 
-# Module-level checkpointer instance (singleton pattern)
+# Module-level instances (singleton pattern)
+_pool: AsyncConnectionPool | None = None
 _checkpointer: AsyncPostgresSaver | None = None
 _initialized: bool = False
 
 
 def get_database_uri() -> str:
     """
-    Constructs the PostgreSQL connection URI for Supabase.
+    Gets the PostgreSQL connection URI for Supabase.
 
-    Uses direct connection (port 5432) rather than pooler (port 6543)
-    because AsyncPostgresSaver manages its own connection pool internally.
+    Uses the DATABASE_URI environment variable directly, which should be
+    the Supabase pooler connection string from:
+    Supabase Dashboard > Settings > Database > Connection string > URI
 
-    The connection format is:
-        postgresql://postgres.[project-ref]:[password]@db.[project-ref].supabase.co:5432/postgres
+    Format:
+        postgresql://postgres.[project-ref]:[password]@aws-0-[region].pooler.supabase.com:6543/postgres
 
     Returns:
         PostgreSQL connection URI string.
 
     Raises:
-        ValueError: If required environment variables are missing.
+        ValueError: If DATABASE_URI is not set.
     """
-    # Get Supabase credentials
-    supabase_url = os.getenv("SUPABASE_URL")
-    db_password = os.getenv("SUPABASE_DB_PASSWORD")
+    database_uri = os.getenv("DATABASE_URI")
 
-    if not supabase_url:
+    if not database_uri:
         raise ValueError(
-            "SUPABASE_URL environment variable is required. "
-            "This should be your Supabase project URL (e.g., https://xxx.supabase.co)"
+            "DATABASE_URI environment variable is required. "
+            "Copy the 'Connection pooling' URI from Supabase Dashboard > "
+            "Settings > Database > Connection string"
         )
-
-    if not db_password:
-        raise ValueError(
-            "SUPABASE_DB_PASSWORD environment variable is required for checkpointing. "
-            "Get this from: Supabase Dashboard > Settings > Database > Connection string"
-        )
-
-    # Extract project reference from URL
-    # Format: https://[project-ref].supabase.co
-    project_ref = supabase_url.replace("https://", "").replace(".supabase.co", "")
-
-    # Construct direct connection URI (not pooler)
-    # Direct connection is recommended for server-side apps with connection pooling
-    # The checkpointer manages its own pool, so we use the direct host
-    database_uri = (
-        f"postgresql://postgres.{project_ref}:{db_password}"
-        f"@db.{project_ref}.supabase.co:5432/postgres"
-        f"?sslmode=require"
-    )
 
     return database_uri
 
@@ -96,8 +78,8 @@ async def get_checkpointer() -> AsyncPostgresSaver:
     """
     Gets or creates the singleton AsyncPostgresSaver instance.
 
-    The checkpointer is created once and reused across all graph executions.
-    It manages its own connection pool internally.
+    The checkpointer uses a connection pool that's configured to work
+    with Supabase's connection pooler (Supavisor).
 
     Returns:
         Configured AsyncPostgresSaver instance.
@@ -105,15 +87,32 @@ async def get_checkpointer() -> AsyncPostgresSaver:
     Note:
         Call setup_checkpointer() once at application startup to initialize tables.
     """
-    global _checkpointer
+    global _pool, _checkpointer
 
     if _checkpointer is None:
         database_uri = get_database_uri()
         logger.info("Creating PostgreSQL checkpointer")
 
-        # Create checkpointer with connection string
-        # AsyncPostgresSaver manages its own connection pool
-        _checkpointer = await AsyncPostgresSaver.from_conn_string(database_uri).__aenter__()
+        # Create a connection pool with settings optimized for Supabase pooler
+        # - min_size=1: Keep at least one connection ready
+        # - max_size=10: Limit concurrent connections
+        # - open=False: Prevent deprecated auto-open in constructor
+        # - kwargs: Pass connection options for SSL and keepalive
+        _pool = AsyncConnectionPool(
+            conninfo=database_uri,
+            min_size=1,
+            max_size=10,
+            open=False,  # Avoid deprecation warning, open explicitly below
+            kwargs={
+                "autocommit": True,
+                "prepare_threshold": 0,  # Disable prepared statements (required for pgbouncer/supavisor)
+            },
+        )
+        await _pool.open()
+        logger.info("Connection pool opened")
+
+        # Create checkpointer with the pool
+        _checkpointer = AsyncPostgresSaver(conn=_pool)
 
     return _checkpointer
 
@@ -152,11 +151,12 @@ async def cleanup_checkpointer() -> None:
 
     Call this during application shutdown for clean resource cleanup.
     """
-    global _checkpointer, _initialized
+    global _pool, _checkpointer, _initialized
 
-    if _checkpointer is not None:
+    if _pool is not None:
         logger.info("Closing checkpointer connection pool")
-        await _checkpointer.__aexit__(None, None, None)
+        await _pool.close()
+        _pool = None
         _checkpointer = None
         _initialized = False
 
