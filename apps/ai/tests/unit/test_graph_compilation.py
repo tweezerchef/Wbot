@@ -167,7 +167,7 @@ async def test_get_compiled_graph_uses_checkpointer(
 
 
 def test_stateless_graph_export_exists() -> None:
-    """The stateless 'graph' export should exist for LangGraph Cloud."""
+    """The stateless 'graph' export should exist for the LangGraph server."""
     from src.graph.wellness import graph
 
     assert graph is not None
@@ -224,6 +224,7 @@ def test_build_graph_has_all_nodes() -> None:
         "breathing_exercise",
         "generate_meditation_script",
         "store_memory",
+        "prepare_routing",  # Barrier node for parallel fan-in
     ]
 
     for node_name in expected_nodes:
