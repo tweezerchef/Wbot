@@ -1,75 +1,63 @@
 ---
-sidebar_position: 8
+sidebar_position: 9
 ---
 
-# Store Memory Node
+# Retrieve Memories Node
 
-The Store Memory Node handles post-conversation persistence by storing user-AI message pairs both for conversation history retrieval and semantic search. This node operates as the final step in the conversation flow, ensuring that meaningful interactions are preserved for future reference.
+The Retrieve Memories Node performs semantic search against stored conversation history to find relevant context before generating responses. This node enables the AI to reference past conversations, creating continuity and personalized interactions based on the user's history.
 
 ## Overview
 
-The Store Memory Node is a critical persistence component that runs after response generation completes. It extracts the latest conversation pair (user message + AI response) and stores it in two ways:
-
-1. **Conversation History**: Direct storage in the messages table for chronological conversation retrieval
-2. **Semantic Memory**: Storage with embeddings for intelligent context retrieval in future conversations
+The Retrieve Memories Node is a context enrichment component that runs early in the conversation flow, operating in parallel with other startup nodes. It searches the memory store using semantic similarity to find past conversations that may be relevant to the current user message.
 
 **Key Characteristics:**
 
-- **Fire-and-forget execution**: Errors don't block response delivery to users
-- **Post-response timing**: Runs after streaming completes to avoid response delays
-- **Dual storage pattern**: Serves both conversation history and semantic search use cases
-- **User-scoped**: Only stores data for authenticated users
+- **Parallel execution**: Runs at START alongside `inject_user_context` and `detect_activity`
+- **Semantic search**: Uses vector embeddings to find topically relevant memories
+- **Direct auth access**: Retrieves user_id from LangGraph auth config for parallel execution
+- **Fault-tolerant**: Memory retrieval failures don't block conversation flow
+- **Performance optimized**: Configurable limits and similarity thresholds
 
-:::info Execution Model
-This is a side-effect node that doesn't modify conversation state. It performs persistence operations while the user has already received their response, ensuring optimal user experience.
+:::info Execution Timing
+This node runs before response generation to ensure retrieved memories are available for context. It executes in parallel with other startup nodes by accessing user authentication directly rather than waiting for state population.
 :::
 
 ## Architecture
 
 ```mermaid
 graph TD
-    A[WellnessState] --> B[Extract User Context]
+    A[WellnessState] --> B[Extract User ID from Auth Config]
     B --> C{User Authenticated?}
-    C -->|No| D[Skip Storage - Return Empty]
-    C -->|Yes| E[Get Conversation ID]
+    C -->|No| D[Return Empty Memories]
+    C -->|Yes| E[Extract User Messages]
 
-    E --> F[Extract Messages]
-    F --> G{Minimum 2 Messages?}
-    G -->|No| H[Skip Storage - Return Empty]
-    G -->|Yes| I[Find Latest Message Pair]
+    E --> F{User Messages Exist?}
+    F -->|No| G[Return Empty Memories]
+    F -->|Yes| H[Get Latest User Message]
 
-    I --> J{Valid Human-AI Pair?}
-    J -->|No| K[Skip Storage - Return Empty]
-    J -->|Yes| L[Save to Messages Table]
+    H --> I[Semantic Search]
+    I --> J[Memory Store Query]
+    J --> K[Filter by Similarity Threshold]
 
-    L --> M[Generate Conversation Title]
-    M --> N[Store Memory with Embedding]
+    K --> L[Convert to State-Safe Dicts]
+    L --> M[Return Retrieved Memories]
 
-    N --> O[Log Success]
-    L --> P{Save Failed?}
-    P -->|Yes| Q[Log Error - Continue]
-    N --> R{Memory Store Failed?}
-    R -->|Yes| S[Log Error - Continue]
-
-    Q --> T[Return Empty Dict]
-    S --> T
-    O --> T
-    D --> T
-    H --> T
-    K --> T
+    I --> N{Search Error?}
+    N -->|Yes| O[Log Error]
+    O --> P[Return Empty Memories]
 
     style A fill:#e1f5fe
-    style L fill:#fff3e0
-    style N fill:#c8e6c9
-    style T fill:#f3e5f5
+    style I fill:#fff3e0
+    style J fill:#c8e6c9
+    style M fill:#f3e5f5
 
     classDef error fill:#ffcdd2
     classDef success fill:#c8e6c9
     classDef skip fill:#f5f5f5
 
-    class Q,S error
-    class O success
-    class D,H,K skip
+    class O error
+    class M success
+    class D,G,P skip
 ```
 
 ## Core Implementation
@@ -77,366 +65,434 @@ graph TD
 ### Main Node Function
 
 ```python
-async def store_memory_node(state: WellnessState, config: RunnableConfig) -> dict[str, object]:
+async def retrieve_memories(
+    state: WellnessState, config: RunnableConfig
+) -> dict[str, list[dict[str, str | float]]]:
     """
-    Stores the latest conversation pair as a memory.
+    Retrieves relevant memories based on the user's message.
 
-    Extracts the most recent user message + AI response pair from the
-    conversation and:
-    1. Saves to messages table (for conversation history retrieval)
-    2. Stores with embedding (for semantic search)
+    Performs semantic search against the memory store to find past
+    conversations that may be relevant to the current discussion.
+    Results are ordered by similarity.
 
-    This is a side-effect node that doesn't modify state - it just
-    persists the conversation to the database.
+    This node runs at START in parallel with inject_user_context and
+    detect_activity. It gets user_id directly from the LangGraph auth
+    config rather than waiting for inject_user_context to populate state.
 
     Args:
-        state: Current conversation state after response generation
-        config: LangGraph config containing thread_id (conversation_id)
+        state: Current conversation state with messages
+        config: LangGraph config containing langgraph_auth_user
 
     Returns:
-        Empty dict (no state changes, side-effect only)
+        Dict with retrieved_memories field to merge into state.
+        Each memory contains:
+        - id: Memory ID
+        - user_message: What the user said
+        - ai_response: What the AI responded
+        - similarity: Relevance score (0-1)
+
+    Note:
+        - Returns empty list if no user_id (unauthenticated)
+        - Returns empty list if no user messages yet
+        - Errors are logged but don't fail the conversation
     """
 ```
 
-### Message Pair Extraction Logic
+### Authentication and User Context
 
 ```python
-# Find the latest user message and AI response pair
-# Messages are in order, so we look for: [..., HumanMessage, AIMessage]
-user_message = None
-ai_response = None
+# Direct access to LangGraph auth config for parallel execution
+configurable = config.get("configurable", {})
+auth_user = configurable.get("langgraph_auth_user", {})
+user_id = auth_user.get("identity")
 
-# Walk backwards through messages to find the most recent pair
-for i in range(len(messages) - 1, 0, -1):
-    if isinstance(messages[i], AIMessage) and isinstance(messages[i - 1], HumanMessage):
-        user_message = messages[i - 1].content
-        ai_response = messages[i].content
-        break
+if not user_id:
+    # No user ID means no memories to search (unauthenticated request)
+    logger.warning("No user_id in config - skipping memory retrieval")
+    return {"retrieved_memories": []}
 ```
 
-:::tip Message Pair Logic
-The node walks backwards through the message list to find the most recent Human→AI message sequence. This handles cases where there might be multiple conversation turns or system messages in the state.
+:::tip Parallel Execution Pattern
+By accessing `user_id` directly from the auth config rather than waiting for `inject_user_context` to populate the state, this node can run in parallel at graph START, reducing overall latency.
 :::
+
+### Message Extraction Logic
+
+```python
+# Get the latest user message for semantic search
+messages = state.get("messages", [])
+user_messages = [m for m in messages if isinstance(m, HumanMessage)]
+
+if not user_messages:
+    # No user messages yet - nothing to search against
+    return {"retrieved_memories": []}
+
+latest_message = user_messages[-1].content
+```
 
 ## Data Flow
 
 ```mermaid
 sequenceDiagram
     participant Graph as LangGraph
-    participant Node as Store Memory Node
-    participant Logger as NodeLogger
-    participant Messages as Messages Table
-    participant Memory as Memory Store
+    participant Node as Retrieve Memories
+    participant Auth as Auth Config
+    participant Store as Memory Store
     participant Embeddings as Embedding Service
+    participant Vector as Vector Database
 
-    Graph->>Node: store_memory_node(state, config)
-    Node->>Logger: node_start()
+    Graph->>Node: retrieve_memories(state, config)
+    Node->>Node: node_start()
 
-    Node->>Node: Extract user_id from state
-    alt No user_id (unauthenticated)
-        Node->>Logger: node_end()
-        Node->>Graph: {} (empty dict)
-    else Authenticated user
-        Node->>Node: Get conversation_id from config
-        Node->>Node: Extract message pair from state
+    Node->>Auth: Get langgraph_auth_user
+    Auth-->>Node: user_id
 
-        alt Valid message pair found
-            Node->>Messages: save_messages(conversation_id, user_msg, ai_response)
-            Messages-->>Node: Success/Error
+    alt User authenticated
+        Node->>Node: Extract latest user message
 
-            Node->>Messages: generate_title_if_needed(conversation_id)
-            Messages-->>Node: Title generated/exists
+        alt User message exists
+            Node->>Store: search_memories(user_id, query, limit, threshold)
+            Store->>Embeddings: Generate query embedding
+            Embeddings-->>Store: Vector embedding
+            Store->>Vector: Similarity search
+            Vector-->>Store: Matching memories with scores
+            Store->>Store: Filter by similarity threshold
+            Store-->>Node: Ordered memory results
 
-            Node->>Memory: store_memory(user_id, messages, metadata)
-            Memory->>Embeddings: Generate embedding for content
-            Embeddings-->>Memory: Vector embedding
-            Memory-->>Node: Success/Error
-
-            Node->>Logger: info("Memory stored")
-        else No valid pair
-            Node->>Logger: node_end()
+            Node->>Node: Convert to state-safe dicts
+            Node->>Node: info("Found relevant memories")
+            Node->>Graph: {"retrieved_memories": memories}
+        else No user messages
+            Node->>Graph: {"retrieved_memories": []}
         end
-
-        Node->>Logger: node_end()
-        Node->>Graph: {} (empty dict)
+    else Unauthenticated
+        Node->>Node: warning("No user_id - skipping")
+        Node->>Graph: {"retrieved_memories": []}
     end
 
-    Note over Node: All errors are logged<br/>but don't fail the conversation
+    Note over Node: All errors logged<br/>but don't fail retrieval
 ```
+
+## Memory Search Implementation
+
+### Semantic Search Parameters
+
+```python
+# Search configuration for optimal relevance and performance
+memories = await search_memories(
+    user_id=user_id,
+    query=latest_message,
+    limit=3,                    # Top 3 most relevant memories
+    similarity_threshold=0.5,   # Only reasonably similar matches
+)
+```
+
+### Memory Data Structure
+
+```python
+# Memory objects returned from search
+class Memory:
+    id: str                    # Unique memory identifier
+    user_message: str          # Original user input
+    ai_response: str          # AI's response to that input
+    similarity: float         # Cosine similarity score (0-1)
+    conversation_id: str      # Source conversation
+    created_at: datetime      # When memory was stored
+    metadata: dict           # Additional context
+
+# Converted to state-safe dictionaries
+memory_dicts = [
+    {
+        "id": m.id,
+        "user_message": m.user_message,
+        "ai_response": m.ai_response,
+        "similarity": m.similarity,
+    }
+    for m in memories
+]
+```
+
+### Similarity Scoring
+
+```mermaid
+graph LR
+    A[User Query] --> B[Generate Embedding]
+    B --> C[Vector Search]
+    C --> D[Cosine Similarity]
+    D --> E{Similarity ≥ 0.5?}
+    E -->|Yes| F[Include in Results]
+    E -->|No| G[Filter Out]
+    F --> H[Rank by Score]
+    G --> I[Discard]
+    H --> J[Return Top 3]
+
+    style A fill:#e3f2fd
+    style C fill:#fff3e0
+    style F fill:#e8f5e8
+    style G fill:#ffebee
+```
+
+**Similarity Thresholds:**
+
+- **> 0.8**: Highly relevant, likely discussing same topic
+- **0.5 - 0.8**: Moderately relevant, related concepts or themes
+- **< 0.5**: Low relevance, filtered out to avoid noise
 
 ## Integration Points
 
 ### Wellness State Integration
 
-The node integrates with the conversation state through well-defined interfaces:
+The node reads from and writes to specific state fields:
 
 ```python
-# Required state structure
-state_requirements = {
-    "user_context": {
-        "user_id": str,  # Required for memory storage
-        # Other user context fields...
-    },
+# Input requirements
+state_inputs = {
     "messages": [
-        # List of langchain_core.messages
-        # Must contain at least one HumanMessage + AIMessage pair
+        # List of langchain_core.messages.BaseMessage
+        # Must contain at least one HumanMessage for search
     ]
 }
 
-# Config requirements
-config_requirements = {
-    "configurable": {
-        "thread_id": str,  # Used as conversation_id
-        # Other LangGraph config...
-    }
+# Output format
+state_outputs = {
+    "retrieved_memories": [
+        {
+            "id": str,              # Memory unique identifier
+            "user_message": str,    # Past user input
+            "ai_response": str,     # Past AI response
+            "similarity": float,    # Relevance score (0-1)
+        }
+        # ... up to 3 memories
+    ]
 }
 ```
 
 ### Memory Store Integration
 
-The node interfaces with two storage systems:
-
-#### 1. Messages Table (Conversation History)
-
 ```python
-# Direct conversation storage
-save_messages(
-    conversation_id=conversation_id,
-    user_message=user_message,
-    ai_response=ai_response,
-)
+# Memory store interface
+from src.memory.store import search_memories
 
-# Automatic title generation for conversation organization
-generate_title_if_needed(conversation_id)
+# Search function signature
+async def search_memories(
+    user_id: str,              # User to search memories for
+    query: str,                # Semantic search query
+    limit: int = 10,           # Maximum results to return
+    similarity_threshold: float = 0.0,  # Minimum similarity score
+) -> list[Memory]:
+    """
+    Performs semantic search against user's stored memories.
+
+    Returns memories ordered by similarity score (highest first).
+    Includes only memories above the similarity threshold.
+    """
 ```
 
-#### 2. Semantic Memory Store
+### LangGraph Configuration Integration
 
 ```python
-# Memory storage with embedding for semantic search
-await store_memory(
-    user_id=user_id,
-    user_message=user_message,
-    ai_response=ai_response,
-    conversation_id=conversation_id,
-    metadata={
-        "source": "wellness_chat",
-    },
-)
-```
-
-### Database Schema Integration
-
-```mermaid
-erDiagram
-    CONVERSATIONS ||--o{ MESSAGES : contains
-    USERS ||--o{ MEMORIES : owns
-    USERS ||--o{ CONVERSATIONS : participates
-
-    CONVERSATIONS {
-        string id PK
-        string user_id FK
-        string title
-        timestamp created_at
-        timestamp updated_at
+# Required config structure for parallel execution
+config_requirements = {
+    "configurable": {
+        "langgraph_auth_user": {
+            "identity": str,        # User ID for memory search
+            # Other auth fields...
+        },
+        # Other LangGraph config...
     }
-
-    MESSAGES {
-        string id PK
-        string conversation_id FK
-        string user_message
-        string ai_response
-        timestamp created_at
-    }
-
-    MEMORIES {
-        string id PK
-        string user_id FK
-        string user_message
-        string ai_response
-        vector embedding
-        string conversation_id FK
-        json metadata
-        timestamp created_at
-    }
+}
 ```
 
 ## Error Handling and Resilience
 
-### Fire-and-Forget Pattern
+### Graceful Failure Pattern
 
-The node implements a robust error handling pattern that ensures user experience isn't impacted by storage failures:
+The node implements comprehensive error handling that prioritizes conversation continuity:
 
 ```python
-# Messages table storage with error isolation
-if conversation_id:
-    try:
-        save_messages(
-            conversation_id=conversation_id,
-            user_message=user_message,
-            ai_response=ai_response,
-        )
-        generate_title_if_needed(conversation_id)
-    except Exception as e:
-        logger.error("Failed to save messages", error=str(e))
-        # Continue execution - don't fail the conversation
-
-# Memory storage with error isolation
 try:
-    await store_memory(
+    memories = await search_memories(
         user_id=user_id,
-        user_message=user_message,
-        ai_response=ai_response,
-        conversation_id=conversation_id,
-        metadata={"source": "wellness_chat"},
+        query=latest_message,
+        limit=3,
+        similarity_threshold=0.5,
     )
-    logger.info("Memory stored")
+
+    memory_dicts = [
+        {
+            "id": m.id,
+            "user_message": m.user_message,
+            "ai_response": m.ai_response,
+            "similarity": m.similarity,
+        }
+        for m in memories
+    ]
+
+    if memory_dicts:
+        logger.info("Found relevant memories", count=len(memory_dicts))
+
+    return {"retrieved_memories": memory_dicts}
+
 except Exception as e:
-    # Log but don't fail - user already has their response
-    logger.error("Failed to store memory", error=str(e))
+    # Log error but don't fail the conversation
+    # User should still get a response even if memory retrieval fails
+    logger.error("Memory search failed", error=str(e))
+    return {"retrieved_memories": []}
 ```
 
 :::warning Error Handling Philosophy
-Storage failures are logged for monitoring but never propagate to the user. This ensures that database issues don't impact the conversational experience, while providing visibility for system health monitoring.
+Memory retrieval failures are logged for monitoring but never block the conversation. The AI can still generate helpful responses without historical context, ensuring robust user experience even during system issues.
 :::
 
-### Graceful Degradation
+### Fallback Behaviors
 
-The node handles various edge cases gracefully:
-
-| Condition             | Behavior                 | Rationale                                                  |
-| --------------------- | ------------------------ | ---------------------------------------------------------- |
-| No user_id            | Skip storage entirely    | Can't store memories without user association              |
-| No conversation_id    | Skip messages table only | Memory storage can still work without conversation context |
-| Insufficient messages | Skip storage entirely    | Need at least one complete Human→AI pair                   |
-| No valid message pair | Skip storage entirely    | Only store meaningful conversation exchanges               |
-| Database errors       | Log and continue         | Don't fail user experience for storage issues              |
+| Condition                  | Behavior                         | Impact on Conversation                     |
+| -------------------------- | -------------------------------- | ------------------------------------------ |
+| No user authentication     | Return empty memories            | No historical context, still functional    |
+| No user messages           | Return empty memories            | Nothing to search against yet              |
+| Memory store unavailable   | Return empty memories, log error | Conversation continues without history     |
+| Embedding service down     | Return empty memories, log error | No semantic search, conversation continues |
+| Database connection failed | Return empty memories, log error | No retrieval, core functionality preserved |
 
 ## Configuration Options
 
-### Storage Behavior Configuration
+### Search Parameters
 
 ```python
-# Memory storage metadata
-MEMORY_METADATA = {
-    "source": "wellness_chat",          # Identifies memory source
-    "auto_generated": True,             # Marks as system-generated
-    "storage_version": "v1",            # Schema version for migrations
-}
-
-# Error handling configuration
-ERROR_HANDLING = {
-    "log_storage_failures": True,       # Log all storage errors
-    "fail_on_storage_error": False,     # Never fail conversation for storage
-    "retry_on_temporary_failure": False, # No retries (fire-and-forget)
+# Memory retrieval configuration
+MEMORY_SEARCH_CONFIG = {
+    "max_memories": 3,              # Maximum memories to retrieve
+    "similarity_threshold": 0.5,    # Minimum relevance score
+    "search_timeout_ms": 5000,      # Max search time
+    "enable_semantic_search": True, # Use vector similarity
 }
 ```
 
-### Conversation Title Generation
+### Performance Tuning
 
 ```python
-# Title generation behavior
-TITLE_GENERATION = {
-    "auto_generate_titles": True,        # Generate titles for new conversations
-    "title_max_length": 50,             # Maximum title length
-    "title_from_first_message": True,   # Base title on initial user message
-    "update_existing_titles": False,    # Don't overwrite existing titles
+# Performance optimization settings
+PERFORMANCE_CONFIG = {
+    "embedding_cache_ttl": 300,     # Cache embeddings for 5 minutes
+    "max_query_length": 1000,       # Truncate long queries
+    "parallel_search": False,       # Sequential search for now
+    "connection_pool_size": 10,     # Database connection pool
 }
 ```
 
-### Message Filtering
+### Content Filtering
 
 ```python
-# Message content filtering
-MESSAGE_FILTERING = {
-    "min_message_length": 1,            # Minimum characters to store
-    "max_message_length": 10000,        # Maximum characters to store
-    "filter_empty_responses": True,     # Skip empty AI responses
-    "filter_error_messages": True,      # Skip system error messages
+# Memory content filtering
+CONTENT_FILTER_CONFIG = {
+    "min_message_length": 5,        # Skip very short messages
+    "max_message_length": 2000,     # Truncate very long messages
+    "filter_system_messages": True, # Exclude system-generated content
+    "filter_error_responses": True, # Exclude error messages
+}
+```
+
+### Logging and Monitoring
+
+```python
+# Observability configuration
+MONITORING_CONFIG = {
+    "log_search_queries": True,     # Log what users search for
+    "log_similarity_scores": True,  # Track relevance quality
+    "track_retrieval_latency": True,# Monitor performance
+    "alert_on_failures": True,      # Alert on search failures
 }
 ```
 
 ## Performance Considerations
 
-### Asynchronous Operations
+### Latency Optimization
 
-The memory storage operation is asynchronous to handle embedding generation efficiently:
+```mermaid
+graph TD
+    A[Query Received] --> B[Generate Embedding]
+    B --> C[Vector Database Query]
+    C --> D[Similarity Calculation]
+    D --> E[Threshold Filtering]
+    E --> F[Result Serialization]
 
-```python
-# Embedding generation is I/O intensive
-await store_memory(
-    user_id=user_id,
-    user_message=user_message,
-    ai_response=ai_response,
-    # ... other params
-)
+    B --> B1[~20-50ms]
+    C --> C1[~10-30ms]
+    D --> D1[~5-15ms]
+    E --> E1[~1-5ms]
+    F --> F1[~1-5ms]
+
+    G[Total Latency: 50-100ms]
+
+    style A fill:#e3f2fd
+    style G fill:#c8e6c9
 ```
 
-### Database Connection Management
+**Performance Targets:**
+
+- **Total retrieval time**: < 100ms for good user experience
+- **Embedding generation**: < 50ms using cached or fast embedding models
+- **Vector search**: < 30ms with proper indexing
+- **Result processing**: < 10ms for serialization and filtering
+
+### Memory Usage
 
 ```python
-# Connection pooling and transaction management
-async def store_memory_with_connection_handling():
+# Efficient memory management
+def process_search_results(memories: list[Memory]) -> list[dict]:
     """
-    Memory storage with proper connection lifecycle management.
+    Convert memory objects to state-safe dicts without copying large data.
 
-    The store_memory function handles:
-    - Connection pool acquisition
-    - Transaction management
-    - Embedding generation
-    - Cleanup on success/failure
+    Only extracts needed fields to minimize state size.
     """
-    # Implementation handled in memory.store module
+    return [
+        {
+            "id": m.id,
+            "user_message": m.user_message[:500],    # Truncate long messages
+            "ai_response": m.ai_response[:500],      # Limit response length
+            "similarity": round(m.similarity, 3),   # Reduce precision
+        }
+        for m in memories[:3]  # Hard limit on results
+    ]
 ```
 
-### Memory Usage Optimization
+### Database Optimization
 
 ```python
-# Efficient message extraction without copying large state
-def extract_latest_pair(messages: list) -> tuple[str, str] | None:
-    """
-    Extract latest Human→AI pair without state mutation.
-
-    Walks backwards through message list for efficiency,
-    stops at first valid pair found.
-    """
-    for i in range(len(messages) - 1, 0, -1):
-        if isinstance(messages[i], AIMessage) and isinstance(messages[i - 1], HumanMessage):
-            return messages[i - 1].content, messages[i].content
-    return None
+# Vector database indexing strategy
+INDEX_STRATEGY = {
+    "vector_index_type": "hnsw",     # Hierarchical NSW for fast similarity search
+    "index_parameters": {
+        "ef_construction": 200,       # Build-time parameter
+        "M": 16,                     # Max connections per node
+    },
+    "query_parameters": {
+        "ef": 100,                   # Search-time parameter
+    }
+}
 ```
 
 ## Monitoring and Observability
 
-### Logging Structure
-
-```python
-# Structured logging for observability
-logger.node_start()                    # Node execution tracking
-logger.info("Memory stored")           # Success events
-logger.error("Failed to save messages", error=str(e))  # Error tracking
-logger.node_end()                      # Execution completion
-```
-
-### Key Metrics to Monitor
+### Key Metrics
 
 ```mermaid
 graph LR
-    A[Store Memory Metrics] --> B[Storage Success Rate]
-    A --> C[Performance Metrics]
+    A[Retrieve Memories Metrics] --> B[Search Performance]
+    A --> C[Result Quality]
     A --> D[Error Patterns]
 
-    B --> E[Messages Table Success %]
-    B --> F[Memory Store Success %]
-    B --> G[Title Generation Success %]
+    B --> E[Average Retrieval Time]
+    B --> F[P95 Retrieval Latency]
+    B --> G[Search Success Rate]
 
-    C --> H[Average Execution Time]
-    C --> I[Embedding Generation Time]
-    C --> J[Database Write Latency]
+    C --> H[Average Similarity Scores]
+    C --> I[Results per Query]
+    C --> J[Empty Result Rate]
 
     D --> K[Authentication Failures]
-    D --> L[Database Connection Issues]
-    D --> M[Embedding Service Errors]
+    D --> L[Embedding Service Errors]
+    D --> M[Database Connection Issues]
 
     style A fill:#4caf50
     style B fill:#2196f3
@@ -444,87 +500,20 @@ graph LR
     style D fill:#f44336
 ```
 
-**Critical Metrics:**
+### Logging Structure
 
-- **Storage Success Rate**: Percentage of successful memory storage operations
-- **Error Distribution**: Types and frequency of storage failures
-- **Performance Impact**: Node execution time impact on overall response latency
-- **Data Quality**: Validation of stored message pairs and metadata
+```python
+# Structured logging for observability
+logger.node_start()                           # Execution tracking
+logger.warning("No user_id in config - skipping")  # Auth issues
+logger.info("Found relevant memories", count=len(memories))  # Success metrics
+logger.error("Memory search failed", error=str(e))  # Error tracking
+logger.node_end()                            # Completion tracking
+```
 
 ### Alerting Thresholds
 
 ```python
-# Monitoring thresholds for operational alerts
-MONITORING_THRESHOLDS = {
-    "storage_failure_rate": 0.05,      # Alert if >5% of storage attempts fail
-    "avg_execution_time": 500,         # Alert if average time >500ms
-    "embedding_generation_time": 2000, # Alert if embedding takes >2s
-    "consecutive_failures": 10,        # Alert after 10 consecutive failures
-}
-```
-
-## Testing Strategy
-
-### Unit Testing
-
-```python
-async def test_store_memory_node_success():
-    """Test successful memory storage with valid message pair."""
-    state = create_test_state_with_message_pair()
-    config = create_test_config_with_thread_id()
-
-    result = await store_memory_node(state, config)
-
-    # Should return empty dict (no state changes)
-    assert result == {}
-
-    # Verify storage calls were made (mock verification)
-    assert_save_messages_called()
-    assert_store_memory_called()
-
-async def test_unauthenticated_user_skip():
-    """Test that unauthenticated users don't trigger storage."""
-    state_no_user = create_state_without_user_id()
-    config = create_test_config()
-
-    result = await store_memory_node(state_no_user, config)
-
-    assert result == {}
-    assert_no_storage_calls_made()
-
-async def test_insufficient_messages_skip():
-    """Test graceful handling of insufficient message history."""
-    state_single_message = create_state_with_single_message()
-    config = create_test_config()
-
-    result = await store_memory_node(state_single_message, config)
-
-    assert result == {}
-    assert_no_storage_calls_made()
-
-async def test_error_handling_resilience():
-    """Test that storage errors don't fail the node."""
-    state = create_test_state_with_message_pair()
-    config = create_test_config()
-
-    with mock_storage_failure():
-        result = await store_memory_node(state, config)
-
-        # Should still return empty dict despite errors
-        assert result == {}
-        # Error should be logged
-        assert_error_logged()
-```
-
-### Integration Testing
-
-```python
-async def test_end_to_end_storage_flow():
-    """Test complete storage flow with real database."""
-    # Setup test conversation
-    user_id = create_test_user()
-    conversation_id = create_test_conversation(user_id)
-
-    state = create_wellness_state(
-        user_context
+# Monitoring alerts for operational issues
+ALERT_THRESH
 ```

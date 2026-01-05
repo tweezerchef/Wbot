@@ -42,7 +42,9 @@ The chatbot is the PRIMARY interface - activities render inside the chat, not as
 - **ALWAYS** fix code bugs when tests fail, not the tests themselves
 - **ONLY** change failing tests if the issue is actually in the test (incorrect assertions, wrong mocks, etc.)
 - **NEVER** weaken test assertions or add workarounds to make tests pass
+- **NEVER** use `sys.modules` mocking or other hacks to work around import/code issues
 - Failing tests are valuable - they document expected behavior and identify bugs
+- If tests fail due to circular imports, fix the imports in the code, not the tests
 
 #### Comprehensive Testing Requirements
 
