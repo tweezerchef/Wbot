@@ -78,8 +78,8 @@ jobs:
           echo "has_missing=$([[ $MISSING_COUNT -gt 0 ]] && echo 'true' || echo 'false')" >> $GITHUB_OUTPUT
           echo "needs_update=$([[ $STALE_COUNT -gt 0 || $MISSING_COUNT -gt 0 ]] && echo 'true' || echo 'false')" >> $GITHUB_OUTPUT
 
-          # Pretty print for logs
-          python scripts/ai_docs/staleness.py --verbose
+          # Pretty print for logs (|| true because script exits 1 when stale docs found)
+          python scripts/ai_docs/staleness.py --verbose || true
 
       - name: Upload staleness report
         uses: actions/upload-artifact@v4
