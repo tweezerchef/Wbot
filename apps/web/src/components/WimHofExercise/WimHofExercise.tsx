@@ -65,15 +65,10 @@ export function WimHofExercise({
   );
 
   // Use the Wim Hof loop hook for state management
-  const {
-    state,
-    start,
-    pause,
-    resume,
-    stop,
-    releaseRetention,
-    nextBreath,
-  } = useWimHofLoop(technique, handleComplete);
+  const { state, start, pause, resume, stop, releaseRetention, nextBreath } = useWimHofLoop(
+    technique,
+    handleComplete
+  );
 
   // Handle start - reset completion state and start exercise
   const handleStart = useCallback(() => {
@@ -102,7 +97,9 @@ export function WimHofExercise({
     };
 
     window.addEventListener('keydown', handleKeyDown);
-    return () => { window.removeEventListener('keydown', handleKeyDown); };
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
   }, [state.isActive, state.isPaused, state.currentPhase, breathingMode, nextBreath]);
 
   // Get phase display text
@@ -207,11 +204,21 @@ export function WimHofExercise({
             }
             onKeyDown={
               breathingMode === 'manual' && state.currentPhase === 'rapid_breathing'
-                ? (e) => { if (e.key === 'Enter' || e.key === ' ') { nextBreath(); } }
+                ? (e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      nextBreath();
+                    }
+                  }
                 : undefined
             }
-            role={breathingMode === 'manual' && state.currentPhase === 'rapid_breathing' ? 'button' : undefined}
-            tabIndex={breathingMode === 'manual' && state.currentPhase === 'rapid_breathing' ? 0 : undefined}
+            role={
+              breathingMode === 'manual' && state.currentPhase === 'rapid_breathing'
+                ? 'button'
+                : undefined
+            }
+            tabIndex={
+              breathingMode === 'manual' && state.currentPhase === 'rapid_breathing' ? 0 : undefined
+            }
             aria-label={
               breathingMode === 'manual' && state.currentPhase === 'rapid_breathing'
                 ? 'Click to advance breath'
@@ -287,9 +294,11 @@ export function WimHofExercise({
         {state.isPaused && <p className={styles.hint}>Exercise paused</p>}
 
         {/* Manual mode hint */}
-        {breathingMode === 'manual' && state.currentPhase === 'rapid_breathing' && !state.isPaused && (
-          <p className={styles.hint}>Press spacebar or click the circle to breathe</p>
-        )}
+        {breathingMode === 'manual' &&
+          state.currentPhase === 'rapid_breathing' &&
+          !state.isPaused && (
+            <p className={styles.hint}>Press spacebar or click the circle to breathe</p>
+          )}
       </div>
     );
   }
