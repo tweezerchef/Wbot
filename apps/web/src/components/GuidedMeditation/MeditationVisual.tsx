@@ -17,7 +17,6 @@
 import styles from './MeditationVisual.module.css';
 import type { MeditationPlaybackState } from './types';
 
-
 export interface MeditationVisualProps {
   /** Current playback state */
   playbackState: MeditationPlaybackState;

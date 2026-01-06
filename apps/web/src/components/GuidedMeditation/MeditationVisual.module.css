@@ -230,29 +230,17 @@
 }
 
 .gradientLayer1 {
-  background: radial-gradient(
-    circle at 30% 30%,
-    rgba(184, 180, 217, 0.6) 0%,
-    transparent 60%
-  );
+  background: radial-gradient(circle at 30% 30%, rgba(184, 180, 217, 0.6) 0%, transparent 60%);
   animation: gradientRotate 12s linear infinite;
 }
 
 .gradientLayer2 {
-  background: radial-gradient(
-    circle at 70% 70%,
-    rgba(156, 185, 156, 0.5) 0%,
-    transparent 50%
-  );
+  background: radial-gradient(circle at 70% 70%, rgba(156, 185, 156, 0.5) 0%, transparent 50%);
   animation: gradientRotate 15s linear infinite reverse;
 }
 
 .gradientLayer3 {
-  background: radial-gradient(
-    circle at 50% 50%,
-    rgba(135, 206, 235, 0.3) 0%,
-    transparent 40%
-  );
+  background: radial-gradient(circle at 50% 50%, rgba(135, 206, 235, 0.3) 0%, transparent 40%);
   animation: gradientPulse 8s ease-in-out infinite;
 }
 

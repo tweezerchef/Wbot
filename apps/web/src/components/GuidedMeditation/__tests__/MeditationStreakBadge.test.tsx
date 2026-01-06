@@ -96,11 +96,7 @@ describe('MeditationStreakBadge', () => {
     it('calls onCelebrationComplete after animation', () => {
       const onComplete = vi.fn();
       render(
-        <MeditationStreakBadge
-          streak={5}
-          showCelebration
-          onCelebrationComplete={onComplete}
-        />
+        <MeditationStreakBadge streak={5} showCelebration onCelebrationComplete={onComplete} />
       );
 
       expect(onComplete).not.toHaveBeenCalled();

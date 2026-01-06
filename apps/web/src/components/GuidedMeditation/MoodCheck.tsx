@@ -55,7 +55,9 @@ export function MoodCheck({
 
   const handleSelect = useCallback(
     (mood: MoodRating) => {
-      if (disabled) {return;}
+      if (disabled) {
+        return;
+      }
       setSelectedMood(mood);
       onSelect(mood);
     },
@@ -95,10 +97,18 @@ export function MoodCheck({
               key={rating}
               type="button"
               className={`${styles.moodButton} ${isSelected ? styles.selected : ''} ${isHovered ? styles.hovered : ''}`}
-              onClick={() => { handleSelect(rating); }}
-              onKeyDown={(e) => { handleKeyDown(e, rating); }}
-              onMouseEnter={() => { setHoveredMood(rating); }}
-              onMouseLeave={() => { setHoveredMood(null); }}
+              onClick={() => {
+                handleSelect(rating);
+              }}
+              onKeyDown={(e) => {
+                handleKeyDown(e, rating);
+              }}
+              onMouseEnter={() => {
+                setHoveredMood(rating);
+              }}
+              onMouseLeave={() => {
+                setHoveredMood(null);
+              }}
               disabled={disabled}
               role="radio"
               aria-checked={isSelected}
