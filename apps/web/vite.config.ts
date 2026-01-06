@@ -26,6 +26,17 @@ const monorepoRoot = resolve(__dirname, '../..');
 export default defineConfig({
   // Load `.env*` files from the monorepo root instead of `apps/web/`
   envDir: monorepoRoot,
+
+  // CSS configuration for consistent module handling and debugging
+  css: {
+    modules: {
+      // Use camelCase for CSS module class names (e.g., .my-class -> styles.myClass)
+      localsConvention: 'camelCase',
+    },
+    // Enable source maps in development for easier debugging
+    devSourcemap: true,
+  },
+
   plugins: [
     // TanStack Start plugin - handles routing, SSR, server functions
     // Must come before React plugin
