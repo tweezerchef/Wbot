@@ -43,15 +43,19 @@ describe('BadgeUnlock', () => {
   describe('callbacks', () => {
     it('calls onClose when Continue is clicked', () => {
       const onClose = vi.fn();
-      const { container } = render(<BadgeUnlock badgeName="Test Badge" badgeEmoji="🏆" onClose={onClose} />);
-      
+      const { container } = render(
+        <BadgeUnlock badgeName="Test Badge" badgeEmoji="🏆" onClose={onClose} />
+      );
+
       const button = container.querySelector('[class*="button"]');
-      if (button) {fireEvent.click(button);}
-      
+      if (button) {
+        fireEvent.click(button);
+      }
+
       act(() => {
         vi.advanceTimersByTime(300);
       });
-      
+
       expect(onClose).toHaveBeenCalledTimes(1);
     });
 
@@ -79,12 +83,7 @@ describe('BadgeUnlock', () => {
     it('does not auto-close when autoClose is false', () => {
       const onClose = vi.fn();
       render(
-        <BadgeUnlock
-          badgeName="Test Badge"
-          badgeEmoji="🏆"
-          onClose={onClose}
-          autoClose={false}
-        />
+        <BadgeUnlock badgeName="Test Badge" badgeEmoji="🏆" onClose={onClose} autoClose={false} />
       );
 
       act(() => {
@@ -98,7 +97,7 @@ describe('BadgeUnlock', () => {
   describe('animations', () => {
     it('adds visible class after mount', () => {
       const { container } = render(<BadgeUnlock badgeName="Test Badge" badgeEmoji="🏆" />);
-      
+
       act(() => {
         vi.advanceTimersByTime(100);
       });

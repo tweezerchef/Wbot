@@ -33,7 +33,9 @@ describe('MeditationSeries', () => {
 
     it('renders series description', () => {
       render(<MeditationSeries series={mockSeries} />);
-      expect(screen.getByText('A week of daily meditations to build your calm practice.')).toBeInTheDocument();
+      expect(
+        screen.getByText('A week of daily meditations to build your calm practice.')
+      ).toBeInTheDocument();
     });
 
     it('renders badge emoji', () => {
@@ -89,9 +91,13 @@ describe('MeditationSeries', () => {
   describe('callbacks', () => {
     it('calls onStartSession with index 0 when starting', () => {
       const onStartSession = vi.fn();
-      const { container } = render(<MeditationSeries series={mockSeries} onStartSession={onStartSession} />);
+      const { container } = render(
+        <MeditationSeries series={mockSeries} onStartSession={onStartSession} />
+      );
       const primaryButton = container.querySelector('[class*="primaryButton"]');
-      if (primaryButton) {fireEvent.click(primaryButton);}
+      if (primaryButton) {
+        fireEvent.click(primaryButton);
+      }
       expect(onStartSession).toHaveBeenCalledWith(0);
     });
 
@@ -105,7 +111,9 @@ describe('MeditationSeries', () => {
         />
       );
       const primaryButton = container.querySelector('[class*="primaryButton"]');
-      if (primaryButton) {fireEvent.click(primaryButton);}
+      if (primaryButton) {
+        fireEvent.click(primaryButton);
+      }
       expect(onStartSession).toHaveBeenCalledWith(2);
     });
   });
