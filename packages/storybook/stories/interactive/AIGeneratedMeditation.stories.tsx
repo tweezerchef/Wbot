@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import type { ReactElement } from 'react';
+import { useState, type ReactElement } from 'react';
 import { fn, expect, userEvent, within } from 'storybook/test';
 
 import type {
@@ -646,12 +646,27 @@ export const TestStartMeditation: Story = {
 };
 
 /**
+ * Wrapper component with local state for testing controlled VoiceSelector
+ */
+function VoiceSelectorWithState() {
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  return (
+    <VoiceSelector
+      voices={MOCK_VOICES}
+      selectedVoiceId={selectedId}
+      onSelect={(voice) => {
+        setSelectedId(voice.id);
+      }}
+      onConfirm={fn()}
+    />
+  );
+}
+
+/**
  * Test: Voice selection interaction
  */
 export const TestVoiceSelection: StoryObj<typeof VoiceSelector> = {
-  render: () => (
-    <VoiceSelector voices={MOCK_VOICES} selectedVoiceId={null} onSelect={fn()} onConfirm={fn()} />
-  ),
+  render: () => <VoiceSelectorWithState />,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
 
@@ -664,7 +679,7 @@ export const TestVoiceSelection: StoryObj<typeof VoiceSelector> = {
     const cedarCard = canvas.getByTestId('voice-option-cedar');
     await userEvent.click(cedarCard);
 
-    // Verify selection indicator
+    // Verify selection indicator (now works because wrapper has state)
     await expect(cedarCard).toHaveAttribute('data-selected', 'true');
   },
 };

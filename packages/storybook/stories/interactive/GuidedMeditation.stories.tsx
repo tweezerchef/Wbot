@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactElement } from 'react';
-import { expect, fn, userEvent, within } from 'storybook/test';
+import { expect, fn, userEvent, waitFor, within } from 'storybook/test';
 
 import type { MeditationTrack, MoodRating } from '@/components/GuidedMeditation';
 import {
@@ -584,7 +584,7 @@ export const TestStartMeditation: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
 
-    // Verify idle state
+    // Verify intro state
     await expect(canvas.getByText('Begin Meditation')).toBeInTheDocument();
     await expect(canvas.getByText('Test Meditation')).toBeInTheDocument();
 
@@ -592,8 +592,17 @@ export const TestStartMeditation: Story = {
     const startButton = canvas.getByText('Begin Meditation');
     await userEvent.click(startButton);
 
-    // Verify playing state (play button should now show)
-    await expect(canvas.getByRole('button', { name: /pause meditation/i })).toBeInTheDocument();
+    // Verify UI transitioned to playing state:
+    // 1. Begin Meditation button should be gone (intro screen dismissed)
+    // 2. Player controls should now be visible
+    await waitFor(async () => {
+      // The "Begin Meditation" button should no longer exist
+      await expect(canvas.queryByText('Begin Meditation')).not.toBeInTheDocument();
+    });
+
+    // Verify player controls are now visible (play/stop buttons)
+    await expect(canvas.getByRole('button', { name: /play meditation/i })).toBeInTheDocument();
+    await expect(canvas.getByRole('button', { name: /stop meditation/i })).toBeInTheDocument();
   },
 };
 
@@ -628,7 +637,9 @@ export const TestVisualAccessibility: StoryObj<typeof MeditationVisual> = {
     const canvas = within(canvasElement);
 
     // Visual should be hidden from screen readers
-    const visual = canvas.getByRole('presentation');
+    // Need { hidden: true } because role="presentation" with aria-hidden="true"
+    // removes the element from the accessibility tree
+    const visual = canvas.getByRole('presentation', { hidden: true });
     await expect(visual).toHaveAttribute('aria-hidden', 'true');
   },
 };
