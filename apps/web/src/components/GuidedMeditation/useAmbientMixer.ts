@@ -195,33 +195,30 @@ export function useAmbientMixer(
   /**
    * Fade out over specified duration
    */
-  const fadeOut = useCallback(
-    (duration = 1) => {
-      if (!gainRef.current || !audioContextRef.current || !sourceRef.current) {
+  const fadeOut = useCallback((duration = 1) => {
+    if (!gainRef.current || !audioContextRef.current || !sourceRef.current) {
+      setIsPlaying(false);
+      return;
+    }
+
+    const ctx = audioContextRef.current;
+    const source = sourceRef.current;
+
+    gainRef.current.gain.linearRampToValueAtTime(0, ctx.currentTime + duration);
+
+    setTimeout(
+      () => {
+        try {
+          source.stop();
+        } catch {
+          // Already stopped
+        }
+        sourceRef.current = null;
         setIsPlaying(false);
-        return;
-      }
-
-      const ctx = audioContextRef.current;
-      const source = sourceRef.current;
-
-      gainRef.current.gain.linearRampToValueAtTime(0, ctx.currentTime + duration);
-
-      setTimeout(
-        () => {
-          try {
-            source.stop();
-          } catch {
-            // Already stopped
-          }
-          sourceRef.current = null;
-          setIsPlaying(false);
-        },
-        duration * 1000 + 50
-      );
-    },
-    []
-  );
+      },
+      duration * 1000 + 50
+    );
+  }, []);
 
   /**
    * Set volume with smooth transition

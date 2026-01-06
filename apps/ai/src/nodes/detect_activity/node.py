@@ -23,7 +23,7 @@ from langchain_core.messages import BaseMessage, HumanMessage
 from pydantic import BaseModel, Field
 
 from src.graph.state import WellnessState
-from src.llm.providers import ModelTier, create_llm
+from src.llm.providers import ModelTier, create_resilient_llm
 from src.logging_config import NodeLogger
 
 # Set up logging for this node
@@ -147,9 +147,10 @@ async def detect_activity_intent(state: WellnessState) -> dict[str, str | None]:
     last_message = get_last_user_message(messages)
     context = get_recent_context(messages)
 
-    # Create structured LLM
+    # Create resilient LLM with LITE tier (simple classification task)
+    # Falls back to Haiku on rate limits
     try:
-        llm = create_llm(tier=ModelTier.FAST, temperature=0.2, max_tokens=200)
+        llm = create_resilient_llm(tier=ModelTier.LITE, temperature=0.2, max_tokens=200)
         structured_llm = llm.with_structured_output(ActivityDetection)
 
         # Format the detection prompt

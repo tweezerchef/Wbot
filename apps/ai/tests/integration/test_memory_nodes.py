@@ -10,20 +10,13 @@ Tests:
 ============================================================================
 """
 
-import sys
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 from langchain_core.messages import AIMessage, HumanMessage
 
-# Mock problematic imports to break circular dependencies
-sys.modules["src.nodes.generate_response"] = MagicMock()
-sys.modules["src.graph"] = MagicMock()
-sys.modules["src.graph.wellness"] = MagicMock()
-sys.modules["src.graph.state"] = MagicMock()
-
-from src.nodes.retrieve_memories.node import retrieve_memories  # noqa: E402
-from src.nodes.store_memory.node import store_memory_node  # noqa: E402
+from src.nodes.retrieve_memories.node import retrieve_memories
+from src.nodes.store_memory.node import store_memory_node
 
 # =============================================================================
 # retrieve_memories Node Tests
@@ -32,13 +25,14 @@ from src.nodes.store_memory.node import store_memory_node  # noqa: E402
 
 @pytest.mark.asyncio
 async def test_retrieve_memories_returns_empty_when_unauthenticated() -> None:
-    """retrieve_memories should return empty list when no user_id."""
+    """retrieve_memories should return empty list when no user_id in config."""
     state = {
         "messages": [HumanMessage(content="Hello")],
-        "user_context": {},  # No user_id
     }
+    # Config without auth user
+    config = {"configurable": {}}
 
-    result = await retrieve_memories(state)
+    result = await retrieve_memories(state, config)
 
     assert result == {"retrieved_memories": []}
 
@@ -48,10 +42,14 @@ async def test_retrieve_memories_returns_empty_when_no_messages() -> None:
     """retrieve_memories should return empty list when no user messages."""
     state = {
         "messages": [AIMessage(content="Hello")],  # Only AI message
-        "user_context": {"user_id": "user-1"},
+    }
+    config = {
+        "configurable": {
+            "langgraph_auth_user": {"identity": "user-1"},
+        }
     }
 
-    result = await retrieve_memories(state)
+    result = await retrieve_memories(state, config)
 
     assert result == {"retrieved_memories": []}
 
@@ -77,10 +75,14 @@ async def test_retrieve_memories_returns_with_similarity_scores() -> None:
 
         state = {
             "messages": [HumanMessage(content="I feel anxious")],
-            "user_context": {"user_id": "user-1"},
+        }
+        config = {
+            "configurable": {
+                "langgraph_auth_user": {"identity": "user-1"},
+            }
         }
 
-        result = await retrieve_memories(state)
+        result = await retrieve_memories(state, config)
 
         # Verify memories returned with similarity
         assert len(result["retrieved_memories"]) == 1
@@ -101,10 +103,14 @@ async def test_retrieve_memories_searches_latest_user_message() -> None:
                 AIMessage(content="Response"),
                 HumanMessage(content="Latest message"),
             ],
-            "user_context": {"user_id": "user-1"},
+        }
+        config = {
+            "configurable": {
+                "langgraph_auth_user": {"identity": "user-1"},
+            }
         }
 
-        await retrieve_memories(state)
+        await retrieve_memories(state, config)
 
         # Verify searched with latest user message
         mock_search.assert_called_once()
@@ -121,11 +127,15 @@ async def test_retrieve_memories_error_returns_empty() -> None:
 
         state = {
             "messages": [HumanMessage(content="Hello")],
-            "user_context": {"user_id": "user-1"},
+        }
+        config = {
+            "configurable": {
+                "langgraph_auth_user": {"identity": "user-1"},
+            }
         }
 
         # Should not raise, returns empty
-        result = await retrieve_memories(state)
+        result = await retrieve_memories(state, config)
         assert result == {"retrieved_memories": []}
 
 

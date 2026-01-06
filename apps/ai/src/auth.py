@@ -4,7 +4,7 @@ Authentication Module - Supabase Token Validation
 ============================================================================
 This module handles authentication for the LangGraph API.
 
-LangGraph Deploy calls this module to validate incoming requests.
+The self-hosted LangGraph server calls this module to validate incoming requests.
 We verify Supabase JWT tokens to ensure only authenticated users
 can access the AI.
 

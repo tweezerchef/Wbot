@@ -58,17 +58,11 @@ export function MeditationSeries({
 
       <div className={styles.actions}>
         {!isComplete ? (
-          <button
-            className={styles.primaryButton}
-            onClick={() => onStartSession?.(currentIndex)}
-          >
+          <button className={styles.primaryButton} onClick={() => onStartSession?.(currentIndex)}>
             {completedCount === 0 ? 'Start Series' : 'Continue'}
           </button>
         ) : (
-          <button
-            className={styles.secondaryButton}
-            onClick={() => onStartSession?.(0)}
-          >
+          <button className={styles.secondaryButton} onClick={() => onStartSession?.(0)}>
             Restart Series
           </button>
         )}

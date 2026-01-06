@@ -1,0 +1,24 @@
+---
+# ConfigMap for non-sensitive configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: wbot-config
+  namespace: wbot
+data:
+  # Redis connection (uses in-cluster service)
+  REDIS_URL: 'redis://redis:6379'
+
+  # CORS configuration (adjust for your domain)
+  CORS_ORIGINS: '*'
+
+  # LangSmith configuration
+  LANGSMITH_TRACING: 'false'
+  LANGSMITH_PROJECT: 'wbot-wellness'
+
+  # Python settings
+  PYTHONUNBUFFERED: '1'
+  PYTHONDONTWRITEBYTECODE: '1'
+
+  # AI Backend API URL (for frontend to use)
+  LANGGRAPH_API_URL: 'http://wbot-ai:8000'

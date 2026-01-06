@@ -15,6 +15,7 @@ Latency: ~50-100ms (embedding generation + DB query)
 """
 
 from langchain_core.messages import HumanMessage
+from langchain_core.runnables import RunnableConfig
 
 from src.graph.state import WellnessState
 from src.logging_config import NodeLogger
@@ -24,7 +25,9 @@ from src.memory.store import search_memories
 logger = NodeLogger("retrieve_memories")
 
 
-async def retrieve_memories(state: WellnessState) -> dict[str, list[dict[str, str | float]]]:
+async def retrieve_memories(
+    state: WellnessState, config: RunnableConfig
+) -> dict[str, list[dict[str, str | float]]]:
     """
     Retrieves relevant memories based on the user's message.
 
@@ -32,8 +35,13 @@ async def retrieve_memories(state: WellnessState) -> dict[str, list[dict[str, st
     conversations that may be relevant to the current discussion.
     Results are ordered by similarity.
 
+    This node runs at START in parallel with inject_user_context and
+    detect_activity. It gets user_id directly from the LangGraph auth
+    config rather than waiting for inject_user_context to populate state.
+
     Args:
-        state: Current conversation state with messages and user context
+        state: Current conversation state with messages
+        config: LangGraph config containing langgraph_auth_user
 
     Returns:
         Dict with retrieved_memories field to merge into state.
@@ -50,14 +58,15 @@ async def retrieve_memories(state: WellnessState) -> dict[str, list[dict[str, st
     """
     logger.node_start()
 
-    # Get user context for user_id
-    user_context = state.get("user_context", {})
-    user_id = user_context.get("user_id")
+    # Get user_id directly from LangGraph auth config
+    # This allows memory retrieval to run at START in parallel with inject_user_context
+    configurable = config.get("configurable", {})
+    auth_user = configurable.get("langgraph_auth_user", {})
+    user_id = auth_user.get("identity")
 
     if not user_id:
-        # No user ID means no memories to search
-        # This shouldn't happen if inject_user_context ran successfully
-        logger.warning("No user_id - skipping memory retrieval (unauthenticated?)")
+        # No user ID means no memories to search (unauthenticated request)
+        logger.warning("No user_id in config - skipping memory retrieval")
         logger.node_end()
         return {"retrieved_memories": []}
 

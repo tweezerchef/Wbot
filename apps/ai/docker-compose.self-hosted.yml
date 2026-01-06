@@ -1,0 +1,111 @@
+# ============================================================================
+# Pure Open-Source LangGraph Deployment
+# ============================================================================
+# Docker Compose for self-hosted Wbot AI without LangChain licensing.
+# All components are MIT licensed.
+#
+# Usage:
+#   pnpm ai:build    # Build the Docker image
+#   pnpm ai:up       # Start services
+#   pnpm ai:down     # Stop services
+#   pnpm ai:logs     # View logs
+#
+# Environment variables (set in root ../../.env):
+#   - SUPABASE_URL: Your Supabase project URL
+#   - SUPABASE_SERVICE_KEY: Service role key for auth
+#   - SUPABASE_DB_PASSWORD: Database password for checkpointing
+#   - ANTHROPIC_API_KEY: Claude API key
+#   - OPENAI_API_KEY: For TTS generation (meditation)
+#   - GOOGLE_API_KEY: For embeddings (memory system)
+# ============================================================================
+
+volumes:
+  redis-data:
+    driver: local
+
+networks:
+  wbot-network:
+    driver: bridge
+
+services:
+  # ---------------------------------------------------------------------------
+  # Redis - Required for embedding cache (src/memory/cache.py)
+  # ---------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    networks:
+      - wbot-network
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    # Not exposed externally - only accessible within network
+
+  # ---------------------------------------------------------------------------
+  # Wbot AI API Server
+  # ---------------------------------------------------------------------------
+  wbot-ai:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: wbot-ai:latest
+    restart: unless-stopped
+    networks:
+      - wbot-network
+    ports:
+      - "2024:8000"  # External:Internal (matches VITE_LANGGRAPH_API_URL and dev:ai)
+    depends_on:
+      redis:
+        condition: service_healthy
+    env_file:
+      - ../../.env
+    environment:
+      # -----------------------------------------------------------------
+      # Redis: Local service for embedding cache
+      # Overrides any REDIS_URL in .env to use the compose service
+      # -----------------------------------------------------------------
+      REDIS_URL: redis://redis:6379
+
+      # -----------------------------------------------------------------
+      # Database: Supabase Pooler connection string (REQUIRED)
+      # Get from: Supabase Dashboard > Settings > Database > Connection string
+      # Use "Session mode" URI (port 5432), NOT Transaction mode (port 6543)
+      # Format: postgresql://postgres.[ref]:[pass]@aws-0-[region].pooler.supabase.com:5432/postgres
+      # -----------------------------------------------------------------
+      # DATABASE_URI - Must be set in root .env file
+
+      # -----------------------------------------------------------------
+      # API Keys (from .env file)
+      # -----------------------------------------------------------------
+      # ANTHROPIC_API_KEY - Primary LLM (Claude)
+      # OPENAI_API_KEY - TTS for meditation
+      # GOOGLE_API_KEY - Embeddings for memory
+
+      # -----------------------------------------------------------------
+      # Supabase (from .env file)
+      # -----------------------------------------------------------------
+      # SUPABASE_URL - Project URL
+      # SUPABASE_SERVICE_KEY - For auth validation
+
+      # -----------------------------------------------------------------
+      # Optional: LangSmith tracing (works without license)
+      # -----------------------------------------------------------------
+      LANGSMITH_TRACING: ${LANGSMITH_TRACING:-false}
+      LANGSMITH_API_KEY: ${LANGSMITH_API_KEY:-}
+      LANGSMITH_PROJECT: ${LANGSMITH_PROJECT:-wbot-wellness}
+
+      # -----------------------------------------------------------------
+      # CORS: Configure allowed origins for production
+      # -----------------------------------------------------------------
+      CORS_ORIGINS: ${CORS_ORIGINS:-*}
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      start_period: 30s
+      retries: 3

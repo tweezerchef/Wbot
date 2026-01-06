@@ -15,10 +15,10 @@ When deployed, tokens are streamed to the client as they're generated.
 ============================================================================
 """
 
-from langchain_core.messages import SystemMessage
+from langchain_core.messages import AIMessage, SystemMessage
 
 from src.graph.state import WellnessState
-from src.llm.providers import create_llm
+from src.llm.providers import create_resilient_llm
 from src.logging_config import NodeLogger
 from src.memory.store import Memory, format_memories_for_prompt
 from src.prompts.wellness_system import WELLNESS_SYSTEM_PROMPT
@@ -60,7 +60,7 @@ async def generate_response(state: WellnessState) -> dict[str, list[object]]:
 
     Streaming:
         This function is async and the LLM call (ainvoke) supports streaming.
-        When running in LangGraph Deploy, tokens are streamed to the client
+        The self-hosted LangGraph server streams tokens to the client
         as they're generated, providing a real-time typing effect.
 
     Example:
@@ -84,9 +84,9 @@ async def generate_response(state: WellnessState) -> dict[str, list[object]]:
     """
     logger.node_start()
 
-    # Create the LLM instance
-    # The provider (Claude/Gemini) is determined by LLM_PROVIDER env var
-    llm = create_llm()
+    # Create a resilient LLM instance with automatic fallback on rate limits
+    # Default tier is STANDARD (Claude Haiku 4.5) for conversation quality
+    llm = create_resilient_llm()
 
     # Extract user context from state
     # This comes from the auth module after token validation
@@ -125,12 +125,24 @@ async def generate_response(state: WellnessState) -> dict[str, list[object]]:
     # Structure: [SystemMessage, HumanMessage, AIMessage, HumanMessage, ...]
     messages = [system_message] + state["messages"]
 
-    # Generate the response
-    # ainvoke is the async version, enabling streaming in LangGraph
-    response = await llm.ainvoke(messages)
+    # Generate the response with error handling
+    # The resilient LLM handles rate limit fallbacks automatically
+    try:
+        response = await llm.ainvoke(messages)
+        logger.node_end()
+        return {"messages": [response]}
 
-    logger.node_end()
+    except Exception as e:
+        # Log the error but return a graceful fallback message
+        logger.error("Response generation failed", error=str(e))
+        logger.node_end()
 
-    # Return the update to be merged into state
-    # The add_messages reducer handles appending to the messages list
-    return {"messages": [response]}
+        # Return a helpful error message that maintains conversation quality
+        fallback = AIMessage(
+            content=(
+                "I'm having a moment of difficulty connecting right now. "
+                "Could you give me a moment and try again? "
+                "I'm here to support you."
+            )
+        )
+        return {"messages": [fallback]}

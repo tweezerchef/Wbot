@@ -65,9 +65,7 @@ export interface UseBinauralBeatsReturn {
  * Creates two oscillators with slightly different frequencies,
  * one panned left and one panned right.
  */
-export function useBinauralBeats(
-  options: UseBinauralBeatsOptions = {}
-): UseBinauralBeatsReturn {
+export function useBinauralBeats(options: UseBinauralBeatsOptions = {}): UseBinauralBeatsReturn {
   const {
     enabled = true,
     frequency: initialFrequency = 'theta',
@@ -109,7 +107,9 @@ export function useBinauralBeats(
 
   // Start binaural beats
   const start = useCallback(() => {
-    if (!enabled || isPlaying) {return;}
+    if (!enabled || isPlaying) {
+      return;
+    }
 
     try {
       // Create or resume audio context
@@ -177,37 +177,43 @@ export function useBinauralBeats(
   }, [cleanup]);
 
   // Fade out and stop
-  const fadeOut = useCallback((durationSeconds = 2) => {
-    if (!isPlaying || !leftGainRef.current || !rightGainRef.current) {
-      stop();
-      return;
-    }
+  const fadeOut = useCallback(
+    (durationSeconds = 2) => {
+      if (!isPlaying || !leftGainRef.current || !rightGainRef.current) {
+        stop();
+        return;
+      }
 
-    const ctx = audioContextRef.current;
-    if (!ctx) {
-      stop();
-      return;
-    }
+      const ctx = audioContextRef.current;
+      if (!ctx) {
+        stop();
+        return;
+      }
 
-    const now = ctx.currentTime;
-    leftGainRef.current.gain.linearRampToValueAtTime(0, now + durationSeconds);
-    rightGainRef.current.gain.linearRampToValueAtTime(0, now + durationSeconds);
+      const now = ctx.currentTime;
+      leftGainRef.current.gain.linearRampToValueAtTime(0, now + durationSeconds);
+      rightGainRef.current.gain.linearRampToValueAtTime(0, now + durationSeconds);
 
-    setTimeout(() => {
-      stop();
-    }, durationSeconds * 1000);
-  }, [isPlaying, stop]);
+      setTimeout(() => {
+        stop();
+      }, durationSeconds * 1000);
+    },
+    [isPlaying, stop]
+  );
 
   // Set frequency
-  const setFrequency = useCallback((freq: BinauralFrequency) => {
-    setFrequencyState(freq);
+  const setFrequency = useCallback(
+    (freq: BinauralFrequency) => {
+      setFrequencyState(freq);
 
-    // Update oscillators if playing
-    if (isPlaying && rightOscillatorRef.current) {
-      const beatFreq = FREQUENCY_PRESETS[freq].beat;
-      rightOscillatorRef.current.frequency.value = carrierFrequency + beatFreq;
-    }
-  }, [isPlaying, carrierFrequency]);
+      // Update oscillators if playing
+      if (isPlaying && rightOscillatorRef.current) {
+        const beatFreq = FREQUENCY_PRESETS[freq].beat;
+        rightOscillatorRef.current.frequency.value = carrierFrequency + beatFreq;
+      }
+    },
+    [isPlaying, carrierFrequency]
+  );
 
   // Set volume
   const setVolume = useCallback((vol: number) => {

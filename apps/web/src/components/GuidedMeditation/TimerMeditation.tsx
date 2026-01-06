@@ -163,7 +163,9 @@ export function TimerMeditation({
               <button
                 key={mins}
                 className={`${styles.durationButton} ${selectedMinutes === mins ? styles.selected : ''}`}
-                onClick={() => { setSelectedMinutes(mins); }}
+                onClick={() => {
+                  setSelectedMinutes(mins);
+                }}
               >
                 {mins} min
               </button>
@@ -177,7 +179,9 @@ export function TimerMeditation({
             <select
               className={styles.select}
               value={ambientSound}
-              onChange={(e) => { setAmbientSound(e.target.value as AmbientSoundType); }}
+              onChange={(e) => {
+                setAmbientSound(e.target.value as AmbientSoundType);
+              }}
             >
               <option value="none">None</option>
               <option value="ocean">Ocean Waves</option>
@@ -193,7 +197,9 @@ export function TimerMeditation({
             <select
               className={styles.select}
               value={binauralFreq}
-              onChange={(e) => { setBinauralFreq(e.target.value as BinauralFrequency); }}
+              onChange={(e) => {
+                setBinauralFreq(e.target.value as BinauralFrequency);
+              }}
             >
               <option value="theta">Theta (Deep meditation)</option>
               <option value="alpha">Alpha (Relaxation)</option>
@@ -222,9 +228,7 @@ export function TimerMeditation({
           />
         </div>
 
-        <div className={styles.timerDisplay}>
-          {formatTime(remainingSeconds)}
-        </div>
+        <div className={styles.timerDisplay}>{formatTime(remainingSeconds)}</div>
 
         <p className={styles.statusText}>
           {state === 'running' ? 'Breathe and relax...' : 'Paused'}
@@ -253,12 +257,12 @@ export function TimerMeditation({
     <div className={styles.container}>
       <div className={styles.completeIcon}>✓</div>
       <h3 className={styles.title}>Well Done!</h3>
-      <p className={styles.message}>
-        You completed a {selectedMinutes}-minute silent meditation.
-      </p>
+      <p className={styles.message}>You completed a {selectedMinutes}-minute silent meditation.</p>
       <button
         className={styles.startButton}
-        onClick={() => { setState('setup'); }}
+        onClick={() => {
+          setState('setup');
+        }}
       >
         Meditate Again
       </button>

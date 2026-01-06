@@ -1,0 +1,95 @@
+---
+# Web Frontend Deployment
+# TanStack Start (React) application
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wbot-web
+  namespace: wbot
+  labels:
+    app.kubernetes.io/name: wbot-web
+    app.kubernetes.io/component: frontend
+    app.kubernetes.io/part-of: wbot
+spec:
+  replicas: 2 # Scale based on traffic
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: wbot-web
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: wbot-web
+        app.kubernetes.io/component: frontend
+        app.kubernetes.io/part-of: wbot
+    spec:
+      containers:
+        - name: wbot-web
+          image: wbot-web:latest # Replace with your container registry
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 3000
+              name: http
+              protocol: TCP
+          env:
+            # Supabase configuration (client-side)
+            - name: VITE_SUPABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: wbot-secrets
+                  key: SUPABASE_URL
+            - name: VITE_SUPABASE_ANON_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: wbot-secrets
+                  key: SUPABASE_ANON_KEY
+            # AI Backend URL (internal service)
+            - name: VITE_LANGGRAPH_API_URL
+              value: 'http://wbot-ai:8000'
+            - name: NODE_ENV
+              value: 'production'
+            - name: PORT
+              value: '3000'
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 1000m
+              memory: 1Gi
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 3000
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+
+---
+# Web Frontend Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: wbot-web
+  namespace: wbot
+  labels:
+    app.kubernetes.io/name: wbot-web
+    app.kubernetes.io/component: frontend
+    app.kubernetes.io/part-of: wbot
+spec:
+  type: ClusterIP
+  ports:
+    - port: 80
+      targetPort: 3000
+      protocol: TCP
+      name: http
+  selector:
+    app.kubernetes.io/name: wbot-web

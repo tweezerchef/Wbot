@@ -4,17 +4,18 @@
    Route definition for the full-screen chatbot interface.
 
    Data Loading:
-   - Loader fetches the most recent conversation on route entry
-   - Runs client-side where Supabase auth is available
+   - Uses a server function to fetch conversation data server-side
+   - Accesses Supabase session via cookies for SSR
    - ChatPage receives initial data via useLoaderData()
    ============================================================================ */
 
 import { createFileRoute } from '@tanstack/react-router';
+import { createServerFn } from '@tanstack/react-start';
 
 import { ChatPage } from '../components/pages';
 import type { Message } from '../lib/ai-client';
-import { getMostRecentConversation, loadMessages } from '../lib/conversations';
-import { supabase } from '../lib/supabase';
+import { getMostRecentConversation, loadMessagesWithCache } from '../lib/conversations.server';
+import { createServerSupabaseClient } from '../lib/supabase/server';
 
 /* ----------------------------------------------------------------------------
    Loader Data Type
@@ -25,46 +26,57 @@ export interface ChatLoaderData {
 }
 
 /* ----------------------------------------------------------------------------
+   Server Function - Fetches conversation data server-side
+   ----------------------------------------------------------------------------
+   This runs on the server where we have access to auth cookies.
+   Returns the most recent conversation and its messages.
+   ---------------------------------------------------------------------------- */
+const getConversationData = createServerFn({ method: 'GET' }).handler(
+  async (): Promise<ChatLoaderData> => {
+    try {
+      // Create server-side Supabase client with cookie access
+      const supabase = createServerSupabaseClient();
+
+      // Get the authenticated user from the session cookie
+      const {
+        data: { user },
+        error,
+      } = await supabase.auth.getUser();
+
+      if (error || !user) {
+        // No authenticated user - return empty state
+        return { conversationId: null, messages: [] };
+      }
+
+      // Fetch the most recent conversation for this user
+      const conversationId = await getMostRecentConversation(user.id, supabase);
+
+      if (!conversationId) {
+        // User has no conversations yet
+        return { conversationId: null, messages: [] };
+      }
+
+      // Load all messages for the conversation (with Redis cache)
+      const messages = await loadMessagesWithCache(conversationId, supabase);
+
+      return { conversationId, messages };
+    } catch (err) {
+      console.error('Failed to load conversation in server function:', err);
+      return { conversationId: null, messages: [] };
+    }
+  }
+);
+
+/* ----------------------------------------------------------------------------
    Route Definition
    ---------------------------------------------------------------------------- */
 export const Route = createFileRoute('/chat')({
   /**
    * Loads the most recent conversation before rendering ChatPage.
    *
-   * Runs client-side where Supabase session is available.
-   * Returns empty state if no session or no conversations exist.
+   * Calls the server function to fetch data with full auth context.
    */
-  loader: async (): Promise<ChatLoaderData> => {
-    // Only run on client where Supabase auth is available
-    if (typeof window === 'undefined') {
-      return { conversationId: null, messages: [] };
-    }
-
-    try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      if (!session) {
-        return { conversationId: null, messages: [] };
-      }
-
-      // Fetch most recent conversation
-      const conversationId = await getMostRecentConversation(session.user.id);
-
-      if (!conversationId) {
-        return { conversationId: null, messages: [] };
-      }
-
-      // Load messages for that conversation
-      const messages = await loadMessages(conversationId);
-
-      return { conversationId, messages };
-    } catch (error) {
-      console.error('Failed to load conversation in loader:', error);
-      return { conversationId: null, messages: [] };
-    }
-  },
+  loader: () => getConversationData(),
 
   component: ChatPage,
 });

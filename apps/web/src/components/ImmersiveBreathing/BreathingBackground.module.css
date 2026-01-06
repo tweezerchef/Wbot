@@ -1,0 +1,178 @@
+/**
+ * BreathingBackground Styles
+ *
+ * Animated gradient background for the immersive breathing experience.
+ * Creates a living, breathing ambient atmosphere that shifts colors
+ * based on the current breathing phase.
+ */
+
+/* Base background - covers entire container */
+.background {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  z-index: 0;
+}
+
+/* Animated gradient layer */
+.gradient {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    -45deg,
+    var(--color-activity-bg-start),
+    var(--color-wellness-ocean),
+    var(--color-breath-hold),
+    var(--color-breath-inhale),
+    var(--color-activity-bg-end)
+  );
+  background-size: 400% 400%;
+  animation: gradientShift 15s ease infinite;
+  transition: filter 1s ease;
+}
+
+/* Animation for gradient position */
+@keyframes gradientShift {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+/* Phase-specific color overlays */
+.phaseOverlay {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 1s ease;
+  pointer-events: none;
+}
+
+/* Inhale phase - cool blue tones */
+.phaseInhale .phaseOverlay {
+  background: radial-gradient(circle at center, rgba(126, 200, 227, 0.3) 0%, transparent 70%);
+  opacity: 1;
+}
+
+/* HoldIn phase - stable lavender */
+.phaseHoldIn .phaseOverlay {
+  background: radial-gradient(circle at center, rgba(155, 143, 212, 0.25) 0%, transparent 70%);
+  opacity: 1;
+}
+
+/* Exhale phase - warm green/amber tones */
+.phaseExhale .phaseOverlay {
+  background: radial-gradient(circle at center, rgba(126, 212, 166, 0.25) 0%, transparent 70%);
+  opacity: 1;
+}
+
+/* HoldOut phase - stable, grounding */
+.phaseHoldOut .phaseOverlay {
+  background: radial-gradient(circle at center, rgba(107, 158, 125, 0.2) 0%, transparent 70%);
+  opacity: 1;
+}
+
+/* Idle state - neutral */
+.phaseIdle .phaseOverlay {
+  opacity: 0;
+}
+
+/* Pause the animation when not active */
+.paused .gradient {
+  animation-play-state: paused;
+}
+
+/* ============================================================================
+   AMBIENT PARTICLES (optional subtle effect)
+   ============================================================================ */
+
+.particles {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.particle {
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 50%;
+  animation: float 8s ease-in-out infinite;
+}
+
+.particle:nth-child(1) {
+  left: 10%;
+  animation-delay: 0s;
+  animation-duration: 10s;
+}
+
+.particle:nth-child(2) {
+  left: 30%;
+  animation-delay: 2s;
+  animation-duration: 12s;
+}
+
+.particle:nth-child(3) {
+  left: 50%;
+  animation-delay: 4s;
+  animation-duration: 9s;
+}
+
+.particle:nth-child(4) {
+  left: 70%;
+  animation-delay: 1s;
+  animation-duration: 11s;
+}
+
+.particle:nth-child(5) {
+  left: 90%;
+  animation-delay: 3s;
+  animation-duration: 10s;
+}
+
+@keyframes float {
+  0%,
+  100% {
+    bottom: -10%;
+    opacity: 0;
+    transform: translateX(0) scale(1);
+  }
+  10% {
+    opacity: 0.3;
+  }
+  90% {
+    opacity: 0.3;
+  }
+  100% {
+    bottom: 110%;
+    opacity: 0;
+    transform: translateX(30px) scale(0.5);
+  }
+}
+
+/* ============================================================================
+   REDUCED MOTION
+   ============================================================================ */
+
+@media (prefers-reduced-motion: reduce) {
+  .gradient {
+    animation: none;
+    background-position: 50% 50%;
+  }
+
+  .particle {
+    animation: none;
+    display: none;
+  }
+
+  .phaseOverlay {
+    transition: none;
+  }
+}

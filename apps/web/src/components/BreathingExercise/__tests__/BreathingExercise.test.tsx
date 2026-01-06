@@ -226,8 +226,10 @@ describe('BreathingExercise', () => {
       fireEvent.click(screen.getByText('Start Exercise'));
 
       // Should have 2 dots for 2 cycles
-      const container = screen.getByText('Cycle 1 of 2').parentElement;
-      const dots = container?.querySelectorAll('[class*="progressDot"]');
+      // Use progressDots wrapper to query only child dots (not the wrapper itself)
+      const wrapper = screen.getByText('Cycle 1 of 2').parentElement;
+      const dotsContainer = wrapper?.querySelector('[class*="progressDots"]');
+      const dots = dotsContainer?.querySelectorAll(':scope > div');
       expect(dots).toHaveLength(2);
     });
 
@@ -238,8 +240,10 @@ describe('BreathingExercise', () => {
 
       fireEvent.click(screen.getByText('Start Exercise'));
 
-      const dots = container.querySelectorAll('[class*="progressDot"]');
-      expect(dots[0].className).toContain('progressDotActive');
+      // Query the wrapper, then get direct child divs (the actual dots)
+      const dotsContainer = container.querySelector('[class*="progressDots"]');
+      const dots = dotsContainer?.querySelectorAll(':scope > div');
+      expect(dots?.[0]?.className).toContain('progressDotActive');
     });
   });
 

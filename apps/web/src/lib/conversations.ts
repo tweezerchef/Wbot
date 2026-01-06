@@ -1,21 +1,38 @@
 /**
- * Conversation management helpers for Supabase.
+ * Conversation management helpers (client-safe).
  *
  * Provides functions for creating, loading, and managing conversations.
  * Used by ChatPage to persist conversation state across sessions.
+ *
+ * NOTE: This file is client-safe (no Node.js-only imports).
+ * For server-side functions with Redis caching, see conversations.server.ts
+ *
+ * Functions accept an optional Supabase client parameter to support both:
+ * - Browser usage (default client)
+ * - Server usage (pass server client from route loader)
  */
 
+import type { SupabaseClient } from '@supabase/supabase-js';
+import type { Database } from '@wbot/shared';
+
 import type { Message } from './ai-client';
-import { supabase } from './supabase';
+import { supabase as defaultClient } from './supabase';
+
+// Type alias for the typed Supabase client
+type TypedSupabaseClient = SupabaseClient<Database>;
 
 /**
  * Creates a new conversation for the user.
  *
  * @param userId - The authenticated user's ID
+ * @param client - Optional Supabase client (defaults to browser client)
  * @returns The new conversation's UUID
  */
-export async function createConversation(userId: string): Promise<string> {
-  const { data, error } = await supabase
+export async function createConversation(
+  userId: string,
+  client: TypedSupabaseClient = defaultClient
+): Promise<string> {
+  const { data, error } = await client
     .from('conversations')
     .insert({ user_id: userId })
     .select('id')
@@ -35,10 +52,14 @@ export async function createConversation(userId: string): Promise<string> {
  * Used on page load to auto-restore the last conversation.
  *
  * @param userId - The authenticated user's ID
+ * @param client - Optional Supabase client (defaults to browser client)
  * @returns The conversation ID, or null if no conversations exist
  */
-export async function getMostRecentConversation(userId: string): Promise<string | null> {
-  const { data, error } = await supabase
+export async function getMostRecentConversation(
+  userId: string,
+  client: TypedSupabaseClient = defaultClient
+): Promise<string | null> {
+  const { data, error } = await client
     .from('conversations')
     .select('id')
     .eq('user_id', userId)
@@ -55,15 +76,22 @@ export async function getMostRecentConversation(userId: string): Promise<string 
 }
 
 /**
- * Loads all messages for a conversation.
+ * Loads all messages for a conversation from Supabase.
+ *
+ * This is the client-safe version that fetches directly from Supabase.
+ * For server-side loading with Redis cache, see conversations.server.ts
  *
  * Messages are returned in chronological order.
  *
  * @param conversationId - The conversation UUID
+ * @param client - Optional Supabase client (defaults to browser client)
  * @returns Array of messages in the conversation
  */
-export async function loadMessages(conversationId: string): Promise<Message[]> {
-  const { data, error } = await supabase
+export async function loadMessages(
+  conversationId: string,
+  client: TypedSupabaseClient = defaultClient
+): Promise<Message[]> {
+  const { data, error } = await client
     .from('messages')
     .select('id, role, content, created_at')
     .eq('conversation_id', conversationId)
@@ -89,9 +117,13 @@ export async function loadMessages(conversationId: string): Promise<Message[]> {
  * at the top of the "most recent" list.
  *
  * @param conversationId - The conversation UUID
+ * @param client - Optional Supabase client (defaults to browser client)
  */
-export async function touchConversation(conversationId: string): Promise<void> {
-  const { error } = await supabase
+export async function touchConversation(
+  conversationId: string,
+  client: TypedSupabaseClient = defaultClient
+): Promise<void> {
+  const { error } = await client
     .from('conversations')
     .update({ updated_at: new Date().toISOString() })
     .eq('id', conversationId);

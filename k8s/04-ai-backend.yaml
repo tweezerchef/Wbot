@@ -1,0 +1,145 @@
+---
+# AI Backend Deployment
+# Python LangGraph service with FastAPI
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wbot-ai
+  namespace: wbot
+  labels:
+    app.kubernetes.io/name: wbot-ai
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/part-of: wbot
+spec:
+  replicas: 2 # Scale based on traffic
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: wbot-ai
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: wbot-ai
+        app.kubernetes.io/component: backend
+        app.kubernetes.io/part-of: wbot
+    spec:
+      containers:
+        - name: wbot-ai
+          image: wbot-ai:latest # Replace with your container registry
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8000
+              name: http
+              protocol: TCP
+          env:
+            - name: REDIS_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: wbot-config
+                  key: REDIS_URL
+            - name: CORS_ORIGINS
+              valueFrom:
+                configMapKeyRef:
+                  name: wbot-config
+                  key: CORS_ORIGINS
+            - name: LANGSMITH_TRACING
+              valueFrom:
+                configMapKeyRef:
+                  name: wbot-config
+                  key: LANGSMITH_TRACING
+            - name: LANGSMITH_PROJECT
+              valueFrom:
+                configMapKeyRef:
+                  name: wbot-config
+                  key: LANGSMITH_PROJECT
+            - name: PYTHONUNBUFFERED
+              valueFrom:
+                configMapKeyRef:
+                  name: wbot-config
+                  key: PYTHONUNBUFFERED
+            - name: PYTHONDONTWRITEBYTECODE
+              valueFrom:
+                configMapKeyRef:
+                  name: wbot-config
+                  key: PYTHONDONTWRITEBYTECODE
+            # Secrets
+            - name: SUPABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: wbot-secrets
+                  key: SUPABASE_URL
+            - name: SUPABASE_SERVICE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: wbot-secrets
+                  key: SUPABASE_SERVICE_KEY
+            - name: DATABASE_URI
+              valueFrom:
+                secretKeyRef:
+                  name: wbot-secrets
+                  key: DATABASE_URI
+            - name: ANTHROPIC_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: wbot-secrets
+                  key: ANTHROPIC_API_KEY
+            - name: OPENAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: wbot-secrets
+                  key: OPENAI_API_KEY
+                  optional: true
+            - name: GOOGLE_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: wbot-secrets
+                  key: GOOGLE_API_KEY
+            - name: LANGSMITH_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: wbot-secrets
+                  key: LANGSMITH_API_KEY
+                  optional: true
+          resources:
+            requests:
+              cpu: 500m
+              memory: 512Mi
+            limits:
+              cpu: 2000m
+              memory: 2Gi
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+---
+# AI Backend Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: wbot-ai
+  namespace: wbot
+  labels:
+    app.kubernetes.io/name: wbot-ai
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/part-of: wbot
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8000
+      targetPort: 8000
+      protocol: TCP
+      name: http
+  selector:
+    app.kubernetes.io/name: wbot-ai

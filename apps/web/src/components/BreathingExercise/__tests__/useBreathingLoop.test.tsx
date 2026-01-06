@@ -36,13 +36,24 @@ function createWrapper() {
 
 /**
  * Helper to advance time and flush React effects
- * Uses runOnlyPendingTimers inside act to properly handle React state updates
+ *
+ * The hook uses recursive setTimeout scheduling where each tick schedules the next.
+ * We need to advance time in chunks that match the tick interval (100ms) and
+ * only run pending timers without immediately running newly scheduled ones.
  */
-function advanceTimersAndFlush(ms: number) {
-  act(() => {
-    vi.advanceTimersByTime(ms);
-    vi.runOnlyPendingTimers();
-  });
+async function advanceTimersAndFlush(ms: number) {
+  // Advance time in 100ms chunks to match the hook's tick interval
+  const tickIntervalMs = 100;
+  const steps = Math.ceil(ms / tickIntervalMs);
+
+  for (let i = 0; i < steps; i++) {
+    // eslint-disable-next-line @typescript-eslint/require-await -- act() requires async callback for proper flush
+    await act(async () => {
+      // advanceTimersByTime fires any timers that are due, but doesn't
+      // immediately fire timers scheduled during those callbacks
+      vi.advanceTimersByTime(tickIntervalMs);
+    });
+  }
 }
 
 describe('useBreathingLoop', () => {
@@ -182,7 +193,7 @@ describe('useBreathingLoop', () => {
   });
 
   describe('timing and phase progression', () => {
-    it('decrements phaseTimeRemaining over time', () => {
+    it('decrements phaseTimeRemaining over time', async () => {
       const { result } = renderHook(() => useBreathingLoop(testTechniqueShort), {
         wrapper: createWrapper(),
       });
@@ -192,14 +203,14 @@ describe('useBreathingLoop', () => {
       });
 
       // Advance 500ms
-      advanceTimersAndFlush(500);
+      await advanceTimersAndFlush(500);
 
       // Should have ~0.5s remaining (started with 1s)
       expect(result.current.state.phaseTimeRemaining).toBeLessThan(1);
       expect(result.current.state.phaseTimeRemaining).toBeGreaterThan(0);
     });
 
-    it('advances from inhale to holdIn when time expires', () => {
+    it('advances from inhale to holdIn when time expires', async () => {
       const { result } = renderHook(() => useBreathingLoop(testTechniqueShort), {
         wrapper: createWrapper(),
       });
@@ -212,13 +223,13 @@ describe('useBreathingLoop', () => {
 
       // Advance past inhale duration (1s) in small increments to trigger effects
       for (let i = 0; i < 12; i++) {
-        advanceTimersAndFlush(100);
+        await advanceTimersAndFlush(100);
       }
 
       expect(result.current.state.currentPhase).toBe('holdIn');
     });
 
-    it('advances through all 4 phases in order', () => {
+    it('advances through all 4 phases in order', async () => {
       const { result } = renderHook(() => useBreathingLoop(testTechniqueShort), {
         wrapper: createWrapper(),
       });
@@ -236,7 +247,7 @@ describe('useBreathingLoop', () => {
       for (let i = 0; i < 4; i++) {
         // Advance 1.2s in 100ms increments
         for (let j = 0; j < 12; j++) {
-          advanceTimersAndFlush(100);
+          await advanceTimersAndFlush(100);
         }
 
         // Check next phase (wraps to inhale on cycle 2)
@@ -245,7 +256,7 @@ describe('useBreathingLoop', () => {
       }
     });
 
-    it('updates phaseProgress as time passes', () => {
+    it('updates phaseProgress as time passes', async () => {
       const { result } = renderHook(() => useBreathingLoop(testTechniqueShort), {
         wrapper: createWrapper(),
       });
@@ -257,7 +268,7 @@ describe('useBreathingLoop', () => {
       expect(result.current.phaseProgress).toBe(0);
 
       // Advance halfway through phase
-      advanceTimersAndFlush(500);
+      await advanceTimersAndFlush(500);
 
       // Should be approximately 50% progress
       expect(result.current.phaseProgress).toBeGreaterThan(0.4);
@@ -266,7 +277,7 @@ describe('useBreathingLoop', () => {
   });
 
   describe('zero-duration phase handling', () => {
-    it('skips phases with 0 duration', () => {
+    it('skips phases with 0 duration', async () => {
       // testTechniqueWithZeros: [2, 0, 2, 0]
       const { result } = renderHook(() => useBreathingLoop(testTechniqueWithZeros), {
         wrapper: createWrapper(),
@@ -280,14 +291,14 @@ describe('useBreathingLoop', () => {
 
       // Complete inhale (2s) in increments
       for (let i = 0; i < 25; i++) {
-        advanceTimersAndFlush(100);
+        await advanceTimersAndFlush(100);
       }
 
       // Should have skipped holdIn (0s) and be in exhale
       expect(result.current.state.currentPhase).toBe('exhale');
     });
 
-    it('handles technique with all zero-duration hold phases', () => {
+    it('handles technique with all zero-duration hold phases', async () => {
       // testTechniqueAllZeroHolds: [1, 0, 0, 0]
       const { result } = renderHook(() => useBreathingLoop(testTechniqueAllZeroHolds), {
         wrapper: createWrapper(),
@@ -301,7 +312,7 @@ describe('useBreathingLoop', () => {
 
       // Complete inhale (1s) - should skip all zero-duration phases
       for (let i = 0; i < 15; i++) {
-        advanceTimersAndFlush(100);
+        await advanceTimersAndFlush(100);
       }
 
       // After skipping zero phases, should advance to cycle 2
@@ -310,7 +321,7 @@ describe('useBreathingLoop', () => {
   });
 
   describe('cycle counting', () => {
-    it('advances cycle when completing holdOut phase', () => {
+    it('advances cycle when completing holdOut phase', async () => {
       const { result } = renderHook(() => useBreathingLoop(testTechniqueShort), {
         wrapper: createWrapper(),
       });
@@ -323,13 +334,13 @@ describe('useBreathingLoop', () => {
 
       // Complete all 4 phases (4s total for testTechniqueShort) in increments
       for (let i = 0; i < 45; i++) {
-        advanceTimersAndFlush(100);
+        await advanceTimersAndFlush(100);
       }
 
       expect(result.current.state.currentCycle).toBe(2);
     });
 
-    it('completes after reaching totalCycles', () => {
+    it('completes after reaching totalCycles', async () => {
       // testTechniqueSingleCycle has 1 cycle, 4 phases of 1s each
       const { result } = renderHook(() => useBreathingLoop(testTechniqueSingleCycle), {
         wrapper: createWrapper(),
@@ -341,13 +352,13 @@ describe('useBreathingLoop', () => {
 
       // Complete all phases of single cycle (4s)
       for (let i = 0; i < 45; i++) {
-        advanceTimersAndFlush(100);
+        await advanceTimersAndFlush(100);
       }
 
       expect(result.current.state.isComplete).toBe(true);
     });
 
-    it('sets isActive to false on completion', () => {
+    it('sets isActive to false on completion', async () => {
       const { result } = renderHook(() => useBreathingLoop(testTechniqueSingleCycle), {
         wrapper: createWrapper(),
       });
@@ -358,7 +369,7 @@ describe('useBreathingLoop', () => {
 
       // Complete exercise
       for (let i = 0; i < 45; i++) {
-        advanceTimersAndFlush(100);
+        await advanceTimersAndFlush(100);
       }
 
       expect(result.current.state.isActive).toBe(false);
@@ -378,7 +389,7 @@ describe('useBreathingLoop', () => {
       expect(result.current.phaseProgress).toBe(0);
     });
 
-    it('returns value between 0 and 1 during phase', () => {
+    it('returns value between 0 and 1 during phase', async () => {
       const { result } = renderHook(() => useBreathingLoop(testTechniqueShort), {
         wrapper: createWrapper(),
       });
@@ -387,13 +398,13 @@ describe('useBreathingLoop', () => {
         result.current.start();
       });
 
-      advanceTimersAndFlush(500);
+      await advanceTimersAndFlush(500);
 
       expect(result.current.phaseProgress).toBeGreaterThan(0);
       expect(result.current.phaseProgress).toBeLessThan(1);
     });
 
-    it('calculates progress correctly (linear)', () => {
+    it('calculates progress correctly (linear)', async () => {
       const { result } = renderHook(() => useBreathingLoop(testTechniqueShort), {
         wrapper: createWrapper(),
       });
@@ -403,7 +414,7 @@ describe('useBreathingLoop', () => {
       });
 
       // Advance 50% through 1s phase
-      advanceTimersAndFlush(500);
+      await advanceTimersAndFlush(500);
 
       // Progress should be ~0.5 (accounting for timing variations)
       expect(result.current.phaseProgress).toBeCloseTo(0.5, 1);
@@ -427,7 +438,7 @@ describe('useBreathingLoop', () => {
       expect(result.current.state.isPaused).toBe(true);
     });
 
-    it('pause() stops timer decrement', () => {
+    it('pause() stops timer decrement', async () => {
       const { result } = renderHook(() => useBreathingLoop(testTechniqueShort), {
         wrapper: createWrapper(),
       });
@@ -437,7 +448,7 @@ describe('useBreathingLoop', () => {
       });
 
       // Advance 300ms
-      advanceTimersAndFlush(300);
+      await advanceTimersAndFlush(300);
 
       const timeBeforePause = result.current.state.phaseTimeRemaining;
 
@@ -446,7 +457,7 @@ describe('useBreathingLoop', () => {
       });
 
       // Advance more time while paused
-      advanceTimersAndFlush(500);
+      await advanceTimersAndFlush(500);
 
       // Time should not have changed
       expect(result.current.state.phaseTimeRemaining).toBe(timeBeforePause);
@@ -472,7 +483,7 @@ describe('useBreathingLoop', () => {
       expect(result.current.state.isPaused).toBe(false);
     });
 
-    it('resume() continues countdown from current time', () => {
+    it('resume() continues countdown from current time', async () => {
       const { result } = renderHook(() => useBreathingLoop(testTechniqueShort), {
         wrapper: createWrapper(),
       });
@@ -482,7 +493,7 @@ describe('useBreathingLoop', () => {
       });
 
       // Advance 300ms
-      advanceTimersAndFlush(300);
+      await advanceTimersAndFlush(300);
 
       const timeBeforePause = result.current.state.phaseTimeRemaining;
 
@@ -495,13 +506,13 @@ describe('useBreathingLoop', () => {
       });
 
       // Advance 200ms after resume
-      advanceTimersAndFlush(200);
+      await advanceTimersAndFlush(200);
 
       // Time should have decreased from the paused value
       expect(result.current.state.phaseTimeRemaining).toBeLessThan(timeBeforePause);
     });
 
-    it('paused state preserves current phase', () => {
+    it('paused state preserves current phase', async () => {
       const { result } = renderHook(() => useBreathingLoop(testTechniqueShort), {
         wrapper: createWrapper(),
       });
@@ -517,7 +528,7 @@ describe('useBreathingLoop', () => {
       });
 
       // Advance past what would be phase transition
-      advanceTimersAndFlush(2000);
+      await advanceTimersAndFlush(2000);
 
       // Phase should not have changed
       expect(result.current.state.currentPhase).toBe(phaseBeforePause);
@@ -525,7 +536,7 @@ describe('useBreathingLoop', () => {
   });
 
   describe('stop()', () => {
-    it('resets all state to initial', () => {
+    it('resets all state to initial', async () => {
       const { result } = renderHook(() => useBreathingLoop(testTechniqueShort), {
         wrapper: createWrapper(),
       });
@@ -535,7 +546,7 @@ describe('useBreathingLoop', () => {
       });
 
       // Advance some time
-      advanceTimersAndFlush(500);
+      await advanceTimersAndFlush(500);
 
       act(() => {
         result.current.stop();
@@ -549,7 +560,7 @@ describe('useBreathingLoop', () => {
       expect(result.current.state.currentCycle).toBe(1);
     });
 
-    it('resets phaseTimeRemaining to initial value', () => {
+    it('resets phaseTimeRemaining to initial value', async () => {
       const { result } = renderHook(() => useBreathingLoop(testTechniqueShort), {
         wrapper: createWrapper(),
       });
@@ -558,7 +569,7 @@ describe('useBreathingLoop', () => {
         result.current.start();
       });
 
-      advanceTimersAndFlush(500);
+      await advanceTimersAndFlush(500);
 
       act(() => {
         result.current.stop();
@@ -570,7 +581,7 @@ describe('useBreathingLoop', () => {
   });
 
   describe('reset()', () => {
-    it('resets to initial state', () => {
+    it('resets to initial state', async () => {
       const { result } = renderHook(() => useBreathingLoop(testTechniqueShort), {
         wrapper: createWrapper(),
       });
@@ -579,7 +590,7 @@ describe('useBreathingLoop', () => {
         result.current.start();
       });
 
-      advanceTimersAndFlush(500);
+      await advanceTimersAndFlush(500);
 
       act(() => {
         result.current.reset();
@@ -591,7 +602,7 @@ describe('useBreathingLoop', () => {
   });
 
   describe('callbacks', () => {
-    it('calls onComplete callback when exercise finishes', () => {
+    it('calls onComplete callback when exercise finishes', async () => {
       const onComplete = vi.fn();
 
       const { result } = renderHook(() => useBreathingLoop(testTechniqueSingleCycle, onComplete), {
@@ -604,13 +615,13 @@ describe('useBreathingLoop', () => {
 
       // Complete all phases
       for (let i = 0; i < 50; i++) {
-        advanceTimersAndFlush(100);
+        await advanceTimersAndFlush(100);
       }
 
       expect(onComplete).toHaveBeenCalled();
     });
 
-    it('calls onComplete only once', () => {
+    it('calls onComplete only once', async () => {
       const onComplete = vi.fn();
 
       const { result } = renderHook(() => useBreathingLoop(testTechniqueSingleCycle, onComplete), {
@@ -623,18 +634,18 @@ describe('useBreathingLoop', () => {
 
       // Complete exercise
       for (let i = 0; i < 50; i++) {
-        advanceTimersAndFlush(100);
+        await advanceTimersAndFlush(100);
       }
 
       expect(result.current.state.isComplete).toBe(true);
 
       // Advance more time
-      advanceTimersAndFlush(1000);
+      await advanceTimersAndFlush(1000);
 
       expect(onComplete).toHaveBeenCalledTimes(1);
     });
 
-    it('calls onPhaseChange when phase changes', () => {
+    it('calls onPhaseChange when phase changes', async () => {
       const onPhaseChange = vi.fn();
 
       const { result } = renderHook(
@@ -651,7 +662,7 @@ describe('useBreathingLoop', () => {
 
       // Complete inhale phase
       for (let i = 0; i < 12; i++) {
-        advanceTimersAndFlush(100);
+        await advanceTimersAndFlush(100);
       }
 
       expect(onPhaseChange).toHaveBeenCalledWith('holdIn');
@@ -689,7 +700,7 @@ describe('useBreathingLoop', () => {
       expect(result.current.state.currentPhase).toBe('inhale');
     });
 
-    it('handles start while already active', () => {
+    it('handles start while already active', async () => {
       const { result } = renderHook(() => useBreathingLoop(testTechniqueShort), {
         wrapper: createWrapper(),
       });
@@ -698,7 +709,7 @@ describe('useBreathingLoop', () => {
         result.current.start();
       });
 
-      advanceTimersAndFlush(500);
+      await advanceTimersAndFlush(500);
 
       // Start again while active
       act(() => {
@@ -758,7 +769,7 @@ describe('useBreathingLoop', () => {
       expect(clearIntervalSpy).toHaveBeenCalled();
     });
 
-    it('handles very short phase durations', () => {
+    it('handles very short phase durations', async () => {
       const { result } = renderHook(() => useBreathingLoop(testTechniqueVeryShort), {
         wrapper: createWrapper(),
       });
@@ -769,7 +780,7 @@ describe('useBreathingLoop', () => {
 
       // testTechniqueVeryShort has 0.5s phases, 1 cycle = 2s total
       for (let i = 0; i < 30; i++) {
-        advanceTimersAndFlush(100);
+        await advanceTimersAndFlush(100);
       }
 
       expect(result.current.state.isComplete).toBe(true);
@@ -777,7 +788,7 @@ describe('useBreathingLoop', () => {
   });
 
   describe('state consistency', () => {
-    it('maintains consistent state during phase transitions', () => {
+    it('maintains consistent state during phase transitions', async () => {
       const { result } = renderHook(() => useBreathingLoop(testTechniqueShort), {
         wrapper: createWrapper(),
       });
@@ -794,7 +805,7 @@ describe('useBreathingLoop', () => {
 
         // Advance through phase
         for (let i = 0; i < 12; i++) {
-          advanceTimersAndFlush(100);
+          await advanceTimersAndFlush(100);
         }
       }
     });

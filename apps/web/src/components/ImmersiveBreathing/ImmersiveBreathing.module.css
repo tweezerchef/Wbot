@@ -1,0 +1,322 @@
+/**
+ * ImmersiveBreathing Styles
+ *
+ * Main container styles for the full-screen breathing experience.
+ * Handles the intro, active, and completion states.
+ */
+
+/* Main container - fills the overlay content area */
+.container {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* ============================================================================
+   INTRO STATE
+   ============================================================================ */
+
+.intro {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: var(--spacing-xl);
+  text-align: center;
+  color: white;
+}
+
+.introTitle {
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-semibold);
+  margin-bottom: var(--spacing-md);
+}
+
+.introMessage {
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-relaxed);
+  max-width: 400px;
+  opacity: 0.85;
+  margin-bottom: var(--spacing-xl);
+}
+
+.techniqueInfo {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-xs);
+  margin-bottom: var(--spacing-2xl);
+  padding: var(--spacing-lg);
+  background: var(--glass-background);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+}
+
+.techniqueName {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-medium);
+}
+
+.techniqueTiming {
+  font-size: var(--font-size-sm);
+  opacity: 0.7;
+  font-variant-numeric: tabular-nums;
+}
+
+.techniqueDescription {
+  font-size: var(--font-size-sm);
+  opacity: 0.6;
+  max-width: 300px;
+}
+
+.startButton {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-md) var(--spacing-xl);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-medium);
+  color: white;
+  background: linear-gradient(135deg, var(--color-breath-inhale) 0%, var(--color-breath-hold) 100%);
+  border: none;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  transition:
+    transform var(--transition-fast),
+    box-shadow var(--transition-fast);
+  box-shadow: 0 4px 20px rgba(126, 200, 227, 0.4);
+}
+
+.startButton:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 25px rgba(126, 200, 227, 0.5);
+}
+
+.startButton:active {
+  transform: scale(0.98);
+}
+
+.startButton:focus-visible {
+  outline: 2px solid white;
+  outline-offset: 4px;
+}
+
+/* ============================================================================
+   ACTIVE STATE
+   ============================================================================ */
+
+.active {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: var(--spacing-xl);
+  padding-bottom: 100px; /* Space for controls */
+}
+
+/* ============================================================================
+   COMPLETION STATE
+   ============================================================================ */
+
+.complete {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: var(--spacing-xl);
+  text-align: center;
+  color: white;
+}
+
+.completeIcon {
+  width: 80px;
+  height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, var(--color-success) 0%, var(--color-wellness-forest) 100%);
+  border-radius: 50%;
+  margin-bottom: var(--spacing-lg);
+  animation: scaleIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  box-shadow: 0 4px 20px rgba(34, 197, 94, 0.4);
+}
+
+@keyframes scaleIn {
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.checkmark {
+  width: 40px;
+  height: 40px;
+  stroke: white;
+  stroke-width: 3;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  animation: drawCheck 0.4s ease-out 0.2s forwards;
+  stroke-dasharray: 60;
+  stroke-dashoffset: 60;
+}
+
+@keyframes drawCheck {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.completeTitle {
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-semibold);
+  margin-bottom: var(--spacing-sm);
+  animation: fadeUp 0.4s ease-out 0.3s both;
+}
+
+.completeMessage {
+  font-size: var(--font-size-base);
+  opacity: 0.8;
+  animation: fadeUp 0.4s ease-out 0.4s both;
+}
+
+.stats {
+  display: flex;
+  gap: var(--spacing-xl);
+  margin-top: var(--spacing-xl);
+  animation: fadeUp 0.4s ease-out 0.5s both;
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-xs);
+}
+
+.statValue {
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+}
+
+.statLabel {
+  font-size: var(--font-size-sm);
+  opacity: 0.7;
+}
+
+.doneButton {
+  margin-top: var(--spacing-2xl);
+  padding: var(--spacing-md) var(--spacing-xl);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
+  color: white;
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  transition: background var(--transition-fast);
+  animation: fadeUp 0.4s ease-out 0.6s both;
+}
+
+.doneButton:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.doneButton:focus-visible {
+  outline: 2px solid white;
+  outline-offset: 4px;
+}
+
+.doneButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Mood change display */
+.moodChange {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  margin-top: var(--spacing-lg);
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-md);
+  animation: fadeUp 0.4s ease-out 0.55s both;
+}
+
+.moodLabel {
+  font-size: var(--font-size-sm);
+  opacity: 0.8;
+}
+
+.moodDelta {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
+}
+
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ============================================================================
+   RESPONSIVE
+   ============================================================================ */
+
+@media (max-width: 480px) {
+  .intro {
+    padding: var(--spacing-lg);
+  }
+
+  .introTitle {
+    font-size: var(--font-size-xl);
+  }
+
+  .active {
+    padding: var(--spacing-lg);
+    padding-bottom: 80px;
+  }
+
+  .stats {
+    gap: var(--spacing-lg);
+  }
+}
+
+/* ============================================================================
+   REDUCED MOTION
+   ============================================================================ */
+
+@media (prefers-reduced-motion: reduce) {
+  .completeIcon {
+    animation: none;
+  }
+
+  .checkmark {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+
+  .completeTitle,
+  .completeMessage,
+  .stats,
+  .doneButton {
+    animation: none;
+  }
+}

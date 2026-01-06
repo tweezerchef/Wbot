@@ -25,7 +25,7 @@ from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
 from langgraph.types import interrupt
 
 from src.graph.state import WellnessState
-from src.llm.providers import ModelTier, create_llm
+from src.llm.providers import ModelTier, create_resilient_llm
 from src.logging_config import NodeLogger
 
 # Import safety validation functions
@@ -273,7 +273,8 @@ Respond with ONLY the technique ID (one of: {", ".join(valid_ids)}).
 """
 
     try:
-        llm = create_llm(tier=ModelTier.FAST, temperature=0.3, max_tokens=20)
+        # Use resilient LLM with automatic fallback on rate limits
+        llm = create_resilient_llm(tier=ModelTier.FAST, temperature=0.3, max_tokens=20)
         response = await llm.ainvoke([HumanMessage(content=selection_prompt)])
         technique_id = str(response.content).strip().lower()
 
@@ -281,7 +282,7 @@ Respond with ONLY the technique ID (one of: {", ".join(valid_ids)}).
         if technique_id in valid_ids:
             return next(t for t in available_techniques if t["id"] == technique_id)
     except Exception as e:
-        logger.warning(f"LLM technique selection failed: {e}")
+        logger.warning("LLM technique selection failed", error=str(e))
 
     # Default to box breathing if selection fails
     return BREATHING_TECHNIQUES["box"]

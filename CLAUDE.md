@@ -2,6 +2,9 @@
 
 This file provides instructions and context for Claude Code when working on this project.
 
+> **Note:** This project also has a `.cursorrules` file for Cursor IDE with the same information.
+> Both files are kept in sync and contain project conventions and AI assistant guidelines.
+
 ---
 
 ## Project Overview
@@ -38,11 +41,88 @@ The chatbot is the PRIMARY interface - activities render inside the chat, not as
 
 ### Testing
 
+#### ⚠️ CRITICAL: Never Rewrite Tests to Make Them Pass
+
+**Tests reveal bugs - FIX THE CODE, not the tests.**
+
 - **NEVER** change tests to avoid failures - tests reveal bugs that need fixing
 - **ALWAYS** fix code bugs when tests fail, not the tests themselves
 - **ONLY** change failing tests if the issue is actually in the test (incorrect assertions, wrong mocks, etc.)
 - **NEVER** weaken test assertions or add workarounds to make tests pass
+- **NEVER** use `sys.modules` mocking or other hacks to work around import/code issues
+- **NEVER** skip tests with `.skip()` or `@pytest.skip` to hide failures
+- **NEVER** change expected values to match buggy output
 - Failing tests are valuable - they document expected behavior and identify bugs
+- If tests fail due to circular imports, fix the imports in the code, not the tests
+
+**When tests fail, ask yourself:**
+
+1. Is the test correct? (Does it test the right behavior?)
+2. Is the implementation wrong? (Most likely - fix the code!)
+3. Did requirements change? (Only then update the test, with user approval)
+
+**Examples of what NOT to do:**
+
+```typescript
+// ❌ BAD: Changing expected value to match buggy output
+expect(result).toBe(42);  // Test was failing
+expect(result).toBe(41);  // Changed to make it pass - WRONG!
+
+// ❌ BAD: Weakening assertions
+expect(result).toEqual({ id: 1, name: 'test' });  // Was failing
+expect(result).toBeDefined();  // Weakened to pass - WRONG!
+
+// ❌ BAD: Skipping tests
+it.skip('should handle edge case', () => { ... });  // WRONG!
+
+// ✅ GOOD: Fix the implementation
+// If test expects 42 but gets 41, find and fix the bug in the code
+```
+
+#### Testing Tools & Packages
+
+**Frontend (apps/web) - Vitest + Testing Library:**
+
+| Package                       | Purpose                         | Usage                       |
+| ----------------------------- | ------------------------------- | --------------------------- |
+| `vitest`                      | Test runner (fast, Vite-native) | `pnpm test`                 |
+| `@vitest/ui`                  | Interactive test browser UI     | `pnpm test:ui`              |
+| `@vitest/coverage-v8`         | Code coverage reports           | `pnpm test:coverage`        |
+| `@testing-library/react`      | React component testing         | Render and query components |
+| `@testing-library/jest-dom`   | DOM assertion matchers          | `toBeInTheDocument()`, etc. |
+| `@testing-library/user-event` | User interaction simulation     | `userEvent.click()`, etc.   |
+| `happy-dom`                   | Fast DOM implementation         | Configured in vitest.config |
+
+**Backend (apps/ai) - Pytest:**
+
+| Package          | Purpose            | Usage                                 |
+| ---------------- | ------------------ | ------------------------------------- |
+| `pytest`         | Testing framework  | `uv run pytest`                       |
+| `pytest-asyncio` | Async test support | Automatic via `asyncio_mode = "auto"` |
+| `pytest-mock`    | Mocking utilities  | `mocker` fixture                      |
+
+#### Testing Commands Reference
+
+```bash
+# Frontend (apps/web)
+pnpm test                      # Run all tests in watch mode
+pnpm test:ui                   # Open interactive Vitest UI
+pnpm test:coverage             # Run tests with coverage report
+pnpm test ComponentName        # Run specific test file
+pnpm --filter @wbot/web test   # Run from monorepo root
+
+# Backend (apps/ai)
+cd apps/ai && uv run pytest              # Run all Python tests
+cd apps/ai && uv run pytest -v           # Verbose output
+cd apps/ai && uv run pytest tests/test_file.py  # Run specific file
+cd apps/ai && uv run pytest -k "test_name"      # Run tests matching pattern
+cd apps/ai && uv run pytest --cov=src    # With coverage (if configured)
+
+# Full test suite
+pnpm test:web                  # All frontend tests
+pnpm test:ai                   # All backend tests
+pnpm test                      # All tests (via Turbo)
+```
 
 #### Comprehensive Testing Requirements
 
@@ -108,15 +188,6 @@ describe('useWimHofLoop', () => {
     /* ... */
   });
 });
-```
-
-**Testing Commands:**
-
-```bash
-pnpm test                    # Run all tests
-pnpm test ComponentName      # Run specific test file
-pnpm test --coverage         # Run with coverage report
-pnpm test --ui               # Interactive test UI
 ```
 
 ### TypeScript Typing Rules
@@ -251,31 +322,85 @@ export function MessageBubble({ content, role }: MessageBubbleProps) {
 - **Runtime**: Python 3.11+
 - **Framework**: LangGraph + LangChain
 - **LLM**: Anthropic Claude (primary), Google Gemini (experimental)
-- **Memory**: Semantic memory with vector embeddings + Redis cache
+- **Memory**: Semantic memory with vector embeddings
+- **Cache**: Upstash Redis (remote) for embedding cache
 - **Package Manager**: uv
 - **Linting**: Ruff
 
 ### Database
 
-- **Platform**: Supabase (PostgreSQL)
+- **Platform**: Supabase (PostgreSQL) - Remote hosted
 - **Auth**: Supabase Auth
 - **Security**: Row Level Security (RLS) enabled
+- **Migrations**: `supabase/migrations/` pushed via `pnpm db:push`
+
+---
+
+## MCP Integrations
+
+This project uses Model Context Protocol (MCP) servers to enhance Claude Code capabilities.
+
+### Storybook MCP
+
+When Storybook is running (`pnpm storybook`), Claude has access to component documentation via MCP.
+
+**Available Tools:**
+
+| Tool                           | Description                                     |
+| ------------------------------ | ----------------------------------------------- |
+| `list-all-components`          | List all UI components in the Storybook library |
+| `get-component-documentation`  | Get detailed props and docs for a component     |
+| `get-story-urls`               | Get URLs for specific component stories         |
+| `get-ui-building-instructions` | Get instructions for UI component development   |
+
+**When to Use:**
+
+- **ALWAYS** call `get-ui-building-instructions` before creating or modifying UI components
+- Use `list-all-components` to discover existing components before creating new ones
+- Use `get-component-documentation` to understand component APIs and usage patterns
+
+**Configuration:**
+
+The MCP server is configured in `.mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "storybook": {
+      "type": "http",
+      "url": "http://localhost:6006/mcp"
+    }
+  }
+}
+```
+
+**Requirements:**
+
+- Storybook must be running: `pnpm storybook`
+- Node.js 24+ required for the `@storybook/addon-mcp` addon
 
 ---
 
 ## Common Commands
 
 ```bash
-# Development (start everything with one command)
-pnpm dev:all              # Start web + AI + Supabase together
+# Development (start everything - uses remote Supabase & Upstash Redis)
+pnpm dev:all              # Start web + AI (no Docker required)
 pnpm dev:web              # Start web frontend only
 pnpm dev:ai               # Start AI backend only
 
-# Database (requires Docker running)
-pnpm db:start             # Start local Supabase
-pnpm db:stop              # Stop local Supabase
-pnpm db:reset             # Reset database and rerun migrations
-pnpm db:generate-types    # Generate TypeScript types from DB
+# Database (remote Supabase)
+pnpm db:push              # Push migrations to remote Supabase
+pnpm db:generate-types    # Generate TypeScript types from remote DB
+pnpm db:status            # Check migration status
+pnpm db:new <name>        # Create new migration file
+
+# Local development (optional - requires Docker)
+pnpm db:local:start       # Start local Supabase
+pnpm db:local:stop        # Stop local Supabase
+pnpm db:local:reset       # Reset local database
+pnpm redis:local:start    # Start local Redis
+pnpm redis:local:stop     # Stop local Redis
 
 # Building
 pnpm build                # Build all packages
@@ -357,9 +482,25 @@ SUPABASE_SERVICE_KEY=     # Service role key (server only)
 | Graph state        | `apps/ai/src/graph/state.py`                 |
 | Memory system      | `apps/ai/src/memory/`                        |
 | System prompt      | `apps/ai/src/prompts/wellness_system.py`     |
-| DB migrations      | `database/migrations/*.sql`                  |
+| DB migrations      | `supabase/migrations/*.sql`                  |
 | Shared types       | `packages/shared/src/types/*.ts`             |
-| Roadmap            | `ROADMAP.md`                                 |
+| Roadmap            | `docs/ROADMAP.md`                            |
+| Internal docs      | `docs/`                                      |
+| Cursor rules       | `.cursorrules`                               |
+| Cursor ignore      | `.cursorignore`                              |
+
+---
+
+## Internal Documentation
+
+Project documentation is stored in the `docs/` folder and its subfolders. **ALWAYS** refer to these internal docs when:
+
+- Understanding project architecture or design decisions
+- Looking for feature specifications or requirements
+- Checking implementation details or patterns specific to this project
+- Researching how existing features were built
+
+Before implementing new features or making significant changes, check if relevant documentation exists in `docs/`.
 
 ---
 
@@ -402,10 +543,11 @@ SUPABASE_SERVICE_KEY=     # Service role key (server only)
 
 ### Adding Database Tables
 
-1. Create new migration file in `database/migrations/`
-2. Use sequential numbering (e.g., `004_table_name.sql`)
+1. Create new migration file: `pnpm db:new <name>`
+2. Write SQL in `supabase/migrations/`
 3. Include RLS policies for security
-4. Update types in `packages/shared/src/types/database.ts`
+4. Push to remote: `pnpm db:push`
+5. Generate types: `pnpm db:generate-types`
 
 ---
 
@@ -650,7 +792,7 @@ logging.getLogger("httpx").setLevel(logging.INFO)
 
 ## When Starting a New Session
 
-1. Read `ROADMAP.md` to understand current progress (Phases 1-3 complete, Phase 4 in progress)
+1. Read `docs/ROADMAP.md` to understand current progress (Phases 1-3 complete, Phase 4 in progress)
 2. Check for any uncommitted changes with `git status`
 3. Run `pnpm install` to ensure dependencies are current
 4. Start dev server with `pnpm dev:all` (or `pnpm dev:web` for frontend only)
@@ -660,4 +802,4 @@ logging.getLogger("httpx").setLevel(logging.INFO)
 
 _This file helps Claude Code understand the project conventions and constraints._
 
-_Last updated: January 3, 2025_
+_Last updated: January 6, 2025_

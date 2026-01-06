@@ -55,17 +55,28 @@ dependencies = [
     "python-dotenv>=1.2.1",
     # Data validation and serialization
     "pydantic>=2.12.5",
-    "langgraph-cli[inmem]>=0.4.11",
-    "redis>=7.1.0",
+    # Redis client - constrained by LangGraph base image to <7.0 (server can be 7+)
+    "redis>=6.4.0,<7.0",
     "anthropic>=0.75.0",
     # -------------------------------------------------------------------------
     # FastAPI - HTTP API Server
     # -------------------------------------------------------------------------
     # Used for non-conversational endpoints (TTS generation, etc.)
-    "fastapi>=0.115.0",
+    "fastapi>=0.128.0",
     # ASGI server for running FastAPI
-    "uvicorn>=0.34.0",
+    "uvicorn>=0.40.0",
     "openai>=2.14.0",
+    "pydub>=0.25.1",
+    "audioop-lts>=0.2.1; python_version >= '3.13'",  # pydub compatibility for Python 3.13+
+    "imageio-ffmpeg>=0.6.0",
+    # -------------------------------------------------------------------------
+    # LangGraph Checkpointing
+    # -------------------------------------------------------------------------
+    # PostgreSQL checkpointer for persistent conversation state (self-hosted)
+    # Uses psycopg3 with connection pooling for efficient database access
+    "langgraph-checkpoint-postgres>=3.0.2",
+    # psycopg with binary and pool support for optimal performance
+    "psycopg[binary,pool]>=3.3.0",
 ]
 
 # Development dependencies (installed with `uv sync --dev`)
@@ -120,7 +131,7 @@ ignore = ["E501"]
 
 # Per-file ignores (tests don't need strict type annotations)
 [tool.ruff.lint.per-file-ignores]
-"tests/**/*.py" = ["ANN201", "ANN001", "ANN202"]  # Allow missing type annotations in tests
+"tests/**/*.py" = ["ANN201", "ANN001", "ANN202", "ANN401"]  # Allow missing/Any type annotations in tests
 
 [tool.ruff.lint.isort]
 # Mark our own modules as first-party for proper import grouping
@@ -215,6 +226,13 @@ asyncio_mode = "auto"
 
 # Directory containing test files
 testpaths = ["tests"]
+
+# Suppress third-party deprecation warnings from pyiceberg (unfixable until 0.11.0)
+# See: https://github.com/apache/iceberg-python/issues/2648
+filterwarnings = [
+    "ignore::DeprecationWarning:pyiceberg.*",
+    "ignore::pydantic.warnings.PydanticDeprecatedSince212:pyiceberg.*",
+]
 
 [dependency-groups]
 dev = [

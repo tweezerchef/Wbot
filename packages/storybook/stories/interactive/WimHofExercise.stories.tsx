@@ -285,11 +285,23 @@ export const TestBreathCounter: Story = {
     // Start exercise
     await userEvent.click(canvas.getByText('Start Exercise'));
 
-    // Verify breath counter appears
-    await expect(canvas.getByText(/\/5/)).toBeInTheDocument();
+    // Wait for the rapid breathing phase to start
+    // The breath counter shows current/total where each number is in a separate span
+    // So we check for the phase indicator text instead, which is more reliable
+    const phaseIndicator = await canvas.findByText('Breathe rapidly', {}, { timeout: 3000 });
+    await expect(phaseIndicator).toBeInTheDocument();
+
+    // Verify the breath separator exists (the "/" between current and total breaths)
+    const breathSeparator = await canvas.findByText('/', {}, { timeout: 3000 });
+    await expect(breathSeparator).toBeInTheDocument();
+
+    // Verify the total breaths shows "5"
+    const totalBreaths = await canvas.findByText('5', {}, { timeout: 3000 });
+    await expect(totalBreaths).toBeInTheDocument();
 
     // Verify round indicator
-    await expect(canvas.getByText('Round 1 of 1')).toBeInTheDocument();
+    const roundIndicator = await canvas.findByText(/Round.*1.*of.*1/, {}, { timeout: 3000 });
+    await expect(roundIndicator).toBeInTheDocument();
   },
 };
 

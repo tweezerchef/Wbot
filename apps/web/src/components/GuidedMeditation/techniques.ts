@@ -263,7 +263,9 @@ export function getTracksByLanguage(language: string): MeditationTrack[] {
 /**
  * Get tracks by duration preset
  */
-export function getTracksByDuration(duration: MeditationTrack['durationPreset']): MeditationTrack[] {
+export function getTracksByDuration(
+  duration: MeditationTrack['durationPreset']
+): MeditationTrack[] {
   return Object.values(MEDITATION_TRACKS).filter((track) => track.durationPreset === duration);
 }
 
