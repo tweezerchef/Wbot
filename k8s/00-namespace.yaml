@@ -1,0 +1,10 @@
+---
+# Namespace for Wbot application
+# Isolates all Wbot resources in a dedicated namespace
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: wbot
+  labels:
+    app.kubernetes.io/name: wbot
+    app.kubernetes.io/component: namespace

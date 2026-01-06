@@ -45,6 +45,14 @@
     "ai:logs": "cd apps/ai && docker compose -f docker-compose.self-hosted.yml logs -f wbot-ai",
     "ai:restart": "cd apps/ai && docker compose -f docker-compose.self-hosted.yml restart wbot-ai",
     "ai:status": "docker ps --filter name=wbot --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'",
+    "docker:build:web": "docker build -t wbot-web:latest apps/web",
+    "docker:build:ai": "docker build -t wbot-ai:latest apps/ai",
+    "docker:build:all": "pnpm docker:build:web && pnpm docker:build:ai",
+    "k8s:deploy": "cd k8s && ./deploy.sh",
+    "k8s:status": "kubectl get all -n wbot",
+    "k8s:logs:ai": "kubectl logs -n wbot -l app.kubernetes.io/name=wbot-ai --tail=100 -f",
+    "k8s:logs:web": "kubectl logs -n wbot -l app.kubernetes.io/name=wbot-web --tail=100 -f",
+    "k8s:delete": "kubectl delete namespace wbot",
     "prepare": "husky"
   },
   "devDependencies": {

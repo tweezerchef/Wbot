@@ -1,0 +1,13 @@
+# Ignore secrets with real values
+01-secrets.yaml
+
+# Ignore if you create environment-specific overlays
+overlays/*/secrets.yaml
+
+# Ignore generated kustomize outputs
+kustomization-generated.yaml
+
+# Ignore temporary files
+*.tmp
+*.bak
+.DS_Store

@@ -1,0 +1,94 @@
+# Configuration values for Wbot Kubernetes deployment
+# Edit this file and apply changes using kustomize or your deployment tool
+
+# Global settings
+global:
+  namespace: wbot
+  domain: wbot.example.com # Replace with your domain
+
+# Image configuration
+images:
+  ai:
+    repository: your-registry.com/wbot-ai
+    tag: latest
+    pullPolicy: Always
+  web:
+    repository: your-registry.com/wbot-web
+    tag: latest
+    pullPolicy: Always
+
+# Replica counts
+replicas:
+  ai: 2
+  web: 2
+  redis: 1
+
+# Resource limits and requests
+resources:
+  ai:
+    requests:
+      cpu: 500m
+      memory: 512Mi
+    limits:
+      cpu: 2000m
+      memory: 2Gi
+  web:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+  redis:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+# Ingress configuration
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: 'true'
+    nginx.ingress.kubernetes.io/force-ssl-redirect: 'true'
+    nginx.ingress.kubernetes.io/enable-cors: 'true'
+    nginx.ingress.kubernetes.io/proxy-read-timeout: '3600'
+    nginx.ingress.kubernetes.io/proxy-send-timeout: '3600'
+    cert-manager.io/cluster-issuer: 'letsencrypt-prod'
+  tls:
+    enabled: true
+    secretName: wbot-tls-cert
+
+# Autoscaling
+autoscaling:
+  ai:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+  web:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 5
+    targetCPUUtilizationPercentage: 70
+
+# External services
+supabase:
+  url: https://your-project.supabase.co # Replace
+  # Keys should be in secrets, not here
+
+# Redis
+redis:
+  persistence:
+    enabled: false # Set to true for production
+    size: 10Gi
+    storageClass: standard
+
+# Environment variables
+env:
+  corsOrigins: '*'
+  langsmithTracing: 'false'
+  langsmithProject: 'wbot-wellness'
