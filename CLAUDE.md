@@ -2,6 +2,9 @@
 
 This file provides instructions and context for Claude Code when working on this project.
 
+> **Note:** This project also has a `.cursorrules` file for Cursor IDE with the same information.
+> Both files are kept in sync and contain project conventions and AI assistant guidelines.
+
 ---
 
 ## Project Overview
@@ -329,7 +332,7 @@ export function MessageBubble({ content, role }: MessageBubbleProps) {
 - **Platform**: Supabase (PostgreSQL) - Remote hosted
 - **Auth**: Supabase Auth
 - **Security**: Row Level Security (RLS) enabled
-- **Migrations**: `database/migrations/` pushed via `pnpm db:push`
+- **Migrations**: `supabase/migrations/` pushed via `pnpm db:push`
 
 ---
 
@@ -479,9 +482,25 @@ SUPABASE_SERVICE_KEY=     # Service role key (server only)
 | Graph state        | `apps/ai/src/graph/state.py`                 |
 | Memory system      | `apps/ai/src/memory/`                        |
 | System prompt      | `apps/ai/src/prompts/wellness_system.py`     |
-| DB migrations      | `database/migrations/*.sql`                  |
+| DB migrations      | `supabase/migrations/*.sql`                  |
 | Shared types       | `packages/shared/src/types/*.ts`             |
-| Roadmap            | `ROADMAP.md`                                 |
+| Roadmap            | `docs/ROADMAP.md`                            |
+| Internal docs      | `docs/`                                      |
+| Cursor rules       | `.cursorrules`                               |
+| Cursor ignore      | `.cursorignore`                              |
+
+---
+
+## Internal Documentation
+
+Project documentation is stored in the `docs/` folder and its subfolders. **ALWAYS** refer to these internal docs when:
+
+- Understanding project architecture or design decisions
+- Looking for feature specifications or requirements
+- Checking implementation details or patterns specific to this project
+- Researching how existing features were built
+
+Before implementing new features or making significant changes, check if relevant documentation exists in `docs/`.
 
 ---
 
@@ -525,7 +544,7 @@ SUPABASE_SERVICE_KEY=     # Service role key (server only)
 ### Adding Database Tables
 
 1. Create new migration file: `pnpm db:new <name>`
-2. Write SQL in `database/migrations/` (uses sequential numbering)
+2. Write SQL in `supabase/migrations/`
 3. Include RLS policies for security
 4. Push to remote: `pnpm db:push`
 5. Generate types: `pnpm db:generate-types`
@@ -773,7 +792,7 @@ logging.getLogger("httpx").setLevel(logging.INFO)
 
 ## When Starting a New Session
 
-1. Read `ROADMAP.md` to understand current progress (Phases 1-3 complete, Phase 4 in progress)
+1. Read `docs/ROADMAP.md` to understand current progress (Phases 1-3 complete, Phase 4 in progress)
 2. Check for any uncommitted changes with `git status`
 3. Run `pnpm install` to ensure dependencies are current
 4. Start dev server with `pnpm dev:all` (or `pnpm dev:web` for frontend only)
@@ -783,4 +802,4 @@ logging.getLogger("httpx").setLevel(logging.INFO)
 
 _This file helps Claude Code understand the project conventions and constraints._
 
-_Last updated: January 5, 2025_
+_Last updated: January 6, 2025_
