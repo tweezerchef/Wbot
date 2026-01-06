@@ -1,0 +1,87 @@
+# Cursor Ignore File
+# Files and directories that Cursor should not index or search
+
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Python virtual environments
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+.ruff_cache/
+.mypy_cache/
+.pytest_cache/
+
+# Build outputs
+dist/
+build/
+.next/
+out/
+.vercel/
+.turbo/
+*.tsbuildinfo
+
+# Generated files
+*.gen.ts
+packages/shared/src/types/database.ts
+
+# Documentation build
+docs/build/
+docs/.docusaurus/
+
+# IDE and editor
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Environment files (don't index secrets)
+.env
+.env.local
+.env.*.local
+apps/web/.env
+apps/ai/.env
+
+# Test coverage
+coverage/
+.nyc_output/
+htmlcov/
+.coverage
+
+# Lock files (large and not useful to search)
+pnpm-lock.yaml
+uv.lock
+
+# Storybook build
+storybook-static/
+
+# Docker
+.docker/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Large binary assets
+*.mp3
+*.wav
+*.mp4
+*.mov
+*.zip
+*.tar.gz
