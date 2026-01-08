@@ -38,6 +38,10 @@ on:
           - full
           - check-only
 
+permissions:
+  contents: write      # Required for git push
+  pull-requests: write # Required for gh pr create
+
 jobs:
   check-docs:
     name: Check Documentation Staleness
