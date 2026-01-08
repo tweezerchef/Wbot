@@ -54,3 +54,6 @@ supabase/.branches/
 # LangGraph local API cache
 .langgraph_api/
 tmp/
+
+# CI artifacts (generated during workflow runs)
+staleness.json
