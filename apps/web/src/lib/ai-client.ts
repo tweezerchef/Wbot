@@ -23,6 +23,26 @@
    }
    ============================================================================ */
 
+import {
+  type InterruptPayload,
+  type SSEEvent,
+  isBreathingConfirmation,
+  isVoiceSelection,
+  parseErrorMessage,
+  parseHistoryResponse,
+  parseInterruptPayload,
+  parseSSEEvent,
+  parseSSEMessages,
+} from './schemas/ai-client';
+
+// Re-export types and type guards for consumers
+export type {
+  BreathingConfirmationPayload,
+  InterruptPayload,
+  VoiceSelectionPayload,
+} from './schemas/ai-client';
+export { isBreathingConfirmation, isVoiceSelection };
+
 /* ----------------------------------------------------------------------------
    Configuration
    ---------------------------------------------------------------------------- */
@@ -49,58 +69,8 @@ export interface Message {
   createdAt: Date;
 }
 
-// Breathing technique info from the backend
-export interface BreathingTechniqueInfo {
-  id: string;
-  name: string;
-  description: string;
-  durations: [number, number, number, number];
-  recommended_cycles: number;
-  best_for: string[];
-}
-
-// Payload sent by the backend when an interrupt occurs for breathing confirmation
-export interface BreathingConfirmationPayload {
-  type: 'breathing_confirmation';
-  proposed_technique: BreathingTechniqueInfo;
-  message: string;
-  available_techniques: BreathingTechniqueInfo[];
-  options: ('start' | 'change_technique' | 'not_now')[];
-}
-
-// Voice info from the backend (for meditation voice selection)
-export interface VoiceInfo {
-  id: string;
-  name: string;
-  description: string;
-  best_for: string[];
-  preview_url: string | null;
-}
-
-// Payload sent by the backend when an interrupt occurs for meditation voice selection
-export interface VoiceSelectionPayload {
-  type: 'voice_selection';
-  message: string;
-  available_voices: VoiceInfo[];
-  recommended_voice: string;
-  meditation_preview: string;
-  duration_minutes: number;
-}
-
-// Union type for all interrupt payloads (supports multiple HITL workflows)
-export type InterruptPayload = BreathingConfirmationPayload | VoiceSelectionPayload;
-
-// Type guard for breathing confirmation payload
-export function isBreathingConfirmation(
-  payload: InterruptPayload
-): payload is BreathingConfirmationPayload {
-  return payload.type === 'breathing_confirmation';
-}
-
-// Type guard for voice selection payload
-export function isVoiceSelection(payload: InterruptPayload): payload is VoiceSelectionPayload {
-  return payload.type === 'voice_selection';
-}
+// Re-export schema types for backward compatibility
+export type { BreathingTechniqueInfo, VoiceInfo } from './schemas/ai-client';
 
 // Events emitted during streaming
 export type StreamEvent =
@@ -116,23 +86,6 @@ export type StreamEvent =
   | { type: 'interrupt'; payload: InterruptPayload };
 
 /* ----------------------------------------------------------------------------
-   SSE Parser Types
-   ---------------------------------------------------------------------------- */
-
-/** Parsed SSE event from the backend */
-interface SSEEvent {
-  event: string;
-  data: unknown;
-}
-
-/** Message format from SSE stream */
-interface SSEMessage {
-  role?: string;
-  content?: string;
-  id?: string;
-}
-
-/* ----------------------------------------------------------------------------
    SSE Parser
    ---------------------------------------------------------------------------- */
 
@@ -143,10 +96,12 @@ interface SSEMessage {
  * - data: {"event": "...", "data": ...}\n\n
  * - data: [DONE]\n\n
  *
+ * Uses Zod validation for type-safe parsing.
+ *
  * @param reader - ReadableStream reader from fetch response
  * @yields Parsed SSE events
  */
-async function* parseSSE(
+async function* parseSSEStream(
   reader: ReadableStreamDefaultReader<Uint8Array>
 ): AsyncGenerator<SSEEvent | 'DONE'> {
   const decoder = new TextDecoder();
@@ -185,12 +140,11 @@ async function* parseSSE(
             continue;
           }
 
-          // Parse JSON payload
-          try {
-            const parsed = JSON.parse(dataStr) as SSEEvent;
+          // Parse and validate JSON payload using Zod
+          const parsed = parseSSEEvent(dataStr);
+          if (parsed) {
             yield parsed;
-          } catch {
-            // Skip malformed JSON
+          } else {
             console.warn('Failed to parse SSE data:', dataStr);
           }
         }
@@ -305,24 +259,23 @@ export class AIClient {
         return;
       }
 
-      // Parse SSE stream
+      // Parse SSE stream with Zod validation
       const reader = response.body.getReader();
 
-      for await (const event of parseSSE(reader)) {
+      for await (const event of parseSSEStream(reader)) {
         // Handle stream termination
         if (event === 'DONE') {
           yield { type: 'done' };
           return;
         }
 
-        // Handle different event types
+        // Handle different event types with Zod-validated parsing
         switch (event.event) {
           case 'messages/partial': {
-            // Streaming token - data is array of messages
-            const messages = event.data as SSEMessage[];
-            if (Array.isArray(messages) && messages.length > 0) {
+            // Streaming token - parse messages with Zod
+            const messages = parseSSEMessages(event.data);
+            if (messages.length > 0) {
               const lastMsg = messages[messages.length - 1];
-              // After checking length > 0, we know lastMsg exists
               if (lastMsg.role === 'assistant' && lastMsg.content) {
                 yield { type: 'token', content: lastMsg.content };
               }
@@ -331,11 +284,10 @@ export class AIClient {
           }
 
           case 'messages/complete': {
-            // Stream complete - data is array of messages
-            const messages = event.data as SSEMessage[];
-            if (Array.isArray(messages) && messages.length > 0) {
+            // Stream complete - parse messages with Zod
+            const messages = parseSSEMessages(event.data);
+            if (messages.length > 0) {
               const lastMsg = messages[messages.length - 1];
-              // After checking length > 0, we know lastMsg exists
               if (lastMsg.role === 'assistant' && lastMsg.content) {
                 yield { type: 'token', content: lastMsg.content };
               }
@@ -345,10 +297,9 @@ export class AIClient {
           }
 
           case 'updates': {
-            // Check for interrupt (HITL)
-            const data = event.data as { __interrupt__?: { value: InterruptPayload }[] };
-            if (data.__interrupt__ && data.__interrupt__.length > 0) {
-              const interruptPayload = data.__interrupt__[0].value;
+            // Check for interrupt (HITL) with Zod validation
+            const interruptPayload = parseInterruptPayload(event.data);
+            if (interruptPayload) {
               yield { type: 'interrupt', payload: interruptPayload };
               return;
             }
@@ -356,9 +307,9 @@ export class AIClient {
           }
 
           case 'error': {
-            // Backend error
-            const data = event.data as { message?: string };
-            yield { type: 'error', error: data.message ?? 'Unknown error' };
+            // Backend error - parse with Zod
+            const errorMessage = parseErrorMessage(event.data);
+            yield { type: 'error', error: errorMessage };
             return;
           }
         }
@@ -401,6 +352,8 @@ export class AIClient {
   /**
    * Gets the conversation history for a thread.
    *
+   * Uses Zod validation for type-safe response parsing.
+   *
    * @param threadId - The conversation/thread ID
    * @returns Array of messages in the conversation
    */
@@ -413,11 +366,11 @@ export class AIClient {
         return [];
       }
 
-      const data = (await response.json()) as {
-        messages: { id: string; role: string; content: string }[];
-      };
+      // Parse response with Zod validation
+      const data: unknown = await response.json();
+      const messages = parseHistoryResponse(data);
 
-      return data.messages.map((msg) => ({
+      return messages.map((msg) => ({
         id: msg.id,
         role: msg.role as 'user' | 'assistant' | 'system',
         content: msg.content,
@@ -490,23 +443,23 @@ export class AIClient {
         return;
       }
 
-      // Parse SSE stream
+      // Parse SSE stream with Zod validation
       const reader = response.body.getReader();
 
-      for await (const event of parseSSE(reader)) {
+      for await (const event of parseSSEStream(reader)) {
         // Handle stream termination
         if (event === 'DONE') {
           yield { type: 'done' };
           return;
         }
 
-        // Handle different event types
+        // Handle different event types with Zod-validated parsing
         switch (event.event) {
           case 'messages/partial': {
-            const messages = event.data as SSEMessage[];
-            if (Array.isArray(messages) && messages.length > 0) {
+            // Parse messages with Zod
+            const messages = parseSSEMessages(event.data);
+            if (messages.length > 0) {
               const lastMsg = messages[messages.length - 1];
-              // After checking length > 0, we know lastMsg exists
               if (lastMsg.role === 'assistant' && lastMsg.content) {
                 yield { type: 'token', content: lastMsg.content };
               }
@@ -515,10 +468,10 @@ export class AIClient {
           }
 
           case 'messages/complete': {
-            const messages = event.data as SSEMessage[];
-            if (Array.isArray(messages) && messages.length > 0) {
+            // Parse messages with Zod
+            const messages = parseSSEMessages(event.data);
+            if (messages.length > 0) {
               const lastMsg = messages[messages.length - 1];
-              // After checking length > 0, we know lastMsg exists
               if (lastMsg.role === 'assistant' && lastMsg.content) {
                 yield { type: 'token', content: lastMsg.content };
               }
@@ -528,10 +481,9 @@ export class AIClient {
           }
 
           case 'updates': {
-            // Check for nested interrupt (chained HITL)
-            const data = event.data as { __interrupt__?: { value: InterruptPayload }[] };
-            if (data.__interrupt__ && data.__interrupt__.length > 0) {
-              const interruptPayload = data.__interrupt__[0].value;
+            // Check for nested interrupt (chained HITL) with Zod validation
+            const interruptPayload = parseInterruptPayload(event.data);
+            if (interruptPayload) {
               yield { type: 'interrupt', payload: interruptPayload };
               return;
             }
@@ -539,8 +491,9 @@ export class AIClient {
           }
 
           case 'error': {
-            const data = event.data as { message?: string };
-            yield { type: 'error', error: data.message ?? 'Unknown error' };
+            // Parse error with Zod
+            const errorMessage = parseErrorMessage(event.data);
+            yield { type: 'error', error: errorMessage };
             return;
           }
         }

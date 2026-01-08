@@ -53,7 +53,17 @@
     "k8s:logs:ai": "kubectl logs -n wbot -l app.kubernetes.io/name=wbot-ai --tail=100 -f",
     "k8s:logs:web": "kubectl logs -n wbot -l app.kubernetes.io/name=wbot-web --tail=100 -f",
     "k8s:delete": "kubectl delete namespace wbot",
-    "prepare": "husky"
+    "prepare": "husky",
+    "add:web": "pnpm add --filter @wbot/web",
+    "add:web:dev": "pnpm add -D --filter @wbot/web",
+    "add:shared": "pnpm add --filter @wbot/shared",
+    "add:shared:dev": "pnpm add -D --filter @wbot/shared",
+    "add:storybook": "pnpm add --filter @wbot/storybook",
+    "add:storybook:dev": "pnpm add -D --filter @wbot/storybook",
+    "add:docs": "pnpm add --filter @wbot/docs",
+    "add:docs:dev": "pnpm add -D --filter @wbot/docs",
+    "add:root": "pnpm add -wD",
+    "add:ai": "cd apps/ai && uv add"
   },
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^8.51.0",

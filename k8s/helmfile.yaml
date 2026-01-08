@@ -18,10 +18,10 @@ releases:
           enabled: false
         master:
           persistence:
-            enabled: false  # Set to true for production
+            enabled: false # Set to true for production
             size: 10Gi
         replica:
-          replicaCount: 0  # Single instance for cache
+          replicaCount: 0 # Single instance for cache
         resources:
           requests:
             cpu: 100m
