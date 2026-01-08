@@ -272,7 +272,7 @@ Create skeleton components that mirror the actual page layouts. Skeletons provid
 - Include the skeleton keyframes animation inline
 
 ```tsx
-// src/components/skeletons/SignupSkeleton.tsx
+// apps/web/src/components/skeletons/SignupSkeleton.tsx
 /**
  * Skeleton loading state for SignupPage.
  * Mirrors the auth form layout with animated placeholders.
@@ -379,7 +379,7 @@ export function SignupSkeleton() {
 ```
 
 ```tsx
-// src/components/skeletons/ChatSkeleton.tsx
+// apps/web/src/components/skeletons/ChatSkeleton.tsx
 /**
  * Skeleton loading state for ChatPage.
  * Shows header, message area placeholder, and input area.
@@ -514,7 +514,7 @@ export function ChatSkeleton() {
 Update routes to use skeleton components:
 
 ```tsx
-// routes/signup.tsx
+// apps/web/src/routes/signup.tsx
 import { createFileRoute } from '@tanstack/react-router';
 import { SignupSkeleton } from '../components/skeletons';
 import { SignupPage } from '../features/auth';
@@ -528,7 +528,7 @@ export const Route = createFileRoute('/signup')({
 ```
 
 ```tsx
-// routes/_authed/chat.tsx
+// apps/web/src/routes/_authed/chat.tsx
 import { createFileRoute } from '@tanstack/react-router';
 import { createServerFn } from '@tanstack/react-start';
 import { ChatSkeleton } from '../../components/skeletons';
@@ -551,7 +551,7 @@ export const Route = createFileRoute('/_authed/chat')({
 Optionally set default pending behavior in router configuration for routes without explicit skeletons:
 
 ```tsx
-// router.tsx
+// apps/web/src/router.tsx
 import { DefaultSkeleton } from './components/skeletons';
 
 export function getRouter() {
@@ -584,28 +584,28 @@ export function getRouter() {
 
 ### Phase 1: Create Skeleton Components (1.5 hours)
 
-| Task | File                                           | Description                                  |
-| ---- | ---------------------------------------------- | -------------------------------------------- |
-| 1.1  | `src/components/skeletons/SignupSkeleton.tsx`  | Auth form skeleton with inline styles        |
-| 1.2  | `src/components/skeletons/ChatSkeleton.tsx`    | Chat interface skeleton with inline styles   |
-| 1.3  | `src/components/skeletons/DefaultSkeleton.tsx` | Generic fallback skeleton                    |
-| 1.4  | `src/components/skeletons/index.ts`            | Create barrel export                         |
-| 1.5  | Test                                           | Verify skeletons render correctly standalone |
+| Task | File                                                    | Description                                  |
+| ---- | ------------------------------------------------------- | -------------------------------------------- |
+| 1.1  | `apps/web/src/components/skeletons/SignupSkeleton.tsx`  | Auth form skeleton with inline styles        |
+| 1.2  | `apps/web/src/components/skeletons/ChatSkeleton.tsx`    | Chat interface skeleton with inline styles   |
+| 1.3  | `apps/web/src/components/skeletons/DefaultSkeleton.tsx` | Generic fallback skeleton                    |
+| 1.4  | `apps/web/src/components/skeletons/index.ts`            | Create barrel export                         |
+| 1.5  | Test                                                    | Verify skeletons render correctly standalone |
 
 ### Phase 2: Update Routes (30 mins)
 
-| Task | File                      | Description                                               |
-| ---- | ------------------------- | --------------------------------------------------------- |
-| 2.1  | `routes/signup.tsx`       | Add `pendingMs: 0` and `pendingComponent: SignupSkeleton` |
-| 2.2  | `routes/_authed/chat.tsx` | Add `pendingMs: 0` and `pendingComponent: ChatSkeleton`   |
-| 2.3  | Test                      | Verify skeletons appear on refresh/initial load           |
+| Task | File                                   | Description                                               |
+| ---- | -------------------------------------- | --------------------------------------------------------- |
+| 2.1  | `apps/web/src/routes/signup.tsx`       | Add `pendingMs: 0` and `pendingComponent: SignupSkeleton` |
+| 2.2  | `apps/web/src/routes/_authed/chat.tsx` | Add `pendingMs: 0` and `pendingComponent: ChatSkeleton`   |
+| 2.3  | Test                                   | Verify skeletons appear on refresh/initial load           |
 
 ### Phase 3: Update Router Config (Optional, 15 mins)
 
-| Task | File         | Description                                                |
-| ---- | ------------ | ---------------------------------------------------------- |
-| 3.1  | `router.tsx` | Add DefaultSkeleton as fallback (optional)                 |
-| 3.2  | Test         | Verify defaults work for routes without explicit skeletons |
+| Task | File                      | Description                                                |
+| ---- | ------------------------- | ---------------------------------------------------------- |
+| 3.1  | `apps/web/src/router.tsx` | Add DefaultSkeleton as fallback (optional)                 |
+| 3.2  | Test                      | Verify defaults work for routes without explicit skeletons |
 
 ### Phase 4: Testing & Refinement (30 mins)
 

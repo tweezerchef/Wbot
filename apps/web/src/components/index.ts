@@ -13,3 +13,6 @@ export * from './feedback';
 
 // Overlay components (activity overlay)
 export * from './overlays';
+
+// Skeleton loading components (for FOUC prevention)
+export * from './skeletons';

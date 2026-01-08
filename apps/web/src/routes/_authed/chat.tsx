@@ -9,11 +9,16 @@
  * - User is already validated by _authed.tsx beforeLoad
  * - Server function re-validates auth via cookies (SSR-safe)
  * - Fetches conversation data for the authenticated user
+ *
+ * FOUC Prevention:
+ * - pendingMs: 0 shows skeleton immediately on initial load
+ * - ChatSkeleton uses inline styles to avoid CSS module FOUC
  */
 
 import { createFileRoute } from '@tanstack/react-router';
 import { createServerFn } from '@tanstack/react-start';
 
+import { ChatSkeleton } from '@/components/skeletons';
 import { ChatPage } from '@/features/chat';
 import type { Message } from '@/lib/ai-client';
 import { getMostRecentConversation, loadMessagesWithCache } from '@/lib/conversations.server';
@@ -80,6 +85,10 @@ export const Route = createFileRoute('/_authed/chat')({
    * The server function re-validates via cookies for SSR safety.
    */
   loader: () => getConversationData(),
+
+  // Show skeleton immediately to prevent FOUC on initial load/refresh
+  pendingMs: 0,
+  pendingComponent: ChatSkeleton,
 
   component: ChatPage,
 });
