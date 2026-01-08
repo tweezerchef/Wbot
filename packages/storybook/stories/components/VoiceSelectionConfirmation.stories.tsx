@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { fn } from 'storybook/test';
 
-import { VoiceSelectionConfirmation } from '@/components/VoiceSelectionConfirmation';
+import { VoiceSelectionConfirmation } from '@/features/meditation';
 import type { VoiceInfo } from '@/lib/ai-client';
 
 // ============================================================================

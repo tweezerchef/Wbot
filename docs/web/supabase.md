@@ -1,313 +1,336 @@
 ---
-sidebar_position: 5
+sidebar_position: 2
+title: Supabase Client
 ---
 
-# Conversations API
+# Supabase Client
 
-Conversation management helpers for Supabase that provide functions for creating, loading, and managing conversations.
+Backward compatibility export module that re-exports the browser Supabase client for existing imports.
 
 ## Module Overview
 
-This module provides the core conversation persistence layer for the Wbot frontend. It handles conversation lifecycle operations including creation, message loading, and timestamp updates to maintain conversation ordering.
+This module serves as a compatibility layer that re-exports the browser Supabase client. The actual client implementations have been moved to separate files for better organization and environment-specific handling.
+
+:::info Architecture Change
+The actual Supabase client implementations are now located in:
+
+- `./supabase/client.ts` - Browser client (for components, hooks)
+- `./supabase/server.ts` - Server client (for route loaders, server functions)
+
+This file maintains backward compatibility for existing imports.
+:::
 
 ## API Reference
 
-### `createConversation()`
+### `supabase`
 
-Creates a new conversation for the authenticated user.
+The default browser Supabase client instance configured for client-side usage.
 
-**Signature:**
+**Type:**
 
 ```typescript
-createConversation(userId: string): Promise<string>
+const supabase: TypedSupabaseClient;
 ```
-
-**Parameters:**
-
-- `userId` (`string`) - The authenticated user's ID
-
-**Returns:**
-
-- `Promise<string>` - The new conversation's UUID
 
 **Example:**
 
 ```typescript
-import { createConversation } from '@/lib/conversations';
+import { supabase } from '@/lib/supabase';
 
-async function startNewChat() {
-  const userId = session.user.id;
-  const conversationId = await createConversation(userId);
+async function fetchUserProfile(userId: string) {
+  const { data, error } = await supabase.from('profiles').select('*').eq('id', userId).single();
 
-  // Navigate to the new conversation
-  navigate(`/chat/${conversationId}`);
-}
-```
-
-### `getMostRecentConversation()`
-
-Gets the most recent conversation for a user. Used on page load to auto-restore the last conversation.
-
-**Signature:**
-
-```typescript
-getMostRecentConversation(userId: string): Promise<string | null>
-```
-
-**Parameters:**
-
-- `userId` (`string`) - The authenticated user's ID
-
-**Returns:**
-
-- `Promise<string | null>` - The conversation ID, or `null` if no conversations exist
-
-**Example:**
-
-```typescript
-import { getMostRecentConversation } from '@/lib/conversations';
-
-async function loadLastConversation() {
-  const userId = session.user.id;
-  const conversationId = await getMostRecentConversation(userId);
-
-  if (conversationId) {
-    // Auto-load the most recent conversation
-    setActiveConversation(conversationId);
-  } else {
-    // Show welcome screen for new users
-    setShowWelcome(true);
+  if (error) {
+    throw new Error(`Failed to fetch profile: ${error.message}`);
   }
+
+  return data;
 }
 ```
 
-### `loadMessages()`
+### `createClient()`
 
-Loads all messages for a conversation in chronological order.
+Factory function for creating a new Supabase client instance with custom configuration.
 
 **Signature:**
 
 ```typescript
-loadMessages(conversationId: string): Promise<Message[]>
+createClient(
+  supabaseUrl: string,
+  supabaseKey: string,
+  options?: SupabaseClientOptions
+): TypedSupabaseClient
 ```
 
 **Parameters:**
 
-- `conversationId` (`string`) - The conversation UUID
+- `supabaseUrl` (`string`) - The Supabase project URL
+- `supabaseKey` (`string`) - The Supabase anon/public API key
+- `options` (`SupabaseClientOptions`, optional) - Additional client configuration options
 
 **Returns:**
 
-- `Promise<Message[]>` - Array of messages in chronological order
-
-**Message Type:**
-
-```typescript
-interface Message {
-  id: string;
-  role: 'user' | 'assistant' | 'system';
-  content: string;
-  createdAt: Date;
-}
-```
+- `TypedSupabaseClient` - Configured Supabase client instance
 
 **Example:**
 
 ```typescript
-import { loadMessages } from '@/lib/conversations';
+import { createClient } from '@/lib/supabase';
 
-async function restoreConversation(conversationId: string) {
-  const messages = await loadMessages(conversationId);
+// Create client with custom options
+const customClient = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+  {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+    },
+  }
+);
 
-  // Restore chat history
-  setMessages(messages);
+async function authenticateUser(email: string, password: string) {
+  const { data, error } = await customClient.auth.signInWithPassword({
+    email,
+    password,
+  });
 
-  // Scroll to bottom
-  scrollToBottom();
+  return { user: data.user, error };
 }
 ```
 
-### `touchConversation()`
+## Type Exports
 
-Updates a conversation's `updated_at` timestamp to keep it at the top of the "most recent" list.
+### `Session`
 
-**Signature:**
-
-```typescript
-touchConversation(conversationId: string): Promise<void>
-```
-
-**Parameters:**
-
-- `conversationId` (`string`) - The conversation UUID
-
-**Returns:**
-
-- `Promise<void>` - Resolves when the timestamp is updated
-
-**Example:**
+User session type from Supabase Auth.
 
 ```typescript
-import { touchConversation } from '@/lib/conversations';
+import type { Session } from '@/lib/supabase';
 
-async function sendMessage(conversationId: string, content: string) {
-  // Save the message to the database
-  await saveMessage(conversationId, 'user', content);
+function useAuthSession(): Session | null {
+  const [session, setSession] = useState<Session | null>(null);
 
-  // Update conversation timestamp
-  await touchConversation(conversationId);
-
-  // Get AI response...
-}
-```
-
-## Usage in ChatPage
-
-Here's how the conversations module integrates with the main chat interface:
-
-```typescript
-import {
-  createConversation,
-  getMostRecentConversation,
-  loadMessages,
-  touchConversation
-} from '@/lib/conversations';
-
-function ChatPage() {
-  const [conversationId, setConversationId] = useState<string | null>(null);
-  const [messages, setMessages] = useState<Message[]>([]);
-
-  // Load most recent conversation on mount
   useEffect(() => {
-    async function initializeChat() {
-      if (!session?.user?.id) return;
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+    });
+  }, []);
 
-      const recentId = await getMostRecentConversation(session.user.id);
+  return session;
+}
+```
 
-      if (recentId) {
-        setConversationId(recentId);
-        const history = await loadMessages(recentId);
-        setMessages(history);
-      }
-    }
+### `User`
 
-    initializeChat();
-  }, [session]);
+User type from Supabase Auth.
 
-  // Start a new conversation
-  async function handleNewConversation() {
-    if (!session?.user?.id) return;
+```typescript
+import type { User } from '@/lib/supabase';
 
-    const newId = await createConversation(session.user.id);
-    setConversationId(newId);
-    setMessages([]);
-  }
-
-  // Send a message
-  async function handleSendMessage(content: string) {
-    if (!conversationId) return;
-
-    // Add user message to UI
-    const userMessage: Message = {
-      id: crypto.randomUUID(),
-      role: 'user',
-      content,
-      createdAt: new Date(),
-    };
-
-    setMessages(prev => [...prev, userMessage]);
-
-    // Update conversation timestamp
-    await touchConversation(conversationId);
-
-    // Get AI response...
-  }
-
+function UserProfile({ user }: { user: User }) {
   return (
-    // Chat UI...
+    <div className="user-profile">
+      <h2>Welcome, {user.email}</h2>
+      <p>User ID: {user.id}</p>
+      <p>Last Sign In: {new Date(user.last_sign_in_at!).toLocaleString()}</p>
+    </div>
   );
 }
 ```
 
-## Data Flow
+## Migration Guide
 
-```mermaid
-sequenceDiagram
-    participant U as User
-    participant C as ChatPage
-    participant API as Conversations API
-    participant DB as Supabase
+:::warning Migration Notice
+If you're importing from this module, consider migrating to the specific client imports for better clarity:
 
-    U->>C: Visit chat page
-    C->>API: getMostRecentConversation(userId)
-    API->>DB: Query conversations table
-    DB-->>API: Return latest conversation ID
-    API-->>C: conversationId | null
-
-    alt Has recent conversation
-        C->>API: loadMessages(conversationId)
-        API->>DB: Query messages table
-        DB-->>API: Return message history
-        API-->>C: Message[]
-        C->>U: Show chat history
-    else No recent conversation
-        U->>C: Send first message
-        C->>API: createConversation(userId)
-        API->>DB: Insert new conversation
-        DB-->>API: Return conversation ID
-        API-->>C: conversationId
-    end
-
-    U->>C: Send message
-    C->>API: touchConversation(conversationId)
-    API->>DB: Update updated_at timestamp
-    DB-->>API: Success
-```
-
-## Error Handling
-
-:::warning Error Handling
-All functions in this module log errors to the console and either throw or return `null`. Always wrap calls in try-catch blocks:
+**Old way:**
 
 ```typescript
-try {
-  const conversationId = await createConversation(userId);
-  // Handle success
-} catch (error) {
-  console.error('Failed to create conversation:', error);
-  // Show user-friendly error message
-  toast.error('Unable to start new conversation');
-}
+import { supabase } from '@/lib/supabase';
+```
+
+**New way (recommended):**
+
+```typescript
+// For browser/client-side code
+import { supabase } from '@/lib/supabase/client';
+
+// For server-side code
+import { createServerClient } from '@/lib/supabase/server';
 ```
 
 :::
 
-## Database Schema
+## Common Usage Patterns
 
-The conversations module expects these Supabase tables:
+### Authentication Flow
 
-```sql
--- Conversations table
-create table conversations (
-  id uuid primary key default gen_random_uuid(),
-  user_id uuid references auth.users(id) on delete cascade,
-  title text,
-  created_at timestamptz default now(),
-  updated_at timestamptz default now()
-);
+```typescript
+import { supabase, type Session, type User } from '@/lib/supabase';
 
--- Messages table
-create table messages (
-  id uuid primary key default gen_random_uuid(),
-  conversation_id uuid references conversations(id) on delete cascade,
-  role text check (role in ('user', 'assistant', 'system')),
-  content text not null,
-  created_at timestamptz default now()
-);
+class AuthService {
+  async signIn(email: string, password: string) {
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return data;
+  }
+
+  async signOut() {
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      throw new Error(error.message);
+    }
+  }
+
+  onAuthStateChange(callback: (session: Session | null) => void) {
+    return supabase.auth.onAuthStateChange((event, session) => {
+      callback(session);
+    });
+  }
+}
+
+export const authService = new AuthService();
 ```
 
-:::tip Related Documentation
+### Database Operations
 
-- [AI Client](./ai-client) - Message processing and AI responses
-- [Authentication](./authentication) - Auth system documentation
-- [Database Schema](/database/schema) - Complete database structure
-  :::
+```typescript
+import { supabase } from '@/lib/supabase';
+
+// Create a new conversation
+async function createConversation(userId: string, title: string) {
+  const { data, error } = await supabase
+    .from('conversations')
+    .insert({
+      user_id: userId,
+      title,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .select()
+    .single();
+
+  if (error) {
+    throw new Error(`Failed to create conversation: ${error.message}`);
+  }
+
+  return data;
+}
+
+// Query with filters and ordering
+async function getUserConversations(userId: string) {
+  const { data, error } = await supabase
+    .from('conversations')
+    .select(
+      `
+      id,
+      title,
+      created_at,
+      updated_at,
+      messages (count)
+    `
+    )
+    .eq('user_id', userId)
+    .order('updated_at', { ascending: false });
+
+  if (error) {
+    throw new Error(`Failed to fetch conversations: ${error.message}`);
+  }
+
+  return data;
+}
+```
+
+### Real-time Subscriptions
+
+```typescript
+import { supabase } from '@/lib/supabase';
+
+function useLiveMessages(conversationId: string) {
+  const [messages, setMessages] = useState([]);
+
+  useEffect(() => {
+    const channel = supabase
+      .channel(`messages:${conversationId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages',
+          filter: `conversation_id=eq.${conversationId}`,
+        },
+        (payload) => {
+          setMessages((prev) => [...prev, payload.new]);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [conversationId]);
+
+  return messages;
+}
+```
+
+## Architecture Diagram
+
+```mermaid
+graph TB
+    subgraph "Application Layer"
+        Comp[React Components]
+        Hook[Custom Hooks]
+        Page[Route Loaders]
+    end
+
+    subgraph "Supabase Layer"
+        Compat[supabase/index.ts<br/>Compatibility Export]
+        Browser[supabase/client.ts<br/>Browser Client]
+        Server[supabase/server.ts<br/>Server Client]
+    end
+
+    subgraph "Supabase Services"
+        Auth[Authentication]
+        DB[(Database)]
+        RT[Real-time]
+    end
+
+    Comp --> Compat
+    Hook --> Compat
+    Page --> Server
+
+    Compat --> Browser
+    Browser --> Auth
+    Browser --> DB
+    Browser --> RT
+
+    Server --> Auth
+    Server --> DB
+    Server --> RT
+
+    style Compat fill:#fff2cc
+    style Browser fill:#d5e8d4
+    style Server fill:#dae8fc
+```
+
+## Related Documentation
+
+:::info Related Documentation
+
+- [Conversations API](./conversations) - Database conversation management
+- [AI Client](./ai-client) - Message processing with AI responses
+- [Authentication Guide](/guides/authentication) - User authentication setup
+- [Database Schema](/database/schema) - Supabase table structures
+- [Environment Variables](/deployment/environment) - Configuration setup
+
+:::

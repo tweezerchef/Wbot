@@ -15,18 +15,8 @@ import { QueryClient } from '@tanstack/react-query';
 import { createRouter } from '@tanstack/react-router';
 import { routerWithQueryClient } from '@tanstack/react-router-with-query';
 
-import { DefaultCatchBoundary } from './components/DefaultCatchBoundary';
-import { NotFound } from './components/NotFound/NotFound';
+import { DefaultCatchBoundary, NotFound } from './components/feedback';
 import { routeTree } from './routeTree.gen';
-
-// ----------------------------------------------------------------------------
-// Router Context Type
-// ----------------------------------------------------------------------------
-// This interface defines what's available in the router context.
-// The queryClient is passed to all route loaders and components.
-export interface RouterContext {
-  queryClient: QueryClient;
-}
 
 // ----------------------------------------------------------------------------
 // Router Factory

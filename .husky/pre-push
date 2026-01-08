@@ -1,0 +1,13 @@
+#!/bin/sh
+
+# Generate documentation for stale files before pushing
+pnpm docs:generate
+
+# Stage any generated doc changes
+git add docs/
+
+# Check if there are doc changes to commit
+if ! git diff --cached --quiet docs/; then
+  echo "📚 Documentation was updated. Committing changes..."
+  git commit -m "docs: auto-update documentation [skip ci]"
+fi

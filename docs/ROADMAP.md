@@ -17,8 +17,11 @@ This document outlines the development progress and next steps for Wbot.
 - [x] Message persistence and auto-generated titles
 - [x] Semantic memory system with vector embeddings
 - [x] Redis embedding cache for performance
-- [x] Interactive breathing exercise with audio
+- [x] Interactive breathing exercises with audio (multiple techniques)
 - [x] Full-text search for conversation history
+- [x] Guided meditation with pre-recorded tracks
+- [x] AI-generated personalized meditations with TTS
+- [x] User profiling system with wellness tracking
 
 ---
 
@@ -29,37 +32,10 @@ This document outlines the development progress and next steps for Wbot.
 ### Tasks
 
 - [x] **1.1 Supabase Project Setup**
-  - Create production Supabase project
-  - Run database migrations
-  - Enable Email auth provider
-  - Configure Google OAuth provider
-  - Set up redirect URLs for OAuth
-
 - [x] **1.2 Landing Page (`/`)**
-  - Design hero section with app value proposition
-  - Add "Get Started" and "Sign In" buttons
-  - Implement session check to redirect authenticated users to `/chat`
-  - Mobile-responsive layout
-
 - [x] **1.3 Sign Up Flow (`/signup`)**
-  - Implement the 8-question onboarding wizard
-  - Each question as a step with multiple-choice buttons
-  - Progress indicator
-  - Save preferences to `profiles` table on completion
-  - Google OAuth button integration
-  - Redirect to `/chat` after completion
-
 - [x] **1.4 Sign In Flow**
-  - Email/password sign in form
-  - Google OAuth sign in
-  - "Forgot password" flow
-  - Error handling and validation
-
 - [x] **1.5 Auth State Management**
-  - Create auth context/hook for session management
-  - Protected route wrapper for `/chat`
-  - Auto-redirect unauthenticated users
-  - Handle token refresh
 
 ---
 
@@ -70,34 +46,10 @@ This document outlines the development progress and next steps for Wbot.
 ### Tasks
 
 - [x] **2.1 Chat UI Components**
-  - Message bubble component (user vs assistant styling)
-  - Message list with auto-scroll
-  - Input area with send button
-  - Typing indicator while AI responds
-  - Full-screen mobile layout
-
 - [x] **2.2 Chat Route (`/chat`)**
-  - Load user profile and preferences
-  - Create or resume conversation
-  - Display conversation history
-  - Handle new message submission
-
 - [x] **2.3 LangGraph Integration**
-  - Connect to LangGraph API via SDK
-  - Implement SSE streaming for responses
-  - Handle connection errors gracefully
-  - Pass user context to AI
-
 - [x] **2.4 Message Persistence**
-  - Save messages to Supabase `messages` table
-  - Load conversation history on page load
-  - Optimistic UI updates
-
 - [x] **2.5 Conversation Management**
-  - Create new conversation
-  - List past conversations (sidebar or menu)
-  - Switch between conversations
-  - Delete conversation
 
 ---
 
@@ -108,36 +60,14 @@ This document outlines the development progress and next steps for Wbot.
 ### Tasks
 
 - [x] **3.1 Generate Response Node**
-  - Implement Claude integration
-  - System prompt with wellness guidelines
-  - Include user preferences in context
-  - Conversation memory management
-  - Response streaming
-
 - [x] **3.2 Activity Detection Node**
-  - Detect when user might benefit from an activity
-  - Keywords/intent detection
-  - Suggest appropriate activity type
-  - Let user accept or decline
-
 - [x] **3.3 LangGraph State Management**
-  - Define complete WellnessState schema
-  - Implement state persistence
-  - Handle conversation checkpoints
-
 - [x] **3.4 Semantic Memory System**
-  - Vector embeddings for context retrieval
-  - Redis embedding cache
-  - Memory storage and retrieval nodes
-
 - [x] **3.5 Error Handling**
-  - Graceful fallbacks for API failures
-  - Rate limiting handling
-  - User-friendly error messages
 
 ---
 
-## Phase 4: Interactive Activities (In Progress)
+## Phase 4: Interactive Activities (Mostly Complete)
 
 **Goal:** Users can do guided activities within the chat.
 
@@ -145,33 +75,80 @@ This document outlines the development progress and next steps for Wbot.
 
 - [x] **4.1 Activity UI Framework**
   - Activity container component (renders inside chat)
-  - Activity header with title and close button
-  - Progress indicator for multi-step activities
-  - Completion celebration
+  - Activity parsing with Zod validation
+  - Multiple activity type support (breathing, meditation, etc.)
+  - Progress indicators and completion states
 
 - [x] **4.2 Breathing Exercise**
   - Visual breathing guide (expand/contract animation)
-  - Customizable breath patterns (4-7-8, box breathing, etc.)
-  - Audio cues (optional)
-  - Duration selection
-  - Completion tracking
+  - Multiple techniques (4-7-8, box breathing, etc.)
+  - Wim Hof Method with immersive fullscreen mode
+  - Audio cues with ambient sounds
+  - Duration and cycle selection
+  - Mood before/after tracking
 
-- [ ] **4.3 Meditation Guidance**
-  - Text-based guided meditation
-  - Timer with gentle chime
-  - Different meditation types (body scan, gratitude, etc.)
-  - Session length options
+- [x] **4.3 Guided Meditation**
+  - Pre-recorded UCLA MARC meditation tracks
+  - AI-generated personalized meditations with TTS
+  - Track selection via LLM analysis
+  - Audio player with progress and seeking
+  - Visual meditation animations (orb, rings)
+  - Ambient sound mixer (ocean, rain, forest)
+  - Mood before/after tracking
+  - Meditation library for saved AI-generated sessions
+  - Meditation series/courses with progress tracking
+  - MeditationStreakBadge component
 
-- [ ] **4.4 Journaling Prompts**
-  - AI-generated reflective prompts
-  - Text input area
-  - Save journal entries to database
-  - Optional sharing with AI for discussion
+- [ ] **4.4 Journaling Prompts** ⚠️ STUB
+  - [x] Backend node scaffold (returns placeholder message)
+  - [ ] AI-generated reflective prompts based on conversation
+  - [ ] Text input area in chat
+  - [ ] Save journal entries to database
+  - [ ] Frontend journaling component
+  - [ ] Optional sharing with AI for discussion
 
-- [ ] **4.5 Activity History**
-  - Track completed activities
-  - Display in user profile/dashboard
-  - Streak tracking (optional)
+- [ ] **4.5 Activity History** ⚠️ PARTIAL
+  - [x] Database tables (user_wellness_profiles, activity_effectiveness)
+  - [x] MeditationLibrary shows saved AI-generated meditations
+  - [x] MeditationStreakBadge UI component
+  - [ ] Unified activity history dashboard
+  - [ ] Breathing session history view
+  - [ ] Activity statistics and insights
+  - [ ] Streak tracking backend integration
+  - [ ] Progress visualization over time
+
+---
+
+## Phase 4.5: Backend Cleanup (In Progress)
+
+**Goal:** Fix TODOs and complete partial implementations.
+
+### Tasks
+
+- [ ] **4.5.1 Thread Deletion**
+  - Current: API returns success without actually deleting checkpoints
+  - File: `apps/ai/src/api/graph.py:455`
+  - TODO: Implement actual deletion via checkpointer
+
+- [ ] **4.5.2 Exercise Completion Notifications**
+  - Current: Frontend callback is empty after exercise completion
+  - File: `apps/web/src/components/pages/ChatPage/ChatPage.tsx:1035`
+  - TODO: Notify AI that exercise completed for follow-up message
+
+- [ ] **4.5.3 Exercise Stats Backend Tracking**
+  - Current: Frontend collects stats but doesn't send to backend
+  - File: `apps/web/src/components/pages/ChatPage/ChatPage.tsx:636`
+  - TODO: Send breathing/meditation stats to backend for user tracking
+
+- [ ] **4.5.4 TanStack Query Integration**
+  - Current: Query functions return placeholder empty arrays
+  - File: `apps/web/src/lib/queries/conversations.ts`
+  - TODO: Implement actual fetch when Query is used for conversation lists
+
+- [ ] **4.5.5 Web Audio Tests**
+  - Current: 3 tests skipped due to mock setup issues
+  - File: `apps/web/src/components/BreathingExercise/__tests__/useBreathingAudio.test.tsx`
+  - Note: Functionality works in browser, tests verify implementation details
 
 ---
 
@@ -244,12 +221,10 @@ This document outlines the development progress and next steps for Wbot.
 When resuming development, start here:
 
 ```bash
-# 1. Make sure Docker is running
-
-# 2. Start everything with one command
+# 1. Start everything with one command (uses remote Supabase & Redis)
 pnpm dev:all
 
-# 3. Open http://localhost:5173
+# 2. Open http://localhost:5173
 ```
 
 Or start services individually:
@@ -257,18 +232,22 @@ Or start services individually:
 ```bash
 pnpm dev:web    # Web frontend
 pnpm dev:ai     # AI backend
-pnpm db:start   # Database
 ```
 
 ### Recommended Next Tasks
 
-**Continue with Phase 4 - Interactive Activities:**
+**Priority 1 - Complete Phase 4:**
 
-1. **4.3 Meditation Guidance** - Build on breathing exercise patterns
-2. **4.4 Journaling Prompts** - Leverage existing AI integration
-3. **4.5 Activity History** - Track user progress
+1. **4.4 Journaling Prompts** - Build frontend component and connect backend
+2. **4.5 Activity History** - Create unified dashboard for all activities
 
-**Or move to Phase 5 - Polish:**
+**Priority 2 - Backend Cleanup (Phase 4.5):**
+
+1. Thread deletion implementation
+2. Exercise completion notifications to AI
+3. Stats tracking to backend
+
+**Priority 3 - Move to Phase 5 (Polish):**
 
 1. Add loading states and skeletons
 2. Improve error boundaries
@@ -278,19 +257,27 @@ pnpm db:start   # Database
 
 ## Files to Reference
 
-| Task          | Key Files                                    |
-| ------------- | -------------------------------------------- |
-| Auth          | `apps/web/src/lib/supabase.ts`               |
-| Routing       | `apps/web/src/routes/*.tsx`                  |
-| Chat UI       | `apps/web/src/components/pages/ChatPage/`    |
-| Activities    | `apps/web/src/components/BreathingExercise/` |
-| Conversations | `apps/web/src/lib/conversations.ts`          |
-| Styling       | `apps/web/src/styles/variables.css`          |
-| AI Graph      | `apps/ai/src/graph/wellness.py`              |
-| AI Nodes      | `apps/ai/src/nodes/*/node.py`                |
-| Memory System | `apps/ai/src/memory/`                        |
-| DB Schema     | `database/migrations/*.sql`                  |
-| Types         | `packages/shared/src/types/*.ts`             |
+| Task               | Key Files                                       |
+| ------------------ | ----------------------------------------------- |
+| Auth               | `apps/web/src/lib/supabase.ts`                  |
+| Routing            | `apps/web/src/routes/*.tsx`                     |
+| Chat UI            | `apps/web/src/components/pages/ChatPage/`       |
+| Breathing          | `apps/web/src/components/BreathingExercise/`    |
+| Wim Hof            | `apps/web/src/components/WimHofExercise/`       |
+| Immersive Mode     | `apps/web/src/components/ImmersiveBreathing/`   |
+| Meditation         | `apps/web/src/components/GuidedMeditation/`     |
+| Meditation Library | `apps/web/src/components/MeditationLibrary/`    |
+| Meditation Series  | `apps/web/src/components/MeditationSeries/`     |
+| Activity Parsing   | `apps/web/src/lib/parseActivity.ts`             |
+| Conversations      | `apps/web/src/lib/conversations.ts`             |
+| Styling            | `apps/web/src/styles/variables.css`             |
+| AI Graph           | `apps/ai/src/graph/wellness.py`                 |
+| AI Nodes           | `apps/ai/src/nodes/*/node.py`                   |
+| Memory System      | `apps/ai/src/memory/`                           |
+| Meditation Gen     | `apps/ai/src/nodes/generate_meditation_script/` |
+| Journaling Stub    | `apps/ai/src/nodes/journaling_prompt/`          |
+| DB Schema          | `supabase/migrations/*.sql`                     |
+| Types              | `packages/shared/src/types/*.ts`                |
 
 ---
 
@@ -303,7 +290,8 @@ pnpm db:start   # Database
 - Use Anthropic Claude as primary LLM, Gemini as experimental
 - Semantic memory uses vector embeddings with Redis caching
 - Conversation history supports full-text search
+- Meditation audio from UCLA MARC (CC BY-NC-ND 4.0) and AI-generated via OpenAI TTS
 
 ---
 
-_Last updated: January 2, 2025_
+_Last updated: January 8, 2025_

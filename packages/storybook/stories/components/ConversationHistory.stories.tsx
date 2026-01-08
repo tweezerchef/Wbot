@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from '@storybook/react-vite';
 import type { ReactElement } from 'react';
 import { fn } from 'storybook/test';
 
-import { ConversationHistory } from '@/components/ConversationHistory/ConversationHistory';
+import { ConversationHistory } from '@/features/chat';
 
 /**
  * Sidebar component showing conversation history.

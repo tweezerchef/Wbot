@@ -12,7 +12,7 @@
     "storybook:build": "pnpm --filter @wbot/storybook build",
     "docs": "pnpm --filter @wbot/docs dev",
     "docs:build": "pnpm --filter @wbot/docs build",
-    "docs:generate": "cd apps/ai && uv run python ../../scripts/ai_docs/generator.py",
+    "docs:generate": "cd apps/ai && (uv run python ../../scripts/ai_docs/staleness.py --json > ../../staleness.json || true) && uv run python ../../scripts/ai_docs/generator.py --stale ../../staleness.json; rm -f ../../staleness.json",
     "docs:generate:full": "cd apps/ai && uv run python ../../scripts/ai_docs/generator.py --full",
     "docs:check-stale": "cd apps/ai && uv run python ../../scripts/ai_docs/staleness.py",
     "build": "turbo build",

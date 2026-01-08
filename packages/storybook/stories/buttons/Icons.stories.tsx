@@ -10,7 +10,7 @@ import {
   MenuIcon,
   NewChatIcon,
   SearchIcon,
-} from '@/components/buttons';
+} from '@/components/ui/icons';
 
 /**
  * Icon components used throughout the Wbot UI.

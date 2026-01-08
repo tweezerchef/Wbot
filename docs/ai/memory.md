@@ -1,499 +1,590 @@
 ---
-sidebar_position: 1
-title: Memory Module API
+sidebar_position: 4
+title: Cache API Reference
+description: Redis-based caching for embeddings and conversation messages with LRU eviction and graceful fallbacks
 ---
 
-# Memory Module API
+# Cache API Reference
 
-The memory module provides semantic memory storage and retrieval capabilities for the Wbot wellness chatbot, enabling contextually-aware conversations through persistent memory of past interactions.
-
-```mermaid
-graph TB
-    A[User Message] --> B[Memory Search]
-    B --> C[Vector Similarity]
-    C --> D[Relevant Memories]
-    D --> E[Format for Context]
-    E --> F[Enhanced Response]
-
-    G[New Conversation] --> H[Generate Embedding]
-    H --> I[Store in Database]
-    I --> J[Update Memory Bank]
-
-    subgraph "Memory Components"
-        K[embeddings.py]
-        L[store.py]
-        M[cache.py]
-    end
-
-    B --> K
-    I --> L
-    H --> M
-
-    style A fill:#7ec8e3,stroke:#333
-    style F fill:#90c695,stroke:#333
-    style K fill:#f4a261,stroke:#333
-    style L fill:#f4a261,stroke:#333
-    style M fill:#f4a261,stroke:#333
-```
+The cache module provides Redis-based caching for embeddings and conversation messages. It implements intelligent eviction strategies, per-user isolation, and graceful fallbacks when Redis is unavailable.
 
 ## Overview
 
-The memory module consists of three core components:
+This module provides two caching systems:
 
-- **Embeddings**: Vector generation using Gemini AI for semantic similarity
-- **Store**: Supabase-based storage and retrieval with vector search capabilities
-- **Cache**: Redis-based caching to optimize performance and reduce API calls
+1. **Embedding Cache**: Per-user isolated caching of text embeddings with LRU eviction
+2. **Message Cache**: Write-through caching of conversation messages with total count-based eviction
 
-## Quick Start
+All operations are async and degrade gracefully when Redis is unavailable.
 
-```python
-from src.memory import store_memory, search_memories, format_memories_for_prompt
-
-# Store a conversation pair
-await store_memory(
-    user_id="user-123",
-    user_message="I've been feeling anxious lately",
-    ai_response="I understand anxiety can be challenging. Let's explore some coping strategies..."
-)
-
-# Search for relevant memories when user asks related question
-memories = await search_memories(
-    user_id="user-123",
-    query="how to deal with stress",
-    limit=3
-)
-
-# Format memories for AI context
-context = format_memories_for_prompt(memories)
-print(f"Found {len(memories)} relevant memories for context")
-```
-
-## Exported Components
-
-### Classes
-
-#### Memory
-
-Data class representing a stored memory entry.
-
-```python
-@dataclass
-class Memory:
-    id: str
-    user_id: str
-    user_message: str
-    ai_response: str
-    timestamp: datetime
-    embedding: list[float] | None = None
-```
-
-**Fields:**
-
-- `id` (str): Unique identifier for the memory
-- `user_id` (str): ID of the user who owns this memory
-- `user_message` (str): Original user message
-- `ai_response` (str): AI's response to the user message
-- `timestamp` (datetime): When the memory was created
-- `embedding` (list[float] | None): Vector embedding (may be None if not loaded)
-
-### Core Functions
-
-#### store_memory()
-
-Stores a conversation pair in the memory system with automatic embedding generation.
-
-```python
-async def store_memory(
-    user_id: str,
-    user_message: str,
-    ai_response: str
-) -> bool
-```
-
-**Parameters:**
-
-- `user_id` (str): Unique identifier for the user
-- `user_message` (str): The user's message to remember
-- `ai_response` (str): The AI's response to remember
-
-**Returns:**
-
-- `bool`: True if storage succeeded, False otherwise
-
-**Example:**
-
-```python
-from src.memory import store_memory
-
-# After AI generates a response, store the conversation
-success = await store_memory(
-    user_id="user-456",
-    user_message="I'm struggling with sleep issues",
-    ai_response="Sleep problems are common. Here are some evidence-based strategies: maintain a consistent bedtime routine, limit screen time before bed, and create a comfortable sleep environment."
-)
-
-if success:
-    print("✓ Conversation stored for future reference")
-else:
-    print("✗ Failed to store memory")
-```
-
-#### search_memories()
-
-Searches for semantically similar memories using vector similarity.
-
-```python
-async def search_memories(
-    user_id: str,
-    query: str,
-    limit: int = 5,
-    similarity_threshold: float = 0.7
-) -> list[Memory]
-```
-
-**Parameters:**
-
-- `user_id` (str): User ID to search memories for
-- `query` (str): Search query to find similar memories
-- `limit` (int, optional): Maximum number of memories to return (default: 5)
-- `similarity_threshold` (float, optional): Minimum similarity score (default: 0.7)
-
-**Returns:**
-
-- `list[Memory]`: List of similar memories, ordered by relevance
-
-**Example:**
-
-```python
-from src.memory import search_memories
-
-# When user asks about a topic, search for related past conversations
-related_memories = await search_memories(
-    user_id="user-456",
-    query="dealing with work stress",
-    limit=3,
-    similarity_threshold=0.6
-)
-
-print(f"Found {len(related_memories)} related conversations:")
-for memory in related_memories:
-    print(f"- {memory.user_message[:50]}... ({memory.timestamp.strftime('%Y-%m-%d')})")
-```
-
-#### format_memories_for_prompt()
-
-Formats retrieved memories into a structured string for AI context.
-
-```python
-def format_memories_for_prompt(memories: list[Memory]) -> str
-```
-
-**Parameters:**
-
-- `memories` (list[Memory]): List of memories to format
-
-**Returns:**
-
-- `str`: Formatted string ready for inclusion in AI prompts
-
-**Format Structure:**
-
-```
-Previous relevant conversations:
-
-Memory 1 (2024-01-15):
-User: I've been having trouble sleeping
-AI: Sleep issues can significantly impact your wellbeing...
-
-Memory 2 (2024-01-10):
-User: Work has been really stressful
-AI: Workplace stress is a common challenge...
-```
-
-**Example:**
-
-```python
-from src.memory import search_memories, format_memories_for_prompt
-
-# Complete workflow: search and format for AI context
-memories = await search_memories(
-    user_id="user-456",
-    query="anxiety and sleep problems",
-    limit=2
-)
-
-if memories:
-    context = format_memories_for_prompt(memories)
-
-    # Add to system prompt
-    enhanced_prompt = f"""You are a wellness AI assistant.
-
-{context}
-
-Please provide personalized advice based on the user's history above and their current question."""
-
-    print("Enhanced prompt with memory context ready")
-else:
-    print("No relevant memories found")
-```
-
-### Embedding Functions
-
-#### generate_embedding()
-
-Generates a vector embedding for text using Gemini AI.
-
-```python
-async def generate_embedding(text: str) -> list[float]
-```
-
-**Parameters:**
-
-- `text` (str): Text to generate embedding for
-
-**Returns:**
-
-- `list[float]`: 768-dimensional embedding vector
-
-**Example:**
-
-```python
-from src.memory import generate_embedding
-
-# Generate embedding for similarity search
-user_query = "I'm feeling overwhelmed with work"
-query_embedding = await generate_embedding(user_query)
-
-print(f"Generated {len(query_embedding)}-dimensional vector")
-# Output: Generated 768-dimensional vector
-```
-
-#### format_memory_text()
-
-Formats a memory's content for consistent embedding generation.
-
-```python
-def format_memory_text(user_message: str, ai_response: str) -> str
-```
-
-**Parameters:**
-
-- `user_message` (str): User's original message
-- `ai_response` (str): AI's response
-
-**Returns:**
-
-- `str`: Formatted text combining both messages
-
-**Format:**
-
-```
-User: [user_message]
-AI: [ai_response]
-```
-
-**Example:**
-
-```python
-from src.memory import format_memory_text
-
-# Prepare text for embedding (used internally by store_memory)
-formatted = format_memory_text(
-    user_message="I can't stop worrying about my presentation",
-    ai_response="It's natural to feel nervous. Try these preparation strategies..."
-)
-
-print(formatted)
-# Output:
-# User: I can't stop worrying about my presentation
-# AI: It's natural to feel nervous. Try these preparation strategies...
-```
-
-## Complete Integration Example
-
-Here's how to integrate the memory system into a chatbot conversation flow:
-
-```python
-from src.memory import store_memory, search_memories, format_memories_for_prompt
-
-async def enhanced_chatbot_response(user_id: str, user_message: str) -> str:
-    """Generate AI response with memory-enhanced context."""
-
-    # 1. Search for relevant memories
-    memories = await search_memories(
-        user_id=user_id,
-        query=user_message,
-        limit=3,
-        similarity_threshold=0.6
-    )
-
-    # 2. Build context-aware prompt
-    base_prompt = "You are a helpful wellness AI assistant."
-
-    if memories:
-        memory_context = format_memories_for_prompt(memories)
-        enhanced_prompt = f"""{base_prompt}
-
-{memory_context}
-
-Consider the user's conversation history above when responding to their current message."""
-    else:
-        enhanced_prompt = base_prompt
-
-    # 3. Generate AI response (your AI logic here)
-    ai_response = await generate_ai_response(enhanced_prompt, user_message)
-
-    # 4. Store new conversation for future reference
-    memory_stored = await store_memory(
-        user_id=user_id,
-        user_message=user_message,
-        ai_response=ai_response
-    )
-
-    if not memory_stored:
-        print("⚠️  Warning: Failed to store conversation in memory")
-
-    return ai_response
-
-# Usage example
-async def chat_session():
-    user_id = "user-789"
-
-    # First conversation
-    response1 = await enhanced_chatbot_response(
-        user_id,
-        "I've been having trouble sleeping lately"
-    )
-    print(f"AI: {response1}")
-
-    # Later conversation - will reference sleep discussion
-    response2 = await enhanced_chatbot_response(
-        user_id,
-        "My anxiety is getting worse"
-    )
-    print(f"AI: {response2}")  # May reference sleep issues if related
-```
-
-## Data Flow
-
-```mermaid
-sequenceDiagram
-    participant U as User
-    participant C as Chatbot
-    participant M as Memory Module
-    participant DB as Supabase
-    participant AI as Gemini AI
-
-    U->>C: "I'm feeling stressed"
-
-    C->>M: search_memories(user_id, query)
-    M->>AI: generate_embedding(query)
-    AI-->>M: query_embedding
-    M->>DB: vector_search(embedding)
-    DB-->>M: similar_memories[]
-    M-->>C: formatted_context
-
-    C->>AI: generate_response(context + query)
-    AI-->>C: ai_response
-    C-->>U: Enhanced response
-
-    C->>M: store_memory(user_msg, ai_response)
-    M->>AI: generate_embedding(memory_text)
-    AI-->>M: memory_embedding
-    M->>DB: insert_with_embedding
-    DB-->>M: success
-    M-->>C: stored
-```
-
-## Configuration Requirements
+## Configuration
 
 ### Environment Variables
 
 ```bash
-# Required for memory storage
-SUPABASE_URL="https://your-project.supabase.co"
-SUPABASE_ANON_KEY="your-anon-key"
-
-# Required for embeddings
-GEMINI_API_KEY="your-gemini-api-key"
-
-# Optional for caching (improves performance)
-REDIS_URL="redis://localhost:6379"
+# Required: Redis connection (checks REDIS_URI first, falls back to REDIS_URL)
+REDIS_URI=redis://localhost:6379
+# or
+REDIS_URL=redis://localhost:6379
 ```
 
-### Database Schema
+### Cache Constants
 
-The memory system expects a `memories` table in Supabase:
+| Constant                | Value            | Description                             |
+| ----------------------- | ---------------- | --------------------------------------- |
+| `MAX_ENTRIES_PER_USER`  | 1,000            | Maximum embeddings cached per user      |
+| `EMBEDDING_TTL_SECONDS` | 604,800 (7 days) | TTL for embedding cache entries         |
+| `MAX_CACHED_MESSAGES`   | 10,000           | Total messages across all conversations |
+| `REDIS_CONNECT_TIMEOUT` | 2.0 seconds      | Connection timeout for Redis            |
 
-```sql
-CREATE TABLE memories (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id TEXT NOT NULL,
-    user_message TEXT NOT NULL,
-    ai_response TEXT NOT NULL,
-    timestamp TIMESTAMPTZ DEFAULT NOW(),
-    embedding VECTOR(768)
-);
+## Connection Management
 
--- Enable vector similarity search
-CREATE INDEX ON memories USING ivfflat (embedding vector_cosine_ops);
-```
-
-:::tip Performance Optimization
-
-- Enable Redis caching to reduce Gemini API calls by 60-80%
-- Use appropriate similarity thresholds to balance relevance vs. recall
-- Consider batch operations for bulk memory storage
-- Monitor embedding API usage to stay within rate limits
-  :::
-
-:::warning Privacy Considerations
-
-- User memories are isolated by `user_id` - ensure proper authentication
-- Consider data retention policies for stored conversations
-- Embeddings may contain semantic information about sensitive topics
-- Implement proper access controls in your Supabase setup
-  :::
-
-## Error Handling
-
-All memory functions are designed to fail gracefully:
+### `get_redis_client()`
 
 ```python
-from src.memory import store_memory, search_memories
-
-async def robust_memory_usage():
-    """Example of robust error handling."""
-
-    try:
-        # Storage failures don't break the conversation
-        stored = await store_memory(
-            user_id="user-123",
-            user_message="test message",
-            ai_response="test response"
-        )
-        if not stored:
-            print("⚠️  Memory storage failed, but conversation continues")
-
-        # Search failures return empty list
-        memories = await search_memories(
-            user_id="user-123",
-            query="test query"
-        )
-        # memories will be [] if search fails
-
-        if memories:
-            print(f"Found {len(memories)} memories")
-        else:
-            print("No memories found or search failed")
-
-    except Exception as e:
-        print(f"Unexpected error: {e}")
-        # Your chatbot can still function without memory
+async def get_redis_client() -> redis.Redis | None
 ```
 
-## Related Documentation
+Returns an async Redis client using a shared connection pool.
 
-- [LangGraph Guide](./langgraph) - AI backend implementation
-- [Architecture Overview](../architecture/overview) - System design overview
-- [Database Schema](../database/schema) - Supabase table structure
+**Returns:**
+
+- `redis.Redis`: Client instance or None if Redis unavailable
+
+**Connection Pool:**
+
+- Maximum 10 connections per pool
+- Automatic health checks via ping
+- Global pool reuse for efficiency
+
+**Example:**
+
+```python
+from src.memory.cache import get_redis_client
+
+client = await get_redis_client()
+if client:
+    await client.set("test_key", "test_value")
+else:
+    print("Redis not available - continuing without cache")
+```
+
+### `close_redis_pool()`
+
+```python
+async def close_redis_pool() -> None
+```
+
+Closes the Redis connection pool. Call during application shutdown.
+
+**Example:**
+
+```python
+from src.memory.cache import close_redis_pool
+
+# In your shutdown handler
+await close_redis_pool()
+```
+
+## Embedding Cache Functions
+
+The embedding cache provides per-user isolation with LRU eviction when limits are exceeded.
+
+### `get_cached_embedding()`
+
+```python
+async def get_cached_embedding(user_id: str, text: str) -> list[float] | None
+```
+
+Retrieves a cached embedding for the given text.
+
+**Parameters:**
+
+- `user_id` (str): User ID for cache isolation
+- `text` (str): Text whose embedding to retrieve (normalized before hashing)
+
+**Returns:**
+
+- `list[float]`: Cached embedding vector or None if not found
+
+**Side Effects:**
+
+- Updates LRU timestamp on cache hit
+
+**Example:**
+
+```python
+from src.memory.cache import get_cached_embedding
+
+# Try to get cached embedding
+embedding = await get_cached_embedding(
+    user_id="user-123",
+    text="I'm feeling anxious about work"
+)
+
+if embedding:
+    print(f"Cache hit! Embedding has {len(embedding)} dimensions")
+else:
+    print("Cache miss - need to generate embedding")
+```
+
+### `cache_embedding()`
+
+```python
+async def cache_embedding(user_id: str, text: str, embedding: list[float]) -> bool
+```
+
+Stores an embedding in the cache with automatic eviction if needed.
+
+**Parameters:**
+
+- `user_id` (str): User ID for cache isolation
+- `text` (str): Original text that was embedded
+- `embedding` (list[float]): Embedding vector to cache
+
+**Returns:**
+
+- `bool`: True if caching succeeded, False otherwise
+
+**Eviction Logic:**
+
+- Triggers when user exceeds `MAX_ENTRIES_PER_USER`
+- Removes oldest entries based on LRU timestamps
+- Maintains cache size automatically
+
+**Example:**
+
+```python
+from src.memory.cache import cache_embedding
+from src.embeddings import generate_embedding
+
+async def get_embedding_with_cache(user_id: str, text: str):
+    # Try cache first
+    embedding = await get_cached_embedding(user_id, text)
+
+    if embedding is None:
+        # Generate and cache new embedding
+        embedding = await generate_embedding(text)
+        success = await cache_embedding(user_id, text, embedding)
+
+        if success:
+            print("Embedding cached successfully")
+        else:
+            print("Cache storage failed - Redis unavailable")
+
+    return embedding
+```
+
+### `get_cache_stats()`
+
+```python
+async def get_cache_stats(user_id: str) -> dict[str, object]
+```
+
+Returns cache statistics for monitoring and debugging.
+
+**Parameters:**
+
+- `user_id` (str): User ID to get stats for
+
+**Returns:**
+
+- `dict`: Statistics including entry_count, oldest_entry_age, etc.
+
+**Example:**
+
+```python
+from src.memory.cache import get_cache_stats
+
+stats = await get_cache_stats("user-123")
+
+print(f"Cached embeddings: {stats['entry_count']}/{stats['max_entries']}")
+if stats['oldest_entry_age_seconds']:
+    age_hours = stats['oldest_entry_age_seconds'] / 3600
+    print(f"Oldest entry: {age_hours:.1f} hours old")
+```
+
+**Sample Output:**
+
+```python
+{
+    "entry_count": 247,
+    "max_entries": 1000,
+    "oldest_entry_age_seconds": 86400.5  # ~1 day
+}
+```
+
+## Message Cache Functions
+
+The message cache implements a write-through pattern with conversation-level LRU eviction based on total message count.
+
+### Cache Architecture
+
+```mermaid
+graph TB
+    A[Conversation Messages] --> B[Write-Through Cache]
+    B --> C[Supabase Database]
+    B --> D[Redis Cache]
+
+    D --> E[conv_msgs:uuid - Message Lists]
+    D --> F[conv_msgs_lru - Access Times]
+    D --> G[conv_msgs_counts - Message Counts]
+
+    H[Eviction Logic] --> F
+    H --> G
+    H --> I[Remove Oldest Conversations]
+```
+
+### `get_cached_messages()`
+
+```python
+async def get_cached_messages(conversation_id: str) -> list[dict[str, object]] | None
+```
+
+Retrieves cached messages for a conversation.
+
+**Parameters:**
+
+- `conversation_id` (str): Conversation UUID
+
+**Returns:**
+
+- `list[dict]`: Message objects `[{id, role, content, created_at}, ...]` or None if not cached
+
+**Side Effects:**
+
+- Updates access time in LRU index
+
+**Example:**
+
+```python
+from src.memory.cache import get_cached_messages
+
+# Check cache first (fast)
+messages = await get_cached_messages("conversation-uuid")
+
+if messages:
+    print(f"Cache hit: {len(messages)} messages")
+    for msg in messages[-2:]:  # Show last 2 messages
+        print(f"{msg['role']}: {msg['content'][:50]}...")
+else:
+    print("Cache miss - need to query database")
+```
+
+### `cache_messages()`
+
+```python
+async def cache_messages(conversation_id: str, messages: list[dict[str, object]]) -> bool
+```
+
+Caches all messages for a conversation (full replacement).
+
+**Parameters:**
+
+- `conversation_id` (str): Conversation UUID
+- `messages` (list[dict]): Complete list of message objects
+
+**Returns:**
+
+- `bool`: True if caching succeeded
+
+**Use Case:**
+
+- Populating cache after database read
+- Full conversation refresh
+
+**Eviction:**
+
+- Triggers if total cached messages exceed `MAX_CACHED_MESSAGES`
+- Removes oldest-accessed conversations to make room
+
+**Example:**
+
+```python
+from src.memory.cache import cache_messages, get_cached_messages
+
+async def get_conversation_messages(conversation_id: str):
+    # Try cache first
+    messages = await get_cached_messages(conversation_id)
+
+    if messages is None:
+        # Cache miss - query database
+        messages = await query_database_messages(conversation_id)
+
+        # Populate cache for future requests
+        await cache_messages(conversation_id, messages)
+        print(f"Cached {len(messages)} messages")
+
+    return messages
+```
+
+### `append_messages()`
+
+```python
+async def append_messages(conversation_id: str, new_messages: list[dict[str, object]]) -> bool
+```
+
+Appends new messages to an existing cached conversation.
+
+**Parameters:**
+
+- `conversation_id` (str): Conversation UUID
+- `new_messages` (list[dict]): New message objects to append
+
+**Returns:**
+
+- `bool`: True if append succeeded or cache miss (no-op)
+
+**Write-Through Pattern:**
+
+1. Save messages to database (source of truth)
+2. Call `append_messages()` to update cache
+3. Cache miss is no-op (will populate on next read)
+
+**Example:**
+
+```python
+from src.memory.cache import append_messages
+from src.memory.store import save_messages
+
+async def handle_new_message(conversation_id: str, user_msg: str, ai_response: str):
+    # 1. Save to database (source of truth)
+    await save_messages(conversation_id, user_msg, ai_response)
+
+    # 2. Update cache (write-through)
+    new_messages = [
+        {"role": "user", "content": user_msg, "created_at": "2024-01-15T10:30:00Z"},
+        {"role": "assistant", "content": ai_response, "created_at": "2024-01-15T10:30:05Z"}
+    ]
+
+    success = await append_messages(conversation_id, new_messages)
+    if success:
+        print("Cache updated successfully")
+```
+
+:::info Cache Miss Behavior
+If a conversation isn't in cache, `append_messages()` does nothing. This prevents partial cache states - the next read will populate the full conversation from the database.
+:::
+
+### `invalidate_conversation_cache()`
+
+```python
+async def invalidate_conversation_cache(conversation_id: str) -> bool
+```
+
+Removes a conversation from cache completely.
+
+**Parameters:**
+
+- `conversation_id` (str): Conversation UUID to invalidate
+
+**Returns:**
+
+- `bool`: True if invalidation succeeded
+
+**Use Cases:**
+
+- Conversation deleted
+- Force cache refresh
+- Data consistency issues
+
+**Example:**
+
+```python
+from src.memory.cache import invalidate_conversation_cache
+
+async def delete_conversation(conversation_id: str):
+    # Remove from database
+    await database_delete_conversation(conversation_id)
+
+    # Invalidate cache
+    await invalidate_conversation_cache(conversation_id)
+
+    print("Conversation deleted and cache invalidated")
+```
+
+### `get_message_cache_stats()`
+
+```python
+async def get_message_cache_stats() -> dict[str, object]
+```
+
+Returns statistics about the message cache for monitoring.
+
+**Returns:**
+
+- `dict`: Cache statistics and utilization metrics
+
+**Example:**
+
+```python
+from src.memory.cache import get_message_cache_stats
+
+stats = await get_message_cache_stats()
+
+print(f"Total messages cached: {stats['total_messages']:,}")
+print(f"Conversations cached: {stats['conversation_count']}")
+print(f"Cache utilization: {stats['utilization_percent']}%")
+
+if stats.get('oldest_conversation_age_seconds'):
+    age_hours = stats['oldest_conversation_age_seconds'] / 3600
+    print(f"Oldest conversation: {age_hours:.1f} hours old")
+```
+
+**Sample Output:**
+
+```python
+{
+    "total_messages": 7843,
+    "max_messages": 10000,
+    "conversation_count": 156,
+    "oldest_conversation_age_seconds": 43200.0,  # 12 hours
+    "utilization_percent": 78.4
+}
+```
+
+## Cache Eviction Strategies
+
+### Embedding Cache (Per-User LRU)
+
+```mermaid
+flowchart TD
+    A[New Embedding Cached] --> B{User Over Limit?}
+    B -->|No| C[Cache Complete]
+    B -->|Yes| D[Get LRU Sorted Set]
+    D --> E[Find Oldest Entries]
+    E --> F[Delete Embedding Keys]
+    F --> G[Update LRU Tracking]
+    G --> C
+```
+
+**Key Features:**
+
+- Per-user isolation (users don't affect each other)
+- LRU based on access time
+- Configurable limits per user
+- Preserves recently accessed embeddings
+
+### Message Cache (Global Count-Based LRU)
+
+```mermaid
+flowchart TD
+    A[Messages Added] --> B{Total Over MAX_CACHED_MESSAGES?}
+    B -->|No| C[Cache Complete]
+    B -->|Yes| D[Calculate Messages to Free]
+    D --> E[Find Oldest Conversations]
+    E --> F[Remove Entire Conversations]
+    F --> G[Update Tracking Structures]
+    G --> B
+```
+
+**Key Features:**
+
+- Global message count limit
+- Conversation-level eviction (removes entire conversations)
+- LRU based on last access time
+- Preserves recently active conversations
+
+## Error Handling and Fallbacks
+
+All cache operations implement graceful degradation:
+
+### Redis Unavailable
+
+```python
+from src.memory.cache import get_cached_embedding, cache_embedding
+
+async def robust_embedding_workflow(user_id: str, text: str):
+    # Try cache first
+    embedding = await get_cached_embedding(user_id, text)
+
+    if embedding is None:
+        # Generate new embedding (this always works)
+        embedding = await generate_embedding(text)
+
+        # Try to cache (silent failure if Redis down)
+        await cache_embedding(user_id, text, embedding)
+
+    # Application continues regardless of cache state
+    return embedding
+```
+
+### Connection Failures
+
+```python
+from src.memory.cache import get_redis_client
+
+async def safe_cache_operation():
+    client = await get_redis_client()
+
+    if client is None:
+        print("Redis unavailable - skipping cache operation")
+        return None
+
+    try:
+        result = await client.get("some_key")
+        return result
+    except Exception as e:
+        print(f"Cache operation failed: {e}")
+        return None
+```
+
+## Integration Patterns
+
+### Complete Embedding Cache Integration
+
+```python
+from src.memory.cache import get_cached_embedding, cache_embedding
+from src.embeddings import generate_embedding
+
+async def get_embedding_with_full_cache(user_id: str, text: str) -> list[float]:
+    """Get embedding with caching - production ready"""
+
+    # 1. Try cache first
+    embedding = await get_cached_embedding(user_id, text)
+    if embedding is not None:
+        print(f"Cache hit for user {user_id}")
+        return embedding
+
+    # 2. Generate new embedding
+    print(f"Cache miss - generating embedding for user {user_id}")
+    embedding = await generate_embedding(text)
+
+    # 3. Cache for future use (fire-and-forget)
+    success = await cache_embedding(user_id, text, embedding)
+    if success:
+        print("Embedding cached successfully")
+    else:
+        print("Caching failed - continuing without cache")
+
+    return embedding
+```
+
+### Message Cache Write-Through Pattern
+
+```python
+from src.memory.cache import get_cached_messages, append_messages
+from src.memory.store import save_messages
+
+async def complete_message_flow(conversation_id: str, user_msg: str, ai_response: str):
+    """Complete message handling with write-through cache"""
+
+    # 1. Save to database (source of truth)
+    await save_messages(conversation_id, user_msg, ai_response)
+
+    # 2. Update cache (write-through)
+    new_messages = [
+        {
+            "role": "user",
+            "content": user_msg,
+            "created_at": datetime.utcnow().isoformat()
+        },
+        {
+            "role": "assistant",
+            "content": ai_response,
+            "created_at": datetime.utcnow().isoformat()
+        }
+    ]
+
+    await append_messages(conversation_i
+```

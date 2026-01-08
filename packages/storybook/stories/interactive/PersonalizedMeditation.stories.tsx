@@ -4,12 +4,12 @@ import type { ReactElement } from 'react';
 import { useEffect, useState } from 'react';
 import { fn } from 'storybook/test';
 
-import { PersonalizedMeditation } from '@/components/GuidedMeditation';
+import { PersonalizedMeditation } from '@/features/meditation';
 import type {
   MeditationPersonalization,
   PersonalizedMeditationProps,
   PersonalizedScript,
-} from '@/components/GuidedMeditation';
+} from '@/features/meditation';
 import { supabase } from '@/lib/supabase';
 
 // Create a client for Storybook stories

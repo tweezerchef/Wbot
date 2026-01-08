@@ -215,7 +215,7 @@ function AuthDecoratorInner({ children }: { children: ReactNode }): ReactElement
 
         return (
           <div style={{ display: 'contents' }}>
-            {showWarning && <AuthWarningBanner message={value.error} />}
+            {showWarning && value.error && <AuthWarningBanner message={value.error} />}
             {children}
           </div>
         );

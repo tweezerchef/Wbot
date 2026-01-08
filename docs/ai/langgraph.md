@@ -1,519 +1,505 @@
 ---
 sidebar_position: 9
+title: Activity Detection Node
 ---
 
-# Retrieve Memories Node
+# Activity Detection Node
 
-The Retrieve Memories Node performs semantic search against stored conversation history to find relevant context before generating responses. This node enables the AI to reference past conversations, creating continuity and personalized interactions based on the user's history.
+The Activity Detection Node analyzes user conversations to intelligently detect when wellness activities would be beneficial. Using structured LLM output, it identifies both explicit activity requests and implicit emotional signals, routing users to appropriate wellness interventions like breathing exercises, meditation, or journaling.
+
+:::info Intent-Based Routing
+This node uses LLM-powered classification with confidence thresholds to ensure users are only routed to activities when truly appropriate, maintaining natural conversation flow.
+:::
 
 ## Overview
 
-The Retrieve Memories Node is a context enrichment component that runs early in the conversation flow, operating in parallel with other startup nodes. It searches the memory store using semantic similarity to find past conversations that may be relevant to the current user message.
+The Activity Detection Node serves as the intelligent routing mechanism within Wbot's wellness system. It analyzes conversation context to determine when users would benefit from structured wellness activities, bridging the gap between natural conversation and therapeutic interventions.
 
-**Key Characteristics:**
+**Core Responsibilities:**
 
-- **Parallel execution**: Runs at START alongside `inject_user_context` and `detect_activity`
-- **Semantic search**: Uses vector embeddings to find topically relevant memories
-- **Direct auth access**: Retrieves user_id from LangGraph auth config for parallel execution
-- **Fault-tolerant**: Memory retrieval failures don't block conversation flow
-- **Performance optimized**: Configurable limits and similarity thresholds
-
-:::info Execution Timing
-This node runs before response generation to ensure retrieved memories are available for context. It executes in parallel with other startup nodes by accessing user authentication directly rather than waiting for state population.
-:::
+- **Intent Classification**: Detects explicit requests for wellness activities
+- **Emotional Signal Processing**: Identifies implicit indicators of distress or need
+- **Activity Type Selection**: Routes to breathing, meditation, or journaling based on context
+- **Confidence-Based Routing**: Only suggests activities when confidence exceeds threshold
+- **Context Awareness**: Uses recent conversation history for better detection
 
 ## Architecture
 
 ```mermaid
 graph TD
-    A[WellnessState] --> B[Extract User ID from Auth Config]
-    B --> C{User Authenticated?}
-    C -->|No| D[Return Empty Memories]
-    C -->|Yes| E[Extract User Messages]
+    A[Node Entry] --> B[Extract Messages]
+    B --> C[Get Last User Message]
+    C --> D[Build Recent Context]
 
-    E --> F{User Messages Exist?}
-    F -->|No| G[Return Empty Memories]
-    F -->|Yes| H[Get Latest User Message]
+    D --> E[Create Resilient LLM]
+    E --> F[Add Structured Output Schema]
 
-    H --> I[Semantic Search]
-    I --> J[Memory Store Query]
-    J --> K[Filter by Similarity Threshold]
+    F --> G[Format Detection Prompt]
+    G --> H[Execute Classification]
 
-    K --> L[Convert to State-Safe Dicts]
-    L --> M[Return Retrieved Memories]
+    H --> I{LLM Response}
+    I --> J[Extract Activity Detection]
 
-    I --> N{Search Error?}
-    N -->|Yes| O[Log Error]
-    O --> P[Return Empty Memories]
+    J --> K{Confidence >= 0.7?}
+    K -->|Yes| L[Return Activity Type]
+    K -->|No| M[Return None - Continue Chat]
+
+    L --> N[Route to Activity]
+    M --> O[Continue Normal Conversation]
+
+    subgraph "Activity Types"
+        AT1[Breathing Exercise]
+        AT2[Meditation Session]
+        AT3[Journaling Prompt]
+    end
+
+    subgraph "Detection Categories"
+        DC1[Stress/Anxiety Signals]
+        DC2[Focus/Mindfulness Needs]
+        DC3[Emotional Processing Needs]
+        DC4[Explicit Requests]
+    end
+
+    L --> AT1
+    L --> AT2
+    L --> AT3
+
+    DC1 --> AT1
+    DC2 --> AT2
+    DC3 --> AT3
+    DC4 --> L
+
+    subgraph "Error Handling"
+        H --> EH1[Catch LLM Errors]
+        EH1 --> EH2[Log Error]
+        EH2 --> M
+    end
 
     style A fill:#e1f5fe
-    style I fill:#fff3e0
-    style J fill:#c8e6c9
-    style M fill:#f3e5f5
-
-    classDef error fill:#ffcdd2
-    classDef success fill:#c8e6c9
-    classDef skip fill:#f5f5f5
-
-    class O error
-    class M success
-    class D,G,P skip
-```
-
-## Core Implementation
-
-### Main Node Function
-
-```python
-async def retrieve_memories(
-    state: WellnessState, config: RunnableConfig
-) -> dict[str, list[dict[str, str | float]]]:
-    """
-    Retrieves relevant memories based on the user's message.
-
-    Performs semantic search against the memory store to find past
-    conversations that may be relevant to the current discussion.
-    Results are ordered by similarity.
-
-    This node runs at START in parallel with inject_user_context and
-    detect_activity. It gets user_id directly from the LangGraph auth
-    config rather than waiting for inject_user_context to populate state.
-
-    Args:
-        state: Current conversation state with messages
-        config: LangGraph config containing langgraph_auth_user
-
-    Returns:
-        Dict with retrieved_memories field to merge into state.
-        Each memory contains:
-        - id: Memory ID
-        - user_message: What the user said
-        - ai_response: What the AI responded
-        - similarity: Relevance score (0-1)
-
-    Note:
-        - Returns empty list if no user_id (unauthenticated)
-        - Returns empty list if no user messages yet
-        - Errors are logged but don't fail the conversation
-    """
-```
-
-### Authentication and User Context
-
-```python
-# Direct access to LangGraph auth config for parallel execution
-configurable = config.get("configurable", {})
-auth_user = configurable.get("langgraph_auth_user", {})
-user_id = auth_user.get("identity")
-
-if not user_id:
-    # No user ID means no memories to search (unauthenticated request)
-    logger.warning("No user_id in config - skipping memory retrieval")
-    return {"retrieved_memories": []}
-```
-
-:::tip Parallel Execution Pattern
-By accessing `user_id` directly from the auth config rather than waiting for `inject_user_context` to populate the state, this node can run in parallel at graph START, reducing overall latency.
-:::
-
-### Message Extraction Logic
-
-```python
-# Get the latest user message for semantic search
-messages = state.get("messages", [])
-user_messages = [m for m in messages if isinstance(m, HumanMessage)]
-
-if not user_messages:
-    # No user messages yet - nothing to search against
-    return {"retrieved_memories": []}
-
-latest_message = user_messages[-1].content
+    style E fill:#ff9800,color:#fff
+    style K fill:#9c27b0,color:#fff
+    style L fill:#4caf50,color:#fff
+    style M fill:#2196f3,color:#fff
+    style EH2 fill:#f44336,color:#fff
 ```
 
 ## Data Flow
 
 ```mermaid
 sequenceDiagram
-    participant Graph as LangGraph
-    participant Node as Retrieve Memories
-    participant Auth as Auth Config
-    participant Store as Memory Store
-    participant Embeddings as Embedding Service
-    participant Vector as Vector Database
+    participant Node as Activity Detection Node
+    participant State as WellnessState
+    participant LLM as Resilient LLM
+    participant Schema as ActivityDetection
+    participant Router as Graph Router
 
-    Graph->>Node: retrieve_memories(state, config)
-    Node->>Node: node_start()
+    Node->>State: Extract conversation messages
+    State-->>Node: Message history array
 
-    Node->>Auth: Get langgraph_auth_user
-    Auth-->>Node: user_id
+    Node->>Node: Get last user message
+    Node->>Node: Build recent context (3 exchanges)
 
-    alt User authenticated
-        Node->>Node: Extract latest user message
+    Node->>LLM: Create LITE tier LLM (low temp)
+    LLM-->>Node: Structured LLM instance
 
-        alt User message exists
-            Node->>Store: search_memories(user_id, query, limit, threshold)
-            Store->>Embeddings: Generate query embedding
-            Embeddings-->>Store: Vector embedding
-            Store->>Vector: Similarity search
-            Vector-->>Store: Matching memories with scores
-            Store->>Store: Filter by similarity threshold
-            Store-->>Node: Ordered memory results
+    Node->>Schema: Apply ActivityDetection schema
+    Schema-->>Node: Typed response structure
 
-            Node->>Node: Convert to state-safe dicts
-            Node->>Node: info("Found relevant memories")
-            Node->>Graph: {"retrieved_memories": memories}
-        else No user messages
-            Node->>Graph: {"retrieved_memories": []}
-        end
-    else Unauthenticated
-        Node->>Node: warning("No user_id - skipping")
-        Node->>Graph: {"retrieved_memories": []}
+    Node->>LLM: Execute classification prompt
+    LLM->>LLM: Analyze conversation context
+    LLM->>LLM: Detect activity signals
+    LLM-->>Node: Structured response
+
+    alt High Confidence (≥0.7)
+        Node->>Router: Return activity type
+        Router->>Router: Route to activity node
+    else Low Confidence (<0.7)
+        Node->>Router: Return None
+        Router->>Router: Continue conversation
     end
 
-    Note over Node: All errors logged<br/>but don't fail retrieval
+    Note over Node,Router: All errors logged, fallback to conversation
 ```
 
-## Memory Search Implementation
+## Core Implementation
 
-### Semantic Search Parameters
+### Structured Output Schema
 
 ```python
-# Search configuration for optimal relevance and performance
-memories = await search_memories(
-    user_id=user_id,
-    query=latest_message,
-    limit=3,                    # Top 3 most relevant memories
-    similarity_threshold=0.5,   # Only reasonably similar matches
-)
+class ActivityDetection(BaseModel):
+    """
+    Structured output for activity detection.
+
+    Using Pydantic model with LangChain's with_structured_output()
+    ensures reliable, typed responses from the LLM.
+    """
+
+    detected_activity: Literal["breathing", "meditation", "journaling"] | None = Field(
+        default=None,
+        description="The type of wellness activity detected, or None if normal conversation",
+    )
+
+    confidence: float = Field(
+        ge=0.0,
+        le=1.0,
+        description="Confidence score from 0 to 1. Higher means more certain the activity is appropriate.",
+    )
+
+    reasoning: str = Field(
+        description="Brief explanation of why this activity was detected or why no activity is needed",
+    )
 ```
 
-### Memory Data Structure
+### Main Detection Function
 
 ```python
-# Memory objects returned from search
-class Memory:
-    id: str                    # Unique memory identifier
-    user_message: str          # Original user input
-    ai_response: str          # AI's response to that input
-    similarity: float         # Cosine similarity score (0-1)
-    conversation_id: str      # Source conversation
-    created_at: datetime      # When memory was stored
-    metadata: dict           # Additional context
+async def detect_activity_intent(state: WellnessState) -> dict[str, str | None]:
+    """
+    Analyzes conversation to detect if an activity would be helpful.
 
-# Converted to state-safe dictionaries
-memory_dicts = [
-    {
-        "id": m.id,
-        "user_message": m.user_message,
-        "ai_response": m.ai_response,
-        "similarity": m.similarity,
-    }
-    for m in memories
-]
+    Uses LLM with structured output for reliable classification.
+    Only routes to activities when confidence is above threshold (0.7).
+
+    Args:
+        state: Current conversation state including messages
+
+    Returns:
+        Dict with suggested_activity (or None if no activity detected)
+    """
+    logger.node_start()
+
+    messages = state.get("messages", [])
+    if not messages:
+        return {"suggested_activity": None}
+
+    # Get the user's message and recent context
+    last_message = get_last_user_message(messages)
+    context = get_recent_context(messages)
+
+    # Create resilient LLM with LITE tier (simple classification task)
+    try:
+        llm = create_resilient_llm(tier=ModelTier.LITE, temperature=0.2, max_tokens=200)
+        structured_llm = llm.with_structured_output(ActivityDetection)
+
+        # Format the detection prompt
+        prompt = DETECTION_PROMPT.format(context=context, message=last_message)
+
+        # Run detection
+        result: ActivityDetection = await structured_llm.ainvoke([HumanMessage(content=prompt)])
+
+        # Only route if confidence is high enough
+        confidence_threshold = 0.7
+        if result.confidence >= confidence_threshold and result.detected_activity:
+            logger.info(
+                "Activity detected → routing",
+                activity=result.detected_activity,
+                confidence=f"{result.confidence:.0%}",
+            )
+            return {"suggested_activity": result.detected_activity}
+
+        logger.info("No activity needed → conversation")
+        return {"suggested_activity": None}
+
+    except Exception as e:
+        logger.error("Detection failed", error=str(e))
+        return {"suggested_activity": None}
 ```
 
-### Similarity Scoring
+### Context Extraction Helpers
+
+```python
+def get_last_user_message(messages: list[BaseMessage]) -> str:
+    """Extract the content of the last human message."""
+    for message in reversed(messages):
+        if isinstance(message, HumanMessage):
+            return str(message.content)
+    return ""
+
+def get_recent_context(messages: list[BaseMessage], count: int = 3) -> str:
+    """Get a summary of recent conversation for context."""
+    recent = []
+    for msg in messages[-count * 2:]:  # Last few exchanges
+        role = "User" if isinstance(msg, HumanMessage) else "Assistant"
+        content = str(msg.content)[:200]  # Truncate for efficiency
+        recent.append(f"{role}: {content}")
+    return "\n".join(recent)
+```
+
+## Detection Rules and Prompting
+
+### Classification Logic
+
+The node uses sophisticated prompt engineering to classify user needs:
+
+```python
+DETECTION_PROMPT = """You are an activity detection system for a wellness chatbot.
+
+Analyze the user's message and recent conversation to determine if a wellness activity would be helpful.
+
+DETECTION RULES:
+- BREATHING: Detect when user mentions stress, anxiety, panic, overwhelm, can't calm down,
+  tense, nervous, racing heart, need to relax, breathing help, or similar distress signals.
+  Also detect explicit requests for breathing exercises.
+
+- MEDITATION: Detect when user mentions trouble focusing, scattered thoughts, wanting
+  mindfulness, need to be present, seeking clarity, or explicit meditation requests.
+
+- JOURNALING: Detect when user wants to write down feelings, process emotions, reflect
+  on experiences, express themselves, or explicit journaling requests.
+
+- None: Normal conversation, casual chat, questions, or when no activity seems appropriate.
+  Be conservative - only suggest activities when clearly appropriate.
+
+IMPORTANT:
+- Be conservative with detection. Only suggest activities when there's clear indication.
+- Confidence should be HIGH (0.8+) only for explicit requests or strong signals.
+- Confidence should be MEDIUM (0.5-0.7) for implicit signals that suggest an activity.
+- If unsure, return None with low confidence.
+
+Recent conversation:
+{context}
+
+Current user message:
+"{message}"
+
+Analyze this and determine if a wellness activity would help."""
+```
+
+### Activity Type Mapping
 
 ```mermaid
 graph LR
-    A[User Query] --> B[Generate Embedding]
-    B --> C[Vector Search]
-    C --> D[Cosine Similarity]
-    D --> E{Similarity ≥ 0.5?}
-    E -->|Yes| F[Include in Results]
-    E -->|No| G[Filter Out]
-    F --> H[Rank by Score]
-    G --> I[Discard]
-    H --> J[Return Top 3]
+    subgraph "User Signals"
+        US1[Stress/Anxiety Keywords]
+        US2[Focus/Clarity Needs]
+        US3[Emotional Expression]
+        US4[Explicit Requests]
+    end
 
-    style A fill:#e3f2fd
-    style C fill:#fff3e0
-    style F fill:#e8f5e8
-    style G fill:#ffebee
+    subgraph "Activity Types"
+        AT1[Breathing Exercise]
+        AT2[Meditation Session]
+        AT3[Journaling Prompt]
+    end
+
+    US1 --> AT1
+    US2 --> AT2
+    US3 --> AT3
+    US4 --> AT1
+    US4 --> AT2
+    US4 --> AT3
+
+    style US1 fill:#f44336,color:#fff
+    style US2 fill:#9c27b0,color:#fff
+    style US3 fill:#4caf50,color:#fff
+    style US4 fill:#ff9800,color:#fff
 ```
 
-**Similarity Thresholds:**
+**Breathing Exercise Triggers:**
 
-- **> 0.8**: Highly relevant, likely discussing same topic
-- **0.5 - 0.8**: Moderately relevant, related concepts or themes
-- **< 0.5**: Low relevance, filtered out to avoid noise
+- Stress, anxiety, panic mentions
+- Physical tension descriptions
+- Need for calming/relaxation
+- Explicit breathing requests
+
+**Meditation Triggers:**
+
+- Focus/concentration issues
+- Scattered thoughts
+- Mindfulness requests
+- Need for presence/clarity
+
+**Journaling Triggers:**
+
+- Desire to express feelings
+- Need to process emotions
+- Reflection requests
+- Explicit journaling interest
 
 ## Integration Points
 
-### Wellness State Integration
+### Input Dependencies
 
-The node reads from and writes to specific state fields:
+The Activity Detection Node requires specific state and context:
 
-```python
-# Input requirements
-state_inputs = {
-    "messages": [
-        # List of langchain_core.messages.BaseMessage
-        # Must contain at least one HumanMessage for search
-    ]
-}
+```mermaid
+graph LR
+    A[User Message Input] --> D[Activity Detection Node]
+    B[Conversation History] --> D
+    C[LLM Provider] --> D
 
-# Output format
-state_outputs = {
-    "retrieved_memories": [
-        {
-            "id": str,              # Memory unique identifier
-            "user_message": str,    # Past user input
-            "ai_response": str,     # Past AI response
-            "similarity": float,    # Relevance score (0-1)
-        }
-        # ... up to 3 memories
-    ]
-}
+    subgraph "Required State"
+        RS1[messages array]
+        RS2[Recent conversation context]
+        RS3[User's latest message]
+    end
+
+    RS1 --> D
+    RS2 --> D
+    RS3 --> D
+
+    style A fill:#2196f3,color:#fff
+    style D fill:#ff9800,color:#fff
+    style C fill:#4caf50,color:#fff
 ```
 
-### Memory Store Integration
+**State Requirements:**
 
-```python
-# Memory store interface
-from src.memory.store import search_memories
+- `messages`: Array of conversation messages (HumanMessage, AIMessage)
+- Recent conversation context for improved accuracy
+- Access to resilient LLM infrastructure
 
-# Search function signature
-async def search_memories(
-    user_id: str,              # User to search memories for
-    query: str,                # Semantic search query
-    limit: int = 10,           # Maximum results to return
-    similarity_threshold: float = 0.0,  # Minimum similarity score
-) -> list[Memory]:
-    """
-    Performs semantic search against user's stored memories.
+### Graph Routing Integration
 
-    Returns memories ordered by similarity score (highest first).
-    Includes only memories above the similarity threshold.
-    """
+```mermaid
+graph TD
+    A[Activity Detection Node] --> B{suggested_activity?}
+
+    B -->|breathing| C[Breathing Exercise Node]
+    B -->|meditation| D[Meditation Node]
+    B -->|journaling| E[Journaling Node]
+    B -->|None| F[Continue Conversation]
+
+    C --> G[Activity Completion]
+    D --> G
+    E --> G
+
+    G --> H[Return to Conversation]
+    F --> I[Generate Response Node]
+
+    style A fill:#ff9800,color:#fff
+    style B fill:#9c27b0,color:#fff
+    style C fill:#4caf50,color:#fff
+    style D fill:#4caf50,color:#fff
+    style E fill:#4caf50,color:#fff
+    style F fill:#2196f3,color:#fff
 ```
 
-### LangGraph Configuration Integration
+The node integrates with LangGraph's conditional routing:
 
 ```python
-# Required config structure for parallel execution
-config_requirements = {
-    "configurable": {
-        "langgraph_auth_user": {
-            "identity": str,        # User ID for memory search
-            # Other auth fields...
-        },
-        # Other LangGraph config...
-    }
-}
+# Graph routing logic (conceptual)
+def route_after_detection(state: WellnessState) -> str:
+    """Route based on activity detection results."""
+    suggested_activity = state.get("suggested_activity")
+
+    if suggested_activity == "breathing":
+        return "breathing_exercise"
+    elif suggested_activity == "meditation":
+        return "meditation_session"
+    elif suggested_activity == "journaling":
+        return "journaling_prompt"
+    else:
+        return "generate_response"
 ```
-
-## Error Handling and Resilience
-
-### Graceful Failure Pattern
-
-The node implements comprehensive error handling that prioritizes conversation continuity:
-
-```python
-try:
-    memories = await search_memories(
-        user_id=user_id,
-        query=latest_message,
-        limit=3,
-        similarity_threshold=0.5,
-    )
-
-    memory_dicts = [
-        {
-            "id": m.id,
-            "user_message": m.user_message,
-            "ai_response": m.ai_response,
-            "similarity": m.similarity,
-        }
-        for m in memories
-    ]
-
-    if memory_dicts:
-        logger.info("Found relevant memories", count=len(memory_dicts))
-
-    return {"retrieved_memories": memory_dicts}
-
-except Exception as e:
-    # Log error but don't fail the conversation
-    # User should still get a response even if memory retrieval fails
-    logger.error("Memory search failed", error=str(e))
-    return {"retrieved_memories": []}
-```
-
-:::warning Error Handling Philosophy
-Memory retrieval failures are logged for monitoring but never block the conversation. The AI can still generate helpful responses without historical context, ensuring robust user experience even during system issues.
-:::
-
-### Fallback Behaviors
-
-| Condition                  | Behavior                         | Impact on Conversation                     |
-| -------------------------- | -------------------------------- | ------------------------------------------ |
-| No user authentication     | Return empty memories            | No historical context, still functional    |
-| No user messages           | Return empty memories            | Nothing to search against yet              |
-| Memory store unavailable   | Return empty memories, log error | Conversation continues without history     |
-| Embedding service down     | Return empty memories, log error | No semantic search, conversation continues |
-| Database connection failed | Return empty memories, log error | No retrieval, core functionality preserved |
 
 ## Configuration Options
 
-### Search Parameters
+### LLM Configuration
 
 ```python
-# Memory retrieval configuration
-MEMORY_SEARCH_CONFIG = {
-    "max_memories": 3,              # Maximum memories to retrieve
-    "similarity_threshold": 0.5,    # Minimum relevance score
-    "search_timeout_ms": 5000,      # Max search time
-    "enable_semantic_search": True, # Use vector similarity
+# Model tier and parameters for detection
+DETECTION_CONFIG = {
+    "model_tier": ModelTier.LITE,      # Fast, cost-effective classification
+    "temperature": 0.2,                # Low temperature for consistent classification
+    "max_tokens": 200,                 # Sufficient for structured output
+    "timeout": 30,                     # Request timeout in seconds
 }
 ```
 
-### Performance Tuning
+### Detection Thresholds
 
 ```python
-# Performance optimization settings
-PERFORMANCE_CONFIG = {
-    "embedding_cache_ttl": 300,     # Cache embeddings for 5 minutes
-    "max_query_length": 1000,       # Truncate long queries
-    "parallel_search": False,       # Sequential search for now
-    "connection_pool_size": 10,     # Database connection pool
+# Confidence-based routing thresholds
+CONFIDENCE_THRESHOLDS = {
+    "activity_routing": 0.7,           # Minimum confidence to route to activity
+    "high_confidence": 0.8,            # Explicit requests/strong signals
+    "medium_confidence": 0.5,          # Implicit signals that suggest activity
+    "low_confidence": 0.0,             # Uncertain, continue conversation
 }
 ```
 
-### Content Filtering
+### Context Configuration
 
 ```python
-# Memory content filtering
-CONTENT_FILTER_CONFIG = {
-    "min_message_length": 5,        # Skip very short messages
-    "max_message_length": 2000,     # Truncate very long messages
-    "filter_system_messages": True, # Exclude system-generated content
-    "filter_error_responses": True, # Exclude error messages
+# Context extraction settings
+CONTEXT_CONFIG = {
+    "recent_message_count": 3,         # Number of recent exchanges to include
+    "message_truncate_length": 200,    # Max characters per message for context
+    "include_assistant_messages": True, # Include AI responses in context
+    "context_window_tokens": 1000,     # Approximate token limit for context
 }
 ```
 
-### Logging and Monitoring
+### Fallback Behavior
 
 ```python
-# Observability configuration
-MONITORING_CONFIG = {
-    "log_search_queries": True,     # Log what users search for
-    "log_similarity_scores": True,  # Track relevance quality
-    "track_retrieval_latency": True,# Monitor performance
-    "alert_on_failures": True,      # Alert on search failures
+# Error handling and fallback configuration
+FALLBACK_CONFIG = {
+    "on_llm_error": "continue_conversation",    # Fallback on LLM failures
+    "on_timeout": "continue_conversation",       # Fallback on timeouts
+    "on_no_messages": "continue_conversation",   # Fallback on empty state
+    "log_errors": True,                         # Log all detection errors
+    "default_confidence": 0.0,                  # Default confidence on errors
 }
 ```
 
 ## Performance Considerations
 
-### Latency Optimization
+### LLM Efficiency
 
-```mermaid
-graph TD
-    A[Query Received] --> B[Generate Embedding]
-    B --> C[Vector Database Query]
-    C --> D[Similarity Calculation]
-    D --> E[Threshold Filtering]
-    E --> F[Result Serialization]
+:::tip Model Selection
+Uses ModelTier.LITE (Claude Haiku) for fast, cost-effective classification. Simple detection tasks don't require premium models, and the resilient LLM provides automatic fallbacks.
+:::
 
-    B --> B1[~20-50ms]
-    C --> C1[~10-30ms]
-    D --> D1[~5-15ms]
-    E --> E1[~1-5ms]
-    F --> F1[~1-5ms]
-
-    G[Total Latency: 50-100ms]
-
-    style A fill:#e3f2fd
-    style G fill:#c8e6c9
-```
-
-**Performance Targets:**
-
-- **Total retrieval time**: < 100ms for good user experience
-- **Embedding generation**: < 50ms using cached or fast embedding models
-- **Vector search**: < 30ms with proper indexing
-- **Result processing**: < 10ms for serialization and filtering
-
-### Memory Usage
+### Response Time Optimization
 
 ```python
-# Efficient memory management
-def process_search_results(memories: list[Memory]) -> list[dict]:
-    """
-    Convert memory objects to state-safe dicts without copying large data.
-
-    Only extracts needed fields to minimize state size.
-    """
-    return [
-        {
-            "id": m.id,
-            "user_message": m.user_message[:500],    # Truncate long messages
-            "ai_response": m.ai_response[:500],      # Limit response length
-            "similarity": round(m.similarity, 3),   # Reduce precision
-        }
-        for m in memories[:3]  # Hard limit on results
-    ]
-```
-
-### Database Optimization
-
-```python
-# Vector database indexing strategy
-INDEX_STRATEGY = {
-    "vector_index_type": "hnsw",     # Hierarchical NSW for fast similarity search
-    "index_parameters": {
-        "ef_construction": 200,       # Build-time parameter
-        "M": 16,                     # Max connections per node
-    },
-    "query_parameters": {
-        "ef": 100,                   # Search-time parameter
-    }
+# Performance optimizations
+PERFORMANCE_CONFIG = {
+    "async_processing": True,          # Non-blocking LLM calls
+    "context_truncation": True,        # Limit context size for speed
+    "structured_output": True,         # Skip parsing, get typed responses
+    "connection_pooling": True,        # Reuse LLM connections
 }
 ```
+
+### Memory Efficiency
+
+- **Minimal State Changes**: Only adds `suggested_activity` to state
+- **Context Truncation**: Limits message content to 200 characters
+- **Structured Output**: Eliminates response parsing overhead
+- **Stateless Operation**: No persistent storage requirements
 
 ## Monitoring and Observability
 
 ### Key Metrics
 
-```mermaid
-graph LR
-    A[Retrieve Memories Metrics] --> B[Search Performance]
-    A --> C[Result Quality]
-    A --> D[Error Patterns]
-
-    B --> E[Average Retrieval Time]
-    B --> F[P95 Retrieval Latency]
-    B --> G[Search Success Rate]
-
-    C --> H[Average Similarity Scores]
-    C --> I[Results per Query]
-    C --> J[Empty Result Rate]
-
-    D --> K[Authentication Failures]
-    D --> L[Embedding Service Errors]
-    D --> M[Database Connection Issues]
-
-    style A fill:#4caf50
-    style B fill:#2196f3
-    style C fill:#ff9800
-    style D fill:#f44336
+```python
+# Important metrics for monitoring
+MONITORING_METRICS = {
+    "detection_rate": "Percentage of conversations triggering activities",
+    "activity_type_distribution": "Breakdown of breathing/meditation/journaling",
+    "confidence_distribution": "Range of confidence scores",
+    "false_positive_rate": "Activities suggested inappropriately",
+    "response_latency": "Time taken for detection classification",
+    "llm_error_rate": "Failures in LLM classification",
+}
 ```
 
-### Logging Structure
+### Log Events
 
 ```python
 # Structured logging for observability
-logger.node_start()                           # Execution tracking
-logger.warning("No user_id in config - skipping")  # Auth issues
-logger.info("Found relevant memories", count=len(memories))  # Success metrics
-logger.error("Memory search failed", error=str(e))  # Error tracking
-logger.node_end()                            # Completion tracking
-```
-
-### Alerting Thresholds
-
-```python
-# Monitoring alerts for operational issues
-ALERT_THRESH
+LOG_EVENTS = {
+    "activity_detected": {
+        "activity": "breathing|meditation|journaling",
+        "confidence": "percentage",
+        "reasoning": "llm_explanation"
+    },
+    "no_activity_detected": {
+        "reason": "low_confidence|normal_conversation",
+        "confidence": "percentage"
+    },
+    "detection_
 ```

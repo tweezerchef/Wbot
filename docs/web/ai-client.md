@@ -5,26 +5,22 @@ title: AI Client API Reference
 
 # AI Client API Reference
 
-The AI client provides direct communication with the LangGraph backend, handling streaming responses, conversation management, and human-in-the-loop interactions for breathing confirmations.
+The AI client provides direct communication with the Wbot AI backend, handling streaming responses, conversation management, and human-in-the-loop interactions for wellness activities.
 
 ## Module Overview
 
-The AI client connects directly to LangGraph Deploy using the LangGraph SDK, eliminating intermediate server hops for reduced latency. It handles WebSocket/SSE connections, automatic reconnection, and conversation threading with Supabase authentication.
+The AI client connects directly to the FastAPI backend using fetch + Server-Sent Events (SSE), eliminating dependency on the LangGraph SDK. It handles authentication via Supabase tokens, conversation threading, and HITL patterns for breathing techniques and voice selection.
 
 ## Configuration
 
 ### Environment Variables
 
 ```typescript
-// LangGraph Deploy URL
-const LANGGRAPH_URL = import.meta.env.VITE_LANGGRAPH_API_URL ?? 'http://localhost:2024';
-
-// Graph name from langgraph.json
-const GRAPH_NAME = 'wellness';
+const API_URL = import.meta.env.VITE_LANGGRAPH_API_URL ?? 'http://localhost:2024';
 ```
 
 :::info Environment Setup
-In development, use `http://localhost:2024`. In production, set `VITE_LANGGRAPH_API_URL` to your LangGraph Cloud URL.
+In development, use `http://localhost:2024`. In production, set `VITE_LANGGRAPH_API_URL` to your deployed backend URL.
 :::
 
 ## Types
@@ -40,20 +36,22 @@ export interface Message {
 }
 ```
 
-### BreathingTechniqueInfo
+### StreamEvent
 
 ```typescript
-export interface BreathingTechniqueInfo {
-  id: string;
-  name: string;
-  description: string;
-  durations: [number, number, number, number]; // [inhale, hold, exhale, hold]
-  recommended_cycles: number;
-  best_for: string[];
-}
+export type StreamEvent =
+  | { type: 'token'; content: string }
+  | { type: 'done'; messageId?: string }
+  | { type: 'error'; error: string }
+  | { type: 'start' }
+  | { type: 'interrupt'; payload: InterruptPayload };
 ```
 
-### BreathingConfirmationPayload
+### InterruptPayload Types
+
+The client supports two types of human-in-the-loop interrupts:
+
+#### BreathingConfirmationPayload
 
 ```typescript
 export interface BreathingConfirmationPayload {
@@ -65,15 +63,15 @@ export interface BreathingConfirmationPayload {
 }
 ```
 
-### StreamEvent
+#### VoiceSelectionPayload
 
 ```typescript
-export type StreamEvent =
-  | { type: 'token'; content: string }
-  | { type: 'done'; messageId?: string }
-  | { type: 'error'; error: string }
-  | { type: 'start' }
-  | { type: 'interrupt'; payload: BreathingConfirmationPayload };
+export interface VoiceSelectionPayload {
+  type: 'voice_selection';
+  message: string;
+  available_voices: VoiceInfo[];
+  options: ('confirm' | 'change_voice' | 'text_only')[];
+}
 ```
 
 ## AIClient Class
@@ -103,7 +101,7 @@ async *streamMessage(
 ): AsyncGenerator<StreamEvent>
 ```
 
-Streams a message to the AI and yields events as they arrive using LangGraph's thread system for conversation history.
+Streams a message to the AI and yields events as they arrive. Uses the backend's thread system for conversation history with automatic message persistence.
 
 **Parameters:**
 
@@ -122,11 +120,15 @@ for await (const event of client.streamMessage('Hello', threadId)) {
       showLoadingIndicator();
       break;
     case 'token':
-      fullResponse += event.content;
+      fullResponse = event.content; // Content is accumulated by backend
       updateMessageUI(fullResponse);
       break;
     case 'interrupt':
-      showBreathingConfirmation(event.payload);
+      if (isBreathingConfirmation(event.payload)) {
+        showBreathingConfirmation(event.payload);
+      } else if (isVoiceSelection(event.payload)) {
+        showVoiceSelection(event.payload);
+      }
       return; // Wait for user decision
     case 'done':
       hideLoadingIndicator();
@@ -138,8 +140,8 @@ for await (const event of client.streamMessage('Hello', threadId)) {
 }
 ```
 
-:::tip Streaming Architecture
-The method uses LangGraph's streaming modes (`messages` and `updates`) to handle both token-by-token responses and graph events like breathing confirmations.
+:::tip SSE Streaming
+The method uses Server-Sent Events with Zod validation for type-safe parsing of backend responses. All data is validated before yielding events.
 :::
 
 ### sendMessage
@@ -148,7 +150,7 @@ The method uses LangGraph's streaming modes (`messages` and `updates`) to handle
 async sendMessage(message: string, threadId: string): Promise<string>
 ```
 
-Sends a message and waits for the complete response (non-streaming).
+Sends a message and waits for the complete response (non-streaming). Use for simpler cases where streaming UI isn't needed.
 
 **Parameters:**
 
@@ -174,7 +176,7 @@ try {
 async getHistory(threadId: string): Promise<Message[]>
 ```
 
-Gets the conversation history for a thread from LangGraph's state.
+Gets the conversation history for a thread. Uses Zod validation for type-safe response parsing.
 
 **Parameters:**
 
@@ -189,30 +191,35 @@ const history = await client.getHistory(threadId);
 console.log(`Found ${history.length} messages`);
 ```
 
+:::info Thread Creation
+If a thread doesn't exist yet, this method returns an empty array rather than throwing an error.
+:::
+
 ### resumeInterrupt
 
 ```typescript
 async *resumeInterrupt(
-  resumeData: { decision: string; technique_id?: string },
+  resumeData: { decision: string; technique_id?: string; voice_id?: string },
   threadId: string
 ): AsyncGenerator<StreamEvent>
 ```
 
-Resumes an interrupted graph after user input (Human-in-the-Loop pattern). Called after user responds to breathing technique confirmation.
+Resumes an interrupted graph after user input (Human-in-the-Loop pattern). Called after user responds to confirmation prompts.
 
 **Parameters:**
 
-- `resumeData` (object): User's decision and optional technique selection
-  - `decision` (string): User choice ('start', 'change_technique', 'not_now')
+- `resumeData` (object): User's decision and any additional data
+  - `decision` (string): User choice (varies by interrupt type)
   - `technique_id` (string, optional): Selected breathing technique ID
+  - `voice_id` (string, optional): Selected voice ID
 - `threadId` (string): The conversation/thread ID
 
 **Yields:** `StreamEvent` objects as the graph resumes processing
 
-**Example:**
+**Examples:**
 
 ```typescript
-// User confirmed to start box breathing
+// Breathing technique confirmation
 for await (const event of client.resumeInterrupt(
   { decision: 'start', technique_id: 'box' },
   threadId
@@ -221,7 +228,21 @@ for await (const event of client.resumeInterrupt(
     updateUI(event.content);
   }
 }
+
+// Voice selection confirmation
+for await (const event of client.resumeInterrupt(
+  { decision: 'confirm', voice_id: 'nova' },
+  threadId
+)) {
+  if (event.type === 'token') {
+    updateUI(event.content);
+  }
+}
 ```
+
+:::warning Nested Interrupts
+The resume method can yield another interrupt event, supporting chained human-in-the-loop interactions.
+:::
 
 ## Factory Function
 
@@ -231,7 +252,7 @@ for await (const event of client.resumeInterrupt(
 export function createAIClient(authToken: string): AIClient;
 ```
 
-Creates a new AI client instance. Call when user logs in or auth token refreshes.
+Creates a new AI client instance. Call when user logs in or when auth token refreshes.
 
 **Parameters:**
 
@@ -247,40 +268,102 @@ import { createAIClient } from '@/lib/ai-client';
 const client = createAIClient(session.access_token);
 ```
 
+## Type Guards
+
+The module exports type guard functions for runtime type checking:
+
+### isBreathingConfirmation
+
+```typescript
+export function isBreathingConfirmation(
+  payload: InterruptPayload
+): payload is BreathingConfirmationPayload;
+```
+
+### isVoiceSelection
+
+```typescript
+export function isVoiceSelection(payload: InterruptPayload): payload is VoiceSelectionPayload;
+```
+
+**Example:**
+
+```typescript
+if (event.type === 'interrupt') {
+  if (isBreathingConfirmation(event.payload)) {
+    // Handle breathing technique selection
+    showBreathingDialog(event.payload.proposed_technique);
+  } else if (isVoiceSelection(event.payload)) {
+    // Handle voice selection
+    showVoiceDialog(event.payload.available_voices);
+  }
+}
+```
+
+## Internal Functions
+
+### parseSSEStream
+
+```typescript
+async function* parseSSEStream(
+  reader: ReadableStreamDefaultReader<Uint8Array>
+): AsyncGenerator<SSEEvent | 'DONE'>
+```
+
+Parses Server-Sent Events from a ReadableStream, handling the SSE format with Zod validation for type-safe parsing.
+
+**Parameters:**
+
+- `reader` (ReadableStreamDefaultReader): ReadableStream reader from fetch response
+
+**Yields:** Parsed SSE events or 'DONE' signal
+
+:::tip Internal Use
+This function is used internally by the streaming methods and is not part of the public API.
+:::
+
 ## Data Flow
 
 ```mermaid
 graph TB
     A[Frontend] -->|streamMessage| B[AIClient]
-    B -->|HTTP/SSE| C[LangGraph API]
-    C -->|Auth Check| D[Supabase Validation]
-    C -->|Process| E[Wellness Graph]
-    E -->|Stream Events| F[Token Events]
-    E -->|HITL| G[Interrupt Events]
-    F -->|yield| H[UI Updates]
-    G -->|yield| I[Confirmation Dialog]
-    I -->|resumeInterrupt| B
+    B -->|HTTP POST + SSE| C[FastAPI Backend]
+    C -->|Validate| D[Supabase Auth]
+    C -->|Process| E[LangGraph Wellness Graph]
+    E -->|Stream Tokens| F[messages/partial Events]
+    E -->|HITL Interrupts| G[updates Events]
+    F -->|Parse + Validate| H[Zod Schema]
+    G -->|Parse + Validate| H
+    H -->|yield StreamEvent| I[Frontend UI]
+    I -->|User Decision| J[resumeInterrupt]
+    J -->|HTTP POST| C
 ```
 
-## Content Filtering
+## SSE Event Processing
 
-The client automatically filters internal LLM responses:
+The client handles various Server-Sent Event types:
 
-- **Technique IDs**: `['box', 'relaxing_478', 'coherent', 'deep_calm']`
-- **Activity Detection**: JSON containing `"detected_activity"` and `"confidence"`
+- **messages/partial**: Streaming tokens from AI response
+- **messages/complete**: Final complete message
+- **updates**: Graph state updates including HITL interrupts
+- **error**: Backend error messages
 
-:::warning Filtered Content
-Internal LLM responses like technique selection tokens are filtered from the stream to prevent showing system messages to users.
+:::tip Zod Validation
+All SSE data is validated using Zod schemas before being processed, ensuring type safety throughout the streaming pipeline.
 :::
 
 ## Error Handling
 
-The client handles various error scenarios:
+The client provides comprehensive error handling:
 
 ```typescript
 try {
   for await (const event of client.streamMessage(message, threadId)) {
-    // Handle events
+    if (event.type === 'error') {
+      handleStreamError(event.error);
+      break;
+    }
+    // Handle other events
   }
 } catch (error) {
   // Network issues, auth failures, etc.
@@ -288,8 +371,13 @@ try {
 }
 ```
 
-Common error types:
+Common error scenarios:
 
-- **Network errors**: Connection issues with LangGraph
+- **Network errors**: Connection issues with backend
 - **Auth errors**: Invalid or expired Supabase tokens
-- **Graph errors**: Issues in the wellness graph execution
+- **Validation errors**: Malformed SSE data from backend
+- **Graph errors**: Issues in wellness graph execution
+
+:::warning Authentication
+The backend validates Supabase tokens before processing requests. Ensure tokens are fresh and valid to avoid 401 errors.
+:::

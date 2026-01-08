@@ -1,345 +1,424 @@
 ---
-sidebar_position: 13
-title: Breathing Exercise Node
+sidebar_position: 19
+title: BreathingAnimation Component
 ---
 
-# Breathing Exercise Node
+# BreathingAnimation Component
 
-The Breathing Exercise Node is a wellness component designed to guide users through various breathing exercises, including box breathing (4-4-4-4), the 4-7-8 technique, and simple deep breathing exercises. This node will be part of the broader activities feature in the Wbot AI wellness system.
+The `BreathingAnimation` component provides a visual representation of breathing exercises within the Wbot wellness chatbot interface. It displays an animated circle that expands and contracts in sync with breathing phases, accompanied by calming color transitions and visual feedback.
 
-:::warning Implementation Status
-This node is currently a **PLACEHOLDER** and will be implemented when the activities feature is built. The documentation below represents the planned architecture and functionality.
+:::info Related Documentation
+This component works with the [BreathingExercise Node](./breathing-exercise-node) to provide a complete guided breathing experience.
 :::
 
-## Overview
+## Component Purpose
 
-The breathing exercise node will provide guided breathing sessions to help users with:
+The `BreathingAnimation` component serves as the primary visual element for breathing exercises and should be used when:
 
-- Stress reduction and relaxation
-- Anxiety management
-- Improved focus and mindfulness
-- Sleep preparation
-- General wellness routines
+- **Guiding breathing exercises** - provides visual rhythm for inhale/exhale cycles
+- **Creating calming interfaces** - smooth animations help reduce user anxiety
+- **Accessibility support** - respects user's reduced motion preferences
+- **Real-time feedback** - shows current phase and remaining time
+
+## Props Interface
+
+```tsx
+interface BreathingAnimationProps {
+  /** Current breathing phase */
+  phase: BreathingPhase;
+
+  /** Progress through current phase (0-1) */
+  progress: number;
+
+  /** Duration of current phase in seconds */
+  duration: number;
+
+  /** Whether the breathing exercise is currently active */
+  isActive: boolean;
+}
+
+type BreathingPhase = 'inhale' | 'holdIn' | 'exhale' | 'holdOut';
+```
+
+### Prop Details
+
+| Prop       | Type             | Required | Description                                                         |
+| ---------- | ---------------- | -------- | ------------------------------------------------------------------- |
+| `phase`    | `BreathingPhase` | ✅       | Current breathing phase - determines animation direction and colors |
+| `progress` | `number`         | ✅       | Progress through current phase (0-1) - used for countdown timer     |
+| `duration` | `number`         | ✅       | Duration of current phase in seconds - controls animation timing    |
+| `isActive` | `boolean`        | ✅       | Whether exercise is active - controls idle vs animated state        |
+
+## Usage Examples
+
+### Basic Usage
+
+```tsx
+import { BreathingAnimation } from '@/components/breathing/BreathingAnimation';
+
+function BasicBreathingExercise() {
+  const [phase, setPhase] = useState<BreathingPhase>('inhale');
+  const [progress, setProgress] = useState(0);
+  const [isActive, setIsActive] = useState(false);
+
+  return (
+    <div className="breathing-container">
+      <BreathingAnimation phase={phase} progress={progress} duration={4} isActive={isActive} />
+
+      <button onClick={() => setIsActive(!isActive)}>
+        {isActive ? 'Pause' : 'Start'} Breathing
+      </button>
+    </div>
+  );
+}
+```
+
+### Advanced Usage with Custom Timing
+
+```tsx
+import { BreathingAnimation } from '@/components/breathing/BreathingAnimation';
+import { useBreathingTimer } from '@/hooks/useBreathingTimer';
+
+function AdvancedBreathingExercise() {
+  const { phase, progress, duration, isActive, startExercise, pauseExercise, resetExercise } =
+    useBreathingTimer({
+      technique: 'box', // 4-4-4-4 pattern
+      cycles: 5,
+    });
+
+  return (
+    <div className="advanced-breathing">
+      {/* Main animation */}
+      <BreathingAnimation
+        phase={phase}
+        progress={progress}
+        duration={duration}
+        isActive={isActive}
+      />
+
+      {/* Exercise controls */}
+      <div className="breathing-controls">
+        <button onClick={startExercise}>Start</button>
+        <button onClick={pauseExercise}>Pause</button>
+        <button onClick={resetExercise}>Reset</button>
+      </div>
+
+      {/* Additional information */}
+      <div className="breathing-info">
+        <p>Phase: {phase}</p>
+        <p>Progress: {Math.round(progress * 100)}%</p>
+        <p>Time remaining: {Math.ceil(duration * (1 - progress))}s</p>
+      </div>
+    </div>
+  );
+}
+```
+
+### Integration with Breathing Exercise Node
+
+```tsx
+import { BreathingAnimation } from '@/components/breathing/BreathingAnimation';
+import { useChatContext } from '@/contexts/ChatContext';
+
+function ChatBreathingExercise({ exerciseData }: { exerciseData: any }) {
+  const { sendMessage } = useChatContext();
+  const [exerciseState, setExerciseState] = useState({
+    phase: 'inhale' as BreathingPhase,
+    progress: 0,
+    isActive: false,
+  });
+
+  const handleExerciseComplete = async () => {
+    // Report completion back to the AI
+    await sendMessage({
+      type: 'exercise_completion',
+      data: {
+        exerciseType: 'breathing',
+        technique: exerciseData.technique.name,
+        completedCycles: exerciseState.completedCycles,
+        userFeedback: 'completed',
+      },
+    });
+  };
+
+  return (
+    <div className="chat-breathing-exercise">
+      <h3>{exerciseData.technique.name}</h3>
+      <p>{exerciseData.instructions.introduction}</p>
+
+      <BreathingAnimation
+        phase={exerciseState.phase}
+        progress={exerciseState.progress}
+        duration={exerciseData.technique.durations[0]} // Current phase duration
+        isActive={exerciseState.isActive}
+      />
+
+      <div className="exercise-instructions">
+        {exerciseData.instructions.steps.map((step: string, index: number) => (
+          <p key={index}>{step}</p>
+        ))}
+      </div>
+
+      {exerciseData.safety_notes && (
+        <div className="safety-notes">
+          {exerciseData.safety_notes.map((note: string, index: number) => (
+            <p key={index} className="safety-note">
+              ⚠️ {note}
+            </p>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+```
+
+## Component Architecture
 
 ```mermaid
 graph TD
-    A[User Request] --> B[Breathing Exercise Node]
-    B --> C{Exercise Type Selection}
+    A[BreathingAnimation] --> B[Circle Container]
+    B --> C[Pulsing Ring]
+    B --> D[Main Circle]
+    B --> E[Inner Glow]
+    B --> F[Phase Display]
 
-    C --> D[Box Breathing<br/>4-4-4-4]
-    C --> E[4-7-8 Technique<br/>4-7-8-4]
-    C --> F[Simple Deep Breathing<br/>Variable timing]
-    C --> G[Custom Pattern<br/>User defined]
+    D --> G[Phase Classes]
+    G --> H[inhale - Expand]
+    G --> I[holdIn - Large & Blue]
+    G --> J[exhale - Contract]
+    G --> K[holdOut - Small & Purple]
 
-    D --> H[Session Configuration]
-    E --> H
-    F --> H
-    G --> H
+    F --> L[Phase Label]
+    F --> M[Timer Display]
 
-    H --> I[Duration Setting]
-    H --> J[Guidance Level]
-    H --> K[Audio Preferences]
-
-    I --> L[Exercise Execution]
-    J --> L
-    K --> L
-
-    L --> M[Phase Tracking]
-    M --> N{Current Phase}
-
-    N --> O[Inhale Phase]
-    N --> P[Hold In Phase]
-    N --> Q[Exhale Phase]
-    N --> R[Hold Out Phase]
-
-    O --> S[Visual Guidance]
-    P --> S
-    Q --> S
-    R --> S
-
-    S --> T[Progress Updates]
-    T --> U[Completion Tracking]
-    U --> V[Session Summary]
-
-    V --> W[Return to Chat]
-
-    subgraph "Integration Points"
-        X[Chat Context]
-        Y[User Preferences]
-        Z[Session History]
-        AA[Analytics Service]
-    end
-
-    B --> X
-    H --> Y
-    U --> Z
-    V --> AA
+    style A fill:#e3f2fd
+    style D fill:#e8f5e8
+    style F fill:#fff3e0
 ```
 
-## Planned Architecture
+## Styling and Customization
 
-### Core Components
+### CSS Module Structure
 
-#### 1. Exercise Runner (`run_breathing_exercise`)
+The component uses CSS modules with the following key classes:
 
-The main entry point for breathing exercise sessions:
+```css
+/* Main container */
+.circleContainer {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* Respects user's motion preferences */
+}
 
-```python
-# Planned implementation structure
-async def run_breathing_exercise(
-    exercise_type: str,
-    duration: int = 300,  # 5 minutes default
-    pattern: Optional[Dict[str, int]] = None,
-    user_preferences: Optional[Dict] = None
-) -> Dict[str, Any]:
-    """
-    Execute a guided breathing exercise session.
+/* Breathing circle states */
+.breathCircle {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  transition-property: transform, background, box-shadow;
+  /* Smooth transitions between phases */
+}
 
-    Args:
-        exercise_type: Type of breathing exercise ('box', '4-7-8', 'deep', 'custom')
-        duration: Total session duration in seconds
-        pattern: Custom breathing pattern timing
-        user_preferences: User-specific settings and preferences
+/* Phase-specific styles */
+.circleInhale {
+  transform: scale(1.3);
+  background: radial-gradient(circle, #4fc3f7, #29b6f6);
+}
 
-    Returns:
-        Dictionary containing session results and metrics
-    """
-    pass
-```
+.circleExhale {
+  transform: scale(0.8);
+  background: radial-gradient(circle, #ab47bc, #8e24aa);
+}
 
-#### 2. Exercise Patterns
+/* Accessibility support */
+@media (prefers-reduced-motion: reduce) {
+  .breathCircle {
+    transition: none;
+  }
 
-Predefined breathing patterns for different techniques:
-
-```python
-# Planned breathing patterns
-BREATHING_PATTERNS = {
-    'box': {
-        'inhale': 4,
-        'hold_in': 4,
-        'exhale': 4,
-        'hold_out': 4,
-        'description': 'Box breathing for stress relief and focus'
-    },
-    '4-7-8': {
-        'inhale': 4,
-        'hold_in': 7,
-        'exhale': 8,
-        'hold_out': 2,
-        'description': '4-7-8 technique for relaxation and sleep'
-    },
-    'deep': {
-        'inhale': 5,
-        'hold_in': 2,
-        'exhale': 6,
-        'hold_out': 1,
-        'description': 'Simple deep breathing for general wellness'
-    }
+  .breathRing {
+    animation: none;
+  }
 }
 ```
 
-#### 3. Session Management
+### Customization Options
 
-```python
-class BreathingSession:
-    """Manages individual breathing exercise sessions."""
+#### 1. Custom Color Schemes
 
-    def __init__(
-        self,
-        pattern: Dict[str, int],
-        total_duration: int,
-        guidance_level: str = 'normal'
-    ):
-        self.pattern = pattern
-        self.total_duration = total_duration
-        self.guidance_level = guidance_level
-        self.start_time = None
-        self.cycles_completed = 0
-        self.current_phase = 'inhale'
+```tsx
+// Override CSS custom properties
+const customColors = {
+  '--breathing-inhale-primary': '#4caf50',
+  '--breathing-inhale-secondary': '#66bb6a',
+  '--breathing-exhale-primary': '#ff7043',
+  '--breathing-exhale-secondary': '#ff5722',
+};
 
-    async def start_session(self) -> None:
-        """Initialize and start the breathing session."""
-        pass
-
-    async def update_phase(self) -> Dict[str, Any]:
-        """Update current breathing phase and return status."""
-        pass
-
-    def get_session_summary(self) -> Dict[str, Any]:
-        """Generate summary of completed session."""
-        pass
+<div style={customColors}>
+  <BreathingAnimation {...props} />
+</div>;
 ```
 
-## Integration Points
+#### 2. Size Variations
 
-### 1. Chat System Integration
+```css
+/* Small variant */
+.breathCircle.small {
+  width: 80px;
+  height: 80px;
+}
 
-```python
-# Integration with main chat flow
-from src.core.chat_manager import ChatManager
-from src.nodes.breathing_exercise import run_breathing_exercise
-
-async def handle_breathing_request(
-    chat_manager: ChatManager,
-    user_message: str
-) -> str:
-    """Handle user requests for breathing exercises."""
-
-    # Parse user intent and preferences
-    exercise_config = await parse_breathing_request(user_message)
-
-    # Start breathing exercise
-    session_result = await run_breathing_exercise(**exercise_config)
-
-    # Return appropriate response
-    return format_breathing_response(session_result)
-```
-
-### 2. User Preferences Integration
-
-```python
-# User preference storage and retrieval
-class BreathingPreferences:
-    """Manage user preferences for breathing exercises."""
-
-    @staticmethod
-    async def get_user_preferences(user_id: str) -> Dict[str, Any]:
-        """Retrieve user's breathing exercise preferences."""
-        return {
-            'preferred_pattern': 'box',
-            'default_duration': 300,
-            'audio_guidance': True,
-            'visual_guidance': True,
-            'reminder_frequency': 'daily'
-        }
-
-    @staticmethod
-    async def update_preferences(
-        user_id: str,
-        preferences: Dict[str, Any]
-    ) -> None:
-        """Update user's breathing exercise preferences."""
-        pass
-```
-
-### 3. Analytics Integration
-
-```python
-# Session analytics and tracking
-from src.services.analytics import AnalyticsService
-
-async def track_breathing_session(
-    user_id: str,
-    session_data: Dict[str, Any]
-) -> None:
-    """Track breathing exercise session for analytics."""
-
-    analytics = AnalyticsService()
-
-    await analytics.track_event(
-        user_id=user_id,
-        event_type='breathing_exercise_completed',
-        event_data={
-            'exercise_type': session_data['pattern_name'],
-            'duration': session_data['total_duration'],
-            'cycles_completed': session_data['cycles_completed'],
-            'completion_rate': session_data['completion_percentage'],
-            'user_rating': session_data.get('user_rating'),
-            'timestamp': session_data['completed_at']
-        }
-    )
-```
-
-## Configuration Options
-
-### Environment Configuration
-
-```python
-# Planned configuration options
-BREATHING_EXERCISE_CONFIG = {
-    'max_session_duration': 1800,  # 30 minutes
-    'min_session_duration': 60,    # 1 minute
-    'default_pattern': 'box',
-    'enable_audio_guidance': True,
-    'enable_haptic_feedback': True,
-    'session_timeout': 3600,       # 1 hour
-    'analytics_enabled': True
+/* Large variant */
+.breathCircle.large {
+  width: 200px;
+  height: 200px;
 }
 ```
 
-### Pattern Customization
+#### 3. Animation Timing Customization
 
-```python
-# Custom pattern validation
-def validate_breathing_pattern(pattern: Dict[str, int]) -> bool:
-    """Validate custom breathing pattern timing."""
-    required_phases = ['inhale', 'hold_in', 'exhale', 'hold_out']
-
-    if not all(phase in pattern for phase in required_phases):
-        return False
-
-    if any(duration < 1 or duration > 15 for duration in pattern.values()):
-        return False
-
-    return True
+```tsx
+// The component automatically calculates timing based on duration prop
+// For custom timing functions per phase:
+const PHASE_TIMING_FUNCTIONS = {
+  inhale: 'ease-in',
+  holdIn: 'linear',
+  exhale: 'ease-out',
+  holdOut: 'linear',
+};
 ```
 
-## Planned Features
+## Accessibility Features
 
-### Core Functionality
-
-- [x] Module structure and entry point
-- [ ] Basic breathing pattern implementation
-- [ ] Session management and timing
-- [ ] Phase progression logic
-- [ ] User preference handling
-- [ ] Session completion tracking
-
-### Advanced Features
-
-- [ ] Custom pattern creation
-- [ ] Audio guidance integration
-- [ ] Visual guidance coordination
-- [ ] Progress tracking and analytics
-- [ ] Reminder system integration
-- [ ] Multi-language support
-
-### Integration Features
-
-- [ ] Chat context preservation
-- [ ] User preference persistence
-- [ ] Session history storage
-- [ ] Analytics event tracking
-- [ ] Notification system integration
-
-:::info Development Notes
-This node will be implemented as part of the broader activities feature development. The architecture above provides the foundation for a comprehensive breathing exercise system that integrates seamlessly with the Wbot wellness platform.
+:::tip Accessibility
+The component includes built-in accessibility features:
 :::
 
-## Related Documentation
+- **Reduced Motion Support** - Respects `prefers-reduced-motion` setting
+- **ARIA Labels** - Provides descriptive labels for screen readers
+- **Semantic Roles** - Uses `role="img"` for the animated circle
+- **Live Announcements** - Phase changes announced to assistive technology
 
-- [Architecture Overview](/architecture/overview) - System design overview
-- [AI Client](./ai-client) - AI backend integration
-- [Authentication](./authentication) - Auth system documentation
-
-## Implementation Timeline
-
-```mermaid
-gantt
-    title Breathing Exercise Node Implementation
-    dateFormat  YYYY-MM-DD
-    section Phase 1
-    Core Pattern Logic     :p1-core, 2024-02-01, 14d
-    Session Management     :p1-session, after p1-core, 10d
-    Basic Integration      :p1-integration, after p1-session, 7d
-
-    section Phase 2
-    User Preferences       :p2-prefs, after p1-integration, 10d
-    Analytics Integration  :p2-analytics, after p2-prefs, 7d
-    Advanced Patterns      :p2-patterns, after p2-analytics, 14d
-
-    section Phase 3
-    Audio Guidance         :p3-audio, after p2-patterns, 14d
-    Custom Patterns        :p3-custom, after p3-audio, 10d
-    Testing & Polish       :p3-test, after p3-custom, 14d
+```tsx
+// Accessibility attributes in the component
+<div
+  className={circleClass}
+  style={transitionStyle}
+  role="img"
+  aria-label={
+    isActive
+      ? `${PHASE_LABELS[phase]}: ${String(timeDisplay)} seconds remaining`
+      : 'Breathing exercise ready'
+  }
+/>
 ```
+
+## Performance Considerations
+
+:::warning Performance Notes
+
+- CSS transforms are used instead of changing width/height for better performance
+- Transition timing is optimized to complete before phase changes
+- Memoization prevents unnecessary re-renders
+  :::
+
+The component uses several performance optimizations:
+
+```tsx
+// Memoized calculations prevent unnecessary re-renders
+const circleClass = useMemo(() => {
+  if (!isActive) {
+    return `${styles.breathCircle} ${styles.circleIdle}`;
+  }
+  return `${styles.breathCircle} ${PHASE_CLASSES[phase]}`;
+}, [isActive, phase]);
+
+const transitionStyle = useMemo(() => {
+  if (!isActive) {
+    return { transitionDuration: '0.5s' };
+  }
+  const animationDuration = Math.max(0.5, duration * 0.9);
+  return {
+    transitionDuration: `${String(animationDuration)}s`,
+    transitionTimingFunction: PHASE_TIMING_FUNCTIONS[phase],
+  };
+}, [isActive, duration, phase]);
+```
+
+## Storybook Stories
+
+:::info Storybook
+View interactive examples and test different states in Storybook at:
+`/storybook/?path=/story/wellness-breathinganimation`
+:::
+
+Example Storybook stories:
+
+```tsx
+// BreathingAnimation.stories.tsx
+export default {
+  title: 'Wellness/BreathingAnimation',
+  component: BreathingAnimation,
+  argTypes: {
+    phase: {
+      control: { type: 'select' },
+      options: ['inhale', 'holdIn', 'exhale', 'holdOut'],
+    },
+    progress: {
+      control: { type: 'range', min: 0, max: 1, step: 0.1 },
+    },
+    duration: {
+      control: { type: 'number', min: 1, max: 10 },
+    },
+    isActive: {
+      control: { type: 'boolean' },
+    },
+  },
+};
+
+export const Default = {
+  args: {
+    phase: 'inhale',
+    progress: 0.5,
+    duration: 4,
+    isActive: true,
+  },
+};
+
+export const InhalePhase = {
+  args: {
+    phase: 'inhale',
+    progress: 0.3,
+    duration: 4,
+    isActive: true,
+  },
+};
+
+export const ExhalePhase = {
+  args: {
+    phase: 'exhale',
+    progress: 0.7,
+    duration: 4,
+    isActive: true,
+  },
+};
+
+export const Idle = {
+  args: {
+    phase: 'inhale',
+    progress: 0,
+    duration: 4,
+    isActive: false,
+  },
+};
+```
+
+## Related Components
+
+- **[BreathingExercise Node](./breathing-exercise-node)** - Backend processing for breathing exercises
+- **[ChatMessage Component](./chat-message)** - Container for breathing exercises in chat
+- **[WellnessTracker](./wellness-tracker)** - Analytics integration for exercise completion

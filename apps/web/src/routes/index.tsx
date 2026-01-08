@@ -2,12 +2,12 @@
    Index Route (Landing Page)
    ============================================================================
    Route definition for the landing/login page.
-   The actual component is in components/pages/LandingPage.
+   The actual component is in features/auth.
    ============================================================================ */
 
 import { createFileRoute } from '@tanstack/react-router';
 
-import { LandingPage } from '../components/pages';
+import { LandingPage } from '@/features/auth';
 
 /* ----------------------------------------------------------------------------
    Route Definition

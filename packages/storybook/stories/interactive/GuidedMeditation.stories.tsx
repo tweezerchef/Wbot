@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactElement } from 'react';
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test';
 
-import type { MeditationTrack, MoodRating } from '@/components/GuidedMeditation';
+import type { MeditationTrack, MoodRating } from '@/features/meditation';
 import {
   GuidedMeditation,
   MeditationPlayer,
@@ -11,7 +11,7 @@ import {
   MoodCheck,
   MEDITATION_TRACKS,
   getAllTracks,
-} from '@/components/GuidedMeditation';
+} from '@/features/meditation';
 
 // Create a client for Storybook stories
 const queryClient = new QueryClient({

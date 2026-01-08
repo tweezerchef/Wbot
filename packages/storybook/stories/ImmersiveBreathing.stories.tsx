@@ -11,8 +11,8 @@ import {
   BreathingProgress,
   BreathingBackground,
   BREATHING_TECHNIQUES,
-} from '@/components/ImmersiveBreathing';
-import type { BreathingStats } from '@/components/ImmersiveBreathing';
+} from '@/features/breathing';
+import type { BreathingStats } from '@/features/breathing';
 
 // Create a client for Storybook stories
 const queryClient = new QueryClient({

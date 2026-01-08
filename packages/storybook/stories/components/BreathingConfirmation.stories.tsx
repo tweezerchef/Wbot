@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { fn } from 'storybook/test';
 
-import { BreathingConfirmation } from '@/components/BreathingConfirmation/BreathingConfirmation';
+import { BreathingConfirmation } from '@/features/breathing';
 import type { BreathingTechniqueInfo } from '@/lib/ai-client';
 
 // Sample breathing techniques for stories

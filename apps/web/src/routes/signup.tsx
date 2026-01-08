@@ -2,12 +2,12 @@
    Signup Route
    ============================================================================
    Route definition for the signup/onboarding flow.
-   The actual component is in components/pages/SignupPage.
+   The actual component is in features/auth.
    ============================================================================ */
 
 import { createFileRoute } from '@tanstack/react-router';
 
-import { SignupPage } from '../components/pages';
+import { SignupPage } from '@/features/auth';
 
 /* ----------------------------------------------------------------------------
    Route Definition

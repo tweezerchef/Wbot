@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from '@storybook/react-vite';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactElement } from 'react';
 
-import { SignupPage } from '@/components/pages/SignupPage/SignupPage';
+import { SignupPage } from '@/features/auth';
 
 // Create a client for Storybook stories
 const queryClient = new QueryClient({

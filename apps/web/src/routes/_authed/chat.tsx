@@ -14,10 +14,10 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { createServerFn } from '@tanstack/react-start';
 
-import { ChatPage } from '../../components/pages';
-import type { Message } from '../../lib/ai-client';
-import { getMostRecentConversation, loadMessagesWithCache } from '../../lib/conversations.server';
-import { createServerSupabaseClient } from '../../lib/supabase/server';
+import { ChatPage } from '@/features/chat';
+import type { Message } from '@/lib/ai-client';
+import { getMostRecentConversation, loadMessagesWithCache } from '@/lib/conversations.server';
+import { createServerSupabaseClient } from '@/lib/supabase/server';
 
 // ----------------------------------------------------------------------------
 // Loader Data Type
