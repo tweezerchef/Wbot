@@ -16,36 +16,25 @@
 // TanStack Router file conventions:
 // - __root.tsx: Root layout wrapping all pages
 // - index.tsx: Index route for a directory
+// - _authed.tsx: Pathless layout for protected routes
 // ============================================================================
 
 /// <reference types="vite/client" />
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { HeadContent, Scripts, createRootRoute } from '@tanstack/react-router';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { HeadContent, Scripts, createRootRouteWithContext } from '@tanstack/react-router';
 import * as React from 'react';
+
+import type { RouterContext } from '../router';
 
 // Import global styles - applies CSS reset and variables
 import '../styles/globals.css';
 
 // ----------------------------------------------------------------------------
-// TanStack Query Client
-// ----------------------------------------------------------------------------
-// Create a stable QueryClient instance for the app.
-// This enables TanStack Query features like caching and state management.
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      // Data stays fresh for 1 minute before refetching
-      staleTime: 60 * 1000,
-      // Don't refetch when window regains focus (prevents jarring UX in chat)
-      refetchOnWindowFocus: false,
-    },
-  },
-});
-
-// ----------------------------------------------------------------------------
 // Root Route Definition
 // ----------------------------------------------------------------------------
-export const Route = createRootRoute({
+// Use createRootRouteWithContext to receive the QueryClient from router context.
+// This is the TanStack-recommended pattern for SSR-safe Query integration.
+export const Route = createRootRouteWithContext<RouterContext>()({
   // Head configuration for the HTML document
   head: () => ({
     meta: [
@@ -88,6 +77,9 @@ export const Route = createRootRoute({
  * - Chat interface (/chat) when logged in
  */
 function RootDocument({ children }: { children: React.ReactNode }) {
+  // Get QueryClient from router context (created per-request for SSR safety)
+  const { queryClient } = Route.useRouteContext();
+
   return (
     <html lang="en">
       <head>

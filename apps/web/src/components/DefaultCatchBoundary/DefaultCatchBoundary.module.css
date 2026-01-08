@@ -1,0 +1,77 @@
+/**
+ * DefaultCatchBoundary Styles
+ *
+ * Provides a clean, centered error display with recovery actions.
+ * Uses CSS variables from the design system.
+ */
+
+.container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100dvh;
+  padding: var(--spacing-lg);
+  background-color: var(--color-background);
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-lg);
+  max-width: 500px;
+  text-align: center;
+}
+
+.title {
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  margin: 0;
+}
+
+.errorWrapper {
+  width: 100%;
+  padding: var(--spacing-md);
+  background-color: var(--color-error-light);
+  border-radius: var(--radius-md);
+  overflow: auto;
+  max-height: 200px;
+}
+
+.actions {
+  display: flex;
+  gap: var(--spacing-md);
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.primaryButton {
+  padding: var(--spacing-sm) var(--spacing-lg);
+  background-color: var(--color-primary);
+  color: var(--color-text-inverse);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
+  border-radius: var(--radius-md);
+  transition: background-color var(--transition-fast);
+}
+
+.primaryButton:hover {
+  background-color: var(--color-primary-hover);
+}
+
+.secondaryButton {
+  padding: var(--spacing-sm) var(--spacing-lg);
+  background-color: var(--color-neutral-200);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
+  border-radius: var(--radius-md);
+  text-decoration: none;
+  transition: background-color var(--transition-fast);
+}
+
+.secondaryButton:hover {
+  background-color: var(--color-neutral-300);
+  color: var(--color-text-primary);
+}

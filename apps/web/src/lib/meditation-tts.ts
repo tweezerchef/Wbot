@@ -10,7 +10,19 @@
    4. Upload to Supabase Storage and return URL
 
    The backend handles caching - identical scripts return cached audio URLs.
+
+   All API responses are validated with Zod for type safety.
    ============================================================================ */
+
+import {
+  type GenerateMeditationResponse,
+  parseCacheCheckResponse,
+  parseErrorResponse,
+  parseGenerationResponse,
+} from './schemas/meditation-tts';
+
+// Re-export types for consumers
+export type { GenerateMeditationResponse } from './schemas/meditation-tts';
 
 /* ----------------------------------------------------------------------------
    Configuration
@@ -37,26 +49,6 @@ export interface GenerateMeditationRequest {
     userName?: string;
     userGoal?: string;
   };
-}
-
-/** Response from TTS generation */
-export interface GenerateMeditationResponse {
-  /** Generated audio URL (Supabase Storage) */
-  audioUrl: string;
-  /** Script ID that was generated */
-  scriptId: string;
-  /** Actual duration of generated audio */
-  durationSeconds: number;
-  /** Whether this was served from cache */
-  cached: boolean;
-  /** Voice ID used for generation */
-  voiceId: string;
-}
-
-/** Error response from generation */
-export interface GenerateMeditationError {
-  error: string;
-  details?: string;
 }
 
 /* ----------------------------------------------------------------------------
@@ -97,8 +89,8 @@ export async function generatePersonalizedMeditation(
   if (!response.ok) {
     let errorMessage = 'Failed to generate meditation';
     try {
-      const error = (await response.json()) as GenerateMeditationError;
-      errorMessage = error.error || errorMessage;
+      const errorData: unknown = await response.json();
+      errorMessage = parseErrorResponse(errorData, errorMessage);
     } catch {
       // Response wasn't JSON
       errorMessage = `Server error: ${String(response.status)}`;
@@ -106,7 +98,14 @@ export async function generatePersonalizedMeditation(
     throw new Error(errorMessage);
   }
 
-  const result = (await response.json()) as GenerateMeditationResponse;
+  // Parse response with Zod validation
+  const data: unknown = await response.json();
+  const result = parseGenerationResponse(data);
+
+  if (!result) {
+    throw new Error('Invalid response format from meditation API');
+  }
+
   return result;
 }
 
@@ -148,8 +147,8 @@ export async function streamPersonalizedMeditation(
   if (!response.ok) {
     let errorMessage = 'Failed to stream meditation';
     try {
-      const error = (await response.json()) as GenerateMeditationError;
-      errorMessage = error.error || errorMessage;
+      const errorData: unknown = await response.json();
+      errorMessage = parseErrorResponse(errorData, errorMessage);
     } catch {
       errorMessage = `Server error: ${String(response.status)}`;
     }
@@ -226,8 +225,9 @@ export async function checkMeditationCache(
       return null;
     }
 
-    const result = (await response.json()) as { audioUrl: string | null };
-    return result.audioUrl;
+    // Parse response with Zod validation
+    const data: unknown = await response.json();
+    return parseCacheCheckResponse(data);
   } catch {
     // Cache check failed - return null
     return null;

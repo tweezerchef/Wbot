@@ -60,7 +60,8 @@ import styles from './ChatPage.module.css';
 /* ----------------------------------------------------------------------------
    Route API for accessing loader data
    ---------------------------------------------------------------------------- */
-const routeApi = getRouteApi('/chat');
+// Note: Route ID is '/_authed/chat' (pathless layout + route name)
+const routeApi = getRouteApi('/_authed/chat');
 
 /* ----------------------------------------------------------------------------
    Chat Page Component
