@@ -31,12 +31,16 @@ on:
       mode:
         description: 'Generation mode'
         required: true
-        default: 'changed'
+        default: 'stale'
         type: choice
         options:
-          - changed
+          - stale
           - full
           - check-only
+
+permissions:
+  contents: write      # Required for git push
+  pull-requests: write # Required for gh pr create
 
 jobs:
   check-docs:
@@ -92,7 +96,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: check-docs
     if: |
-      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.check-docs.outputs.needs_update == 'true') ||
       (github.event_name == 'workflow_dispatch' && github.event.inputs.mode != 'check-only') ||
       (github.event_name == 'schedule' && needs.check-docs.outputs.needs_update == 'true')
 
@@ -111,15 +115,19 @@ jobs:
       - name: Install dependencies
         run: pip install anthropic python-dotenv
 
+      - name: Download staleness report
+        uses: actions/download-artifact@v4
+        with:
+          name: staleness-report
+
       - name: Determine generation mode
         id: mode
         run: |
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
             echo "mode=${{ github.event.inputs.mode }}" >> $GITHUB_OUTPUT
-          elif [[ "${{ github.event_name }}" == "schedule" ]]; then
-            echo "mode=full" >> $GITHUB_OUTPUT
           else
-            echo "mode=changed" >> $GITHUB_OUTPUT
+            # For push and schedule events, use stale mode to process only stale docs
+            echo "mode=stale" >> $GITHUB_OUTPUT
           fi
 
       - name: Generate documentation
@@ -128,6 +136,8 @@ jobs:
         run: |
           if [[ "${{ steps.mode.outputs.mode }}" == "full" ]]; then
             python scripts/ai_docs/generator.py --full
+          elif [[ "${{ steps.mode.outputs.mode }}" == "stale" ]]; then
+            python scripts/ai_docs/generator.py --stale staleness.json
           else
             python scripts/ai_docs/generator.py
           fi

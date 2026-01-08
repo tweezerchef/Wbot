@@ -8,11 +8,13 @@ Docusaurus documentation automatically.
 Usage:
     python scripts/ai-docs/generator.py                    # Update changed files only
     python scripts/ai-docs/generator.py --full             # Regenerate all docs
+    python scripts/ai-docs/generator.py --stale <json>     # Process files from staleness report
     python scripts/ai-docs/generator.py --file <path>      # Generate doc for specific file
     python scripts/ai-docs/generator.py --dry-run          # Show what would be updated
 """
 
 import argparse
+import json
 import os
 import sys
 from datetime import datetime
@@ -228,6 +230,30 @@ def find_all_source_files() -> list[Path]:
     return list(set(source_files))
 
 
+def find_stale_source_files(staleness_json_path: str) -> list[Path]:
+    """
+    Find source files from a staleness report JSON file.
+
+    Only processes files from entries where is_stale=True.
+    """
+    try:
+        with open(staleness_json_path) as f:
+            reports = json.load(f)
+
+        source_files = set()
+        for report in reports:
+            if report.get("is_stale", False):
+                for source_file in report.get("source_files", []):
+                    # Only include files that have a doc mapping
+                    if find_doc_for_source(source_file):
+                        source_files.add(Path(source_file))
+
+        return list(source_files)
+    except Exception as e:
+        print(f"Error reading staleness report: {e}")
+        return []
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Generate AI-powered documentation for Wbot"
@@ -236,6 +262,12 @@ def main():
         "--full",
         action="store_true",
         help="Regenerate all documentation (not just changed files)",
+    )
+    parser.add_argument(
+        "--stale",
+        type=str,
+        metavar="JSON_PATH",
+        help="Process source files from a staleness report JSON file",
     )
     parser.add_argument(
         "--file", type=str, help="Generate documentation for a specific file"
@@ -261,6 +293,9 @@ def main():
     elif args.full:
         source_files = find_all_source_files()
         print(f"Mode: Full regeneration - {len(source_files)} files")
+    elif args.stale:
+        source_files = find_stale_source_files(args.stale)
+        print(f"Mode: Stale files from report - {len(source_files)} files")
     else:
         source_files = find_changed_files()
         print(f"Mode: Changed files only - {len(source_files)} files")
