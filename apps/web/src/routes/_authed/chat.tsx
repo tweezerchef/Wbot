@@ -30,6 +30,7 @@ import { createServerSupabaseClient } from '@/lib/supabase/server';
 export interface ChatLoaderData {
   conversationId: string | null;
   messages: Message[];
+  userEmail?: string;
 }
 
 // ----------------------------------------------------------------------------
@@ -60,13 +61,13 @@ const getConversationData = createServerFn({ method: 'GET' }).handler(
 
       if (!conversationId) {
         // User has no conversations yet
-        return { conversationId: null, messages: [] };
+        return { conversationId: null, messages: [], userEmail: user.email };
       }
 
       // Load all messages for the conversation (with Redis cache)
       const messages = await loadMessagesWithCache(conversationId, supabase);
 
-      return { conversationId, messages };
+      return { conversationId, messages, userEmail: user.email };
     } catch (err) {
       console.error('Failed to load conversation in server function:', err);
       return { conversationId: null, messages: [] };

@@ -42,8 +42,8 @@ EMBEDDING_TTL_SECONDS = 7 * 24 * 60 * 60  # 7 days
 REDIS_CONNECT_TIMEOUT = 2.0  # seconds
 
 # Message cache configuration
-# Eviction is based on total message count, not TTL
 MAX_CACHED_MESSAGES = 10_000  # Total messages across all cached conversations
+MESSAGES_TTL_SECONDS = 24 * 60 * 60  # 24 hours (matches frontend TTL)
 MESSAGES_LRU_KEY = "conv_msgs_lru"  # Sorted set: conversation_id -> last_access_timestamp
 MESSAGES_COUNTS_KEY = "conv_msgs_counts"  # Hash: conversation_id -> message_count
 
@@ -429,9 +429,9 @@ async def cache_messages(conversation_id: str, messages: list[dict[str, object]]
             messages_to_free = new_total - MAX_CACHED_MESSAGES + msg_count
             await _evict_oldest_conversations(client, messages_to_free)
 
-        # Store messages and update tracking
+        # Store messages with TTL and update tracking
         pipe = client.pipeline()
-        pipe.set(key, json.dumps(messages))
+        pipe.setex(key, MESSAGES_TTL_SECONDS, json.dumps(messages))
         pipe.zadd(MESSAGES_LRU_KEY, {conversation_id: time.time()})
         pipe.hset(MESSAGES_COUNTS_KEY, conversation_id, msg_count)
         await pipe.execute()
@@ -447,15 +447,15 @@ async def append_messages(conversation_id: str, new_messages: list[dict[str, obj
     Appends new messages to an existing cached conversation.
 
     Used for write-through caching after saving messages to the database.
-    If the conversation is not in cache, this is a no-op (cache will be
-    populated on next read from database).
+    If the conversation is not in cache, creates a new entry with just the
+    new messages (ensures write-through works even if cache was evicted).
 
     Args:
         conversation_id: The conversation UUID.
         new_messages: New message dicts to append.
 
     Returns:
-        True if append succeeded or cache miss (no-op), False on error.
+        True if append/create succeeded, False on error.
     """
     client = await get_redis_client()
     if client is None:
@@ -464,16 +464,19 @@ async def append_messages(conversation_id: str, new_messages: list[dict[str, obj
     key = _messages_key(conversation_id)
 
     try:
-        # Get existing messages
+        # Get existing messages (may be empty if cache miss)
         data = await client.get(key)
         if data is None:
-            # Cache miss - don't create new entry, let next read populate
-            return True
+            # Cache miss - create new entry with just the new messages
+            # This ensures write-through pattern works even if cache was evicted
+            existing = []
+            old_count = 0
+        else:
+            existing = json.loads(data)
+            old_count = len(existing)
 
-        existing = json.loads(data)
         updated = existing + new_messages
         new_count = len(updated)
-        old_count = len(existing)
 
         # Check if we need to evict before adding
         current_total = await _get_total_cached_messages(client)
@@ -483,9 +486,9 @@ async def append_messages(conversation_id: str, new_messages: list[dict[str, obj
             messages_to_free = new_total - MAX_CACHED_MESSAGES + len(new_messages)
             await _evict_oldest_conversations(client, messages_to_free)
 
-        # Store updated messages and update tracking
+        # Store updated messages with TTL and update tracking
         pipe = client.pipeline()
-        pipe.set(key, json.dumps(updated))
+        pipe.setex(key, MESSAGES_TTL_SECONDS, json.dumps(updated))
         pipe.zadd(MESSAGES_LRU_KEY, {conversation_id: time.time()})
         pipe.hset(MESSAGES_COUNTS_KEY, conversation_id, new_count)
         await pipe.execute()

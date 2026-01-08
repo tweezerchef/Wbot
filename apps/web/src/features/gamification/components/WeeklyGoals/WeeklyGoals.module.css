@@ -1,0 +1,134 @@
+/* ============================================================================
+   Weekly Goals Styles
+   ============================================================================
+   Week day visualization showing completed and upcoming days.
+   ============================================================================ */
+
+.container {
+  display: flex;
+  flex-direction: column;
+  padding: var(--spacing-lg);
+  background: var(--color-surface);
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--color-neutral-200);
+}
+
+/* Header */
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--spacing-md);
+}
+
+.title {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  margin: 0;
+}
+
+.progressText {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.progressCount {
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-primary);
+}
+
+/* Day Circles */
+.daysContainer {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--spacing-xs);
+  margin-bottom: var(--spacing-md);
+}
+
+.dayWrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-xs);
+}
+
+.dayCircle {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  background: var(--color-neutral-100);
+  color: var(--color-text-muted);
+  transition: all var(--duration-fast) var(--ease-gentle);
+}
+
+.dayCircle.completed {
+  background: var(--color-primary);
+  color: white;
+}
+
+.dayCircle.today {
+  border: 2px solid var(--color-primary);
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+}
+
+.dayCircle.today.completed {
+  background: var(--color-primary);
+  color: white;
+  border-color: var(--color-primary);
+}
+
+.dayLabel {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.dayLabel.today {
+  color: var(--color-primary);
+  font-weight: var(--font-weight-medium);
+}
+
+/* Progress Bar */
+.progressBar {
+  width: 100%;
+  height: 8px;
+  background: var(--color-neutral-100);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+  margin-bottom: var(--spacing-sm);
+}
+
+.progressFill {
+  height: 100%;
+  background: var(--color-primary);
+  border-radius: var(--radius-full);
+  transition: width var(--duration-normal) var(--ease-gentle);
+}
+
+/* Encouragement */
+.encouragement {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  text-align: center;
+}
+
+/* Compact variant */
+.container.compact {
+  padding: var(--spacing-md);
+}
+
+.container.compact .dayCircle {
+  width: 28px;
+  height: 28px;
+  font-size: var(--font-size-xs);
+}
+
+.container.compact .dayLabel {
+  display: none;
+}

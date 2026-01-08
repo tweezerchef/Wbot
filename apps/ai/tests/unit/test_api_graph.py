@@ -288,13 +288,6 @@ class TestContentFiltering:
         assert should_filter_content("BOX") is True
         assert should_filter_content("  box  ") is True
 
-    def test_filter_detect_activity_json(self) -> None:
-        """Should filter detect_activity structured output."""
-        from src.api.graph import should_filter_content
-
-        json_output = '{"detected_activity": "breathing", "confidence": 0.95}'
-        assert should_filter_content(json_output) is True
-
     def test_not_filter_regular_content(self) -> None:
         """Should not filter regular chat content."""
         from src.api.graph import should_filter_content

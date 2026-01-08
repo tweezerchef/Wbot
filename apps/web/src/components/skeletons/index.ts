@@ -9,9 +9,13 @@
  * - Import directly for route-level pendingComponent
  * - SignupSkeleton for /signup route
  * - ChatSkeleton for /chat route
+ * - SidebarSkeleton for sidebar loading
+ * - ActivityCardSkeleton for activity cards
  * - DefaultSkeleton as a generic fallback
  */
 
-export { SignupSkeleton } from './SignupSkeleton';
+export { ActivityCardSkeleton } from './ActivityCardSkeleton';
 export { ChatSkeleton } from './ChatSkeleton';
 export { DefaultSkeleton } from './DefaultSkeleton';
+export { SidebarSkeleton } from './SidebarSkeleton';
+export { SignupSkeleton } from './SignupSkeleton';

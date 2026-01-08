@@ -24,6 +24,7 @@
 import { getRouteApi, useNavigate } from '@tanstack/react-router';
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 
+import { ChatEmptyState } from '../ChatEmptyState';
 import { ConversationHistory } from '../ConversationHistory';
 
 import styles from './ChatPage.module.css';
@@ -44,11 +45,15 @@ import {
   ImmersiveBreathingConfirmation,
 } from '@/features/breathing';
 import type { BreathingTechnique, BreathingStats } from '@/features/breathing';
+import { ProgressWidget } from '@/features/gamification';
 import {
   AIGeneratedMeditation,
   GuidedMeditation,
   VoiceSelectionConfirmation,
 } from '@/features/meditation';
+import { DiscoverNav } from '@/features/navigation';
+import { ThemeToggle } from '@/features/settings';
+import { SidebarProfile } from '@/features/user';
 import {
   createAIClient,
   isBreathingConfirmation,
@@ -101,6 +106,18 @@ export function ChatPage() {
 
   // Current conversation ID - initialized from loader data
   const [conversationId, setConversationId] = useState<string | null>(loaderData.conversationId);
+
+  /* --------------------------------------------------------------------------
+     Sync state with loader data when route is revisited
+     --------------------------------------------------------------------------
+     TanStack Router pattern: loader re-runs on navigation, but useState only
+     uses initial value on first render. This effect syncs state when loader
+     data changes (e.g., navigating away and back to the chat page).
+     -------------------------------------------------------------------------- */
+  useEffect(() => {
+    setMessages(loaderData.messages);
+    setConversationId(loaderData.conversationId);
+  }, [loaderData.messages, loaderData.conversationId]);
 
   // Sidebar open/closed state - default to closed for all devices
   // User can toggle it open via the menu button
@@ -778,6 +795,11 @@ export function ChatPage() {
           <ChevronLeftIcon />
         </button>
 
+        {/* User Profile Section */}
+        <div className={styles.sidebarProfile}>
+          <SidebarProfile email={loaderData.userEmail} streakDays={0} />
+        </div>
+
         {/* Navigation buttons */}
         <nav className={styles.sidebarNav}>
           <button className={styles.sidebarButton} onClick={() => void handleNewConversation()}>
@@ -785,18 +807,49 @@ export function ChatPage() {
             <span>New Conversation</span>
           </button>
 
+          {/* Discover Section */}
+          <div className={styles.sidebarSection}>
+            <DiscoverNav
+              onItemClick={(item) => {
+                // Handle activity navigation - send as message
+                if (item === 'breathing') {
+                  setInputValue('Guide me through a breathing exercise');
+                } else if (item === 'meditation') {
+                  setInputValue('I would like to meditate');
+                } else if (item === 'journal') {
+                  setInputValue('Help me with journaling');
+                }
+                // Close sidebar on mobile
+                if (typeof window !== 'undefined' && window.innerWidth < 768) {
+                  setIsSidebarOpen(false);
+                }
+                inputRef.current?.focus();
+              }}
+            />
+          </div>
+
           {/* Conversation History */}
-          <ConversationHistory
-            currentConversationId={conversationId}
-            onSelectConversation={(id) => void handleSelectConversation(id)}
-            onCloseSidebar={() => {
-              setIsSidebarOpen(false);
-            }}
-          />
+          <div className={styles.sidebarSection}>
+            <ConversationHistory
+              currentConversationId={conversationId}
+              onSelectConversation={(id) => void handleSelectConversation(id)}
+              onCloseSidebar={() => {
+                setIsSidebarOpen(false);
+              }}
+            />
+          </div>
+
+          {/* Progress Widget */}
+          <div className={styles.sidebarSection}>
+            <ProgressWidget streakDays={0} weeklyGoalCompleted={0} weeklyGoalTarget={5} />
+          </div>
         </nav>
 
-        {/* Footer with logout */}
+        {/* Footer with theme toggle and logout */}
         <div className={styles.sidebarFooter}>
+          <div className={styles.themeToggleWrapper}>
+            <ThemeToggle />
+          </div>
           <button className={styles.sidebarButton} onClick={() => void handleLogout()}>
             <LogoutIcon />
             <span>Logout</span>
@@ -838,14 +891,25 @@ export function ChatPage() {
 
         {/* Message list - scrollable area */}
         <div className={styles.messages}>
-          {/* Welcome message when empty */}
+          {/* Empty state when no messages */}
           {messages.length === 0 && !streamingContent && (
-            <div className={styles.welcome}>
-              <p className={styles.welcomeText}>
-                Hello! I'm here to support you. Feel free to share what's on your mind, and we can
-                explore breathing exercises, meditation, or journaling together.
-              </p>
-            </div>
+            <ChatEmptyState
+              onQuickAction={(action) => {
+                if (action === 'breathing') {
+                  setInputValue('Guide me through a breathing exercise');
+                } else if (action === 'meditation') {
+                  setInputValue('I would like to meditate');
+                } else {
+                  // action === 'journal'
+                  setInputValue('Help me with journaling');
+                }
+                inputRef.current?.focus();
+              }}
+              onStarterClick={(message) => {
+                setInputValue(message);
+                inputRef.current?.focus();
+              }}
+            />
           )}
 
           {/* Render each message */}
