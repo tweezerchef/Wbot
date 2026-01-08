@@ -4,16 +4,15 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactElement } from 'react';
 import { useState } from 'react';
 
-import { ActivityOverlay } from '@/components/ActivityOverlay';
-import { GuidedMeditation, MEDITATION_TRACKS } from '@/components/GuidedMeditation';
+import { ActivityOverlay } from '@/components/overlays/ActivityOverlay';
 import {
   ImmersiveBreathing,
   ImmersiveBreathingConfirmation,
   BREATHING_TECHNIQUES,
   type BreathingTechnique,
   type BreathingStats,
-} from '@/components/ImmersiveBreathing';
-import { MeditationSeries } from '@/components/MeditationSeries';
+} from '@/features/breathing';
+import { GuidedMeditation, MEDITATION_TRACKS, MeditationSeries } from '@/features/meditation';
 
 // Create a client for Storybook stories
 const queryClient = new QueryClient({

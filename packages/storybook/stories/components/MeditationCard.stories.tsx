@@ -3,8 +3,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactElement } from 'react';
 import { fn } from 'storybook/test';
 
-import { MeditationCard } from '@/components/MeditationLibrary';
-import type { SavedMeditation } from '@/components/MeditationLibrary';
+import { MeditationCard } from '@/features/meditation';
+import type { SavedMeditation } from '@/features/meditation';
 
 // Create a client for Storybook stories
 const queryClient = new QueryClient({

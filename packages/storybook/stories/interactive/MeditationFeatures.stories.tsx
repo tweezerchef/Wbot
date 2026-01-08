@@ -6,9 +6,10 @@ import {
   MeditationStreakBadge,
   TimerMeditation,
   useBinauralBeats,
-} from '@/components/GuidedMeditation';
-import { MeditationSeries, BadgeUnlock } from '@/components/MeditationSeries';
-import type { MeditationSeriesType } from '@/components/MeditationSeries';
+  MeditationSeries,
+  BadgeUnlock,
+} from '@/features/meditation';
+import type { MeditationSeriesType } from '@/features/meditation';
 
 // =============================================================================
 // MeditationStreakBadge Stories

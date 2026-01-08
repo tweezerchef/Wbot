@@ -12,7 +12,7 @@ import { useEffect, useState } from 'react';
 
 import { useStorybookAuth } from '../../.storybook/context/AuthContext';
 
-import { ChatPage } from '@/components/pages/ChatPage/ChatPage';
+import { ChatPage } from '@/features/chat';
 import type { Message } from '@/lib/ai-client';
 import { getMostRecentConversation, loadMessages } from '@/lib/conversations';
 

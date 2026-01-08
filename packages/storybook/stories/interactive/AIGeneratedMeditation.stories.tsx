@@ -3,15 +3,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useState, type ReactElement } from 'react';
 import { fn, expect, userEvent, within } from 'storybook/test';
 
-import type {
-  AIGeneratedMeditationActivityData,
-  AIMeditationVoice,
-} from '@/components/GuidedMeditation';
-import {
-  AIGeneratedMeditation,
-  VoiceSelector,
-  MeditationVisual,
-} from '@/components/GuidedMeditation';
+import type { AIGeneratedMeditationActivityData, AIMeditationVoice } from '@/features/meditation';
+import { AIGeneratedMeditation, VoiceSelector, MeditationVisual } from '@/features/meditation';
 
 // Create a client for Storybook stories
 const queryClient = new QueryClient({

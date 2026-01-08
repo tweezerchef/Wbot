@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from '@storybook/react-vite';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactElement } from 'react';
 
-import { LandingPage } from '@/components/pages/LandingPage/LandingPage';
+import { LandingPage } from '@/features/auth';
 
 // Create a client for Storybook stories
 const queryClient = new QueryClient({

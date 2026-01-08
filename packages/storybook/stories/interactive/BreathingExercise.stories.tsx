@@ -3,11 +3,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactElement } from 'react';
 import { expect, fn, userEvent, within } from 'storybook/test';
 
-import { BreathingExercise } from '@/components/BreathingExercise/BreathingExercise';
-import {
-  BREATHING_TECHNIQUES,
-  type BreathingTechnique,
-} from '@/components/BreathingExercise/types';
+import { BreathingExercise } from '@/features/breathing';
+import { BREATHING_TECHNIQUES, type BreathingTechnique } from '@/features/breathing';
 
 // Create a client for Storybook stories
 const queryClient = new QueryClient({

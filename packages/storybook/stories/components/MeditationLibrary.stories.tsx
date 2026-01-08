@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from '@storybook/react-vite';
 import type { ReactElement } from 'react';
 import { fn } from 'storybook/test';
 
-import { MeditationLibrary } from '@/components/MeditationLibrary';
+import { MeditationLibrary } from '@/features/meditation';
 
 // ============================================================================
 // MeditationLibrary Stories

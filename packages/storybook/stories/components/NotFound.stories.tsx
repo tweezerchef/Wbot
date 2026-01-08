@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 
-import { NotFound } from '@/components/NotFound/NotFound';
+import { NotFound } from '@/components/feedback/NotFound';
 
 /**
  * 404 Not Found error page.

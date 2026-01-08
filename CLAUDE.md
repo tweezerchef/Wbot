@@ -223,23 +223,53 @@ describe('useWimHofLoop', () => {
 ```
 apps/
 ├── web/src/
-│   ├── routes/          # File-based routing (one file per route)
-│   ├── components/      # Reusable UI components
-│   │   ├── pages/       # Page-level components (ChatPage, LandingPage, SignupPage)
-│   │   ├── BreathingExercise/  # Interactive breathing activity
-│   │   ├── ConversationHistory/  # Sidebar conversation panel
-│   │   ├── buttons/     # Icon button components
-│   │   └── ComponentName/
-│   │       ├── ComponentName.tsx
-│   │       └── ComponentName.module.css
-│   ├── lib/             # Utility modules and clients
-│   │   ├── supabase.ts  # Supabase client
-│   │   ├── ai-client.ts # LangGraph SDK client
-│   │   ├── conversations.ts     # Conversation CRUD
-│   │   ├── conversationHistory.ts  # History utilities
-│   │   └── parseActivity.ts     # Activity parsing
-│   ├── styles/          # Global styles and CSS variables
-│   └── types/           # TypeScript type definitions
+│   ├── routes/              # File-based routing (TanStack Router)
+│   │   ├── __root.tsx       # Root layout
+│   │   ├── _authed.tsx      # Protected route layout
+│   │   ├── _authed/         # Protected routes (e.g., chat.tsx)
+│   │   ├── index.tsx        # Landing page route
+│   │   └── signup.tsx       # Signup route
+│   │
+│   ├── features/            # Feature-based organization
+│   │   ├── auth/            # Authentication (LandingPage, SignupPage)
+│   │   ├── breathing/       # Breathing exercises
+│   │   │   ├── components/  # BreathingExercise, ImmersiveBreathing, WimHofExercise
+│   │   │   ├── hooks/       # useBreathingLoop, useBreathingAudio, etc.
+│   │   │   ├── types.ts     # Breathing-related types
+│   │   │   └── index.ts     # Barrel export
+│   │   ├── chat/            # Chat interface
+│   │   │   ├── components/  # ChatPage, ConversationHistory
+│   │   │   ├── hooks/       # Chat-specific hooks
+│   │   │   └── index.ts
+│   │   ├── meditation/      # Meditation features
+│   │   │   ├── components/  # GuidedMeditation, MeditationSeries, MeditationLibrary
+│   │   │   ├── hooks/       # useMeditationAudio, useBinauralBeats, etc.
+│   │   │   ├── types.ts     # Meditation-related types
+│   │   │   └── index.ts
+│   │   ├── wellness/        # Wellness tracking
+│   │   │   ├── components/  # WellnessProfile, MoodCheck
+│   │   │   ├── types.ts
+│   │   │   └── index.ts
+│   │   └── index.ts         # Feature barrel export
+│   │
+│   ├── components/          # Shared UI components only
+│   │   ├── ui/              # Atomic components
+│   │   │   └── icons/       # Icon components (MenuIcon, CloseIcon, etc.)
+│   │   ├── feedback/        # Feedback components (DefaultCatchBoundary, NotFound)
+│   │   ├── overlays/        # Overlay components (ActivityOverlay)
+│   │   └── index.ts
+│   │
+│   ├── lib/                 # Utility modules and clients
+│   │   ├── supabase/        # Supabase client (client.ts, server.ts)
+│   │   ├── queries/         # TanStack Query patterns
+│   │   ├── schemas/         # Zod validation schemas
+│   │   ├── ai-client.ts     # LangGraph SDK client
+│   │   ├── conversations.ts # Conversation utilities
+│   │   └── parseActivity.ts # Activity parsing
+│   │
+│   ├── styles/              # Global styles and CSS variables
+│   ├── types/               # Global TypeScript types
+│   └── router.tsx           # TanStack Router configuration
 │
 ├── ai/src/
 │   ├── graph/           # LangGraph definitions (state.py, wellness.py)
@@ -278,7 +308,7 @@ apps/
 When creating new React components:
 
 ```tsx
-// components/MessageBubble/MessageBubble.tsx
+// features/chat/components/MessageBubble/MessageBubble.tsx
 
 // Imports grouped: React, external libs, internal modules, styles
 import { type ReactNode } from 'react';
@@ -300,6 +330,26 @@ export function MessageBubble({ content, role }: MessageBubbleProps) {
     </div>
   );
 }
+```
+
+### Import Conventions
+
+```tsx
+// Feature imports - use barrel exports
+import { ChatPage, ConversationHistory } from '@/features/chat';
+import { BreathingExercise, useBreathingLoop } from '@/features/breathing';
+import { GuidedMeditation, useMeditationAudio } from '@/features/meditation';
+import { MoodCheck, WellnessProfile } from '@/features/wellness';
+import { LandingPage, SignupPage } from '@/features/auth';
+
+// Shared UI imports
+import { MenuIcon, CloseIcon } from '@/components/ui/icons';
+import { ActivityOverlay } from '@/components/overlays';
+import { DefaultCatchBoundary, NotFound } from '@/components/feedback';
+
+// Library imports
+import { supabase } from '@/lib/supabase/client';
+import { conversationKeys } from '@/lib/queries';
 ```
 
 ---
