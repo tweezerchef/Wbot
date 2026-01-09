@@ -8,7 +8,7 @@ title: BreathingAnimation Component
 The `BreathingAnimation` component provides a visual representation of breathing exercises within the Wbot wellness chatbot interface. It displays an animated circle that expands and contracts in sync with breathing phases, accompanied by calming color transitions and visual feedback.
 
 :::info Related Documentation
-This component works with the [BreathingExercise Node](./breathing-exercise-node) to provide a complete guided breathing experience.
+This component works with the [LangGraph AI Backend](/ai/langgraph) to provide a complete guided breathing experience.
 :::
 
 ## Component Purpose
@@ -419,6 +419,6 @@ export const Idle = {
 
 ## Related Components
 
-- **[BreathingExercise Node](./breathing-exercise-node)** - Backend processing for breathing exercises
-- **[ChatMessage Component](./chat-message)** - Container for breathing exercises in chat
-- **[WellnessTracker](./wellness-tracker)** - Analytics integration for exercise completion
+- **[AI Client](./ai-client)** - Integration with LangGraph for activity triggering
+- **[Meditation Components](./meditation)** - Related meditation activity components
+- **[LangGraph Backend](/ai/langgraph)** - Backend processing for activities

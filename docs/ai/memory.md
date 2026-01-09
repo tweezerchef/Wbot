@@ -149,8 +149,8 @@ The embeddings are optimized for:
 
 ## Related Modules
 
-- [Memory Storage](/docs/memory-storage)
-- [Conversation Management](/docs/conversations)
+- [LangGraph Architecture](/ai/langgraph) - Graph-based AI processing
+- [Database Schema](/database/schema) - Conversation and memory tables
 
 ## Version Compatibility
 

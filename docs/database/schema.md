@@ -135,8 +135,8 @@ function personalizeScript(script, userData) {
 
 ## Related Documentation
 
-- [Text-to-Speech Generation](/docs/features/tts)
-- [Personalization Engine](/docs/core/personalization)
+- [AI Meditation Guide](/ai/meditation) - How meditation scripts are used
+- [Web Meditation Components](/web/meditation) - Frontend meditation UI
 
 ```
 

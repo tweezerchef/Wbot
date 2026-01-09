@@ -32,7 +32,7 @@ const config: Config = {
           path: '.', // Docs are in the same folder as this config
           sidebarPath: './sidebars.ts',
           routeBasePath: '/', // Docs at root instead of /docs
-          exclude: ['**/src/**', '**/node_modules/**', 'package.json', '*.ts', '*.js'],
+          exclude: ['**/src/**', '**/node_modules/**', 'package.json', '*.ts', '*.js', 'README.md'],
         },
         blog: false, // Disable blog feature
         theme: {
