@@ -148,29 +148,32 @@
   /* Padding inside bubble */
   padding: var(--spacing-sm) var(--spacing-md);
 
-  /* Rounded corners */
-  border-radius: var(--radius-lg);
+  /* Rounded corners - 18px as per design spec */
+  border-radius: 18px;
 
   /* Default (assistant) styling */
-  background-color: var(--color-surface);
+  background-color: #f5f7fa;
   color: var(--color-text-primary);
 
   /* Subtle shadow */
   box-shadow: var(--shadow-sm);
+
+  /* Larger font for chat messages */
+  font-size: var(--font-size-lg);
 }
 
-/* User message styling - primary color, right side */
+/* User message styling - primary gradient, right side */
 .bubbleUser {
-  background-color: var(--color-primary);
+  background: var(--color-primary-gradient);
   color: var(--color-text-inverse);
 
-  /* Different corner rounding for user messages */
+  /* Less rounded bottom-right corner */
   border-bottom-right-radius: var(--radius-sm);
 }
 
 /* Assistant message styling - neutral, left side */
 .bubbleAssistant {
-  /* Different corner rounding for assistant messages */
+  /* Less rounded bottom-left corner */
   border-bottom-left-radius: var(--radius-sm);
 }
 
@@ -256,41 +259,44 @@
 /* ----------------------------------------------------------------------------
    Loading Indicator
    ----------------------------------------------------------------------------
-   Three dots animation while waiting for AI response.
+   Organic breathing-like animation while waiting for AI response.
+   Uses soft pulse instead of bounce for a calming effect.
    ---------------------------------------------------------------------------- */
 .loadingIndicator {
   display: flex;
-  gap: 4px;
+  gap: 6px;
   padding: var(--spacing-md);
   justify-content: flex-start;
+  align-items: center;
 }
 
 .dot {
-  width: 8px;
-  height: 8px;
-  background-color: var(--color-neutral-400);
+  width: 10px;
+  height: 10px;
+  background: linear-gradient(135deg, var(--color-sky) 0%, var(--color-lavender) 100%);
   border-radius: 50%;
-  animation: bounce 1.4s infinite ease-in-out;
+  animation: breathePulse 2s var(--ease-breath) infinite;
 }
 
 .dot:nth-child(1) {
   animation-delay: 0s;
 }
 .dot:nth-child(2) {
-  animation-delay: 0.2s;
+  animation-delay: 0.3s;
 }
 .dot:nth-child(3) {
-  animation-delay: 0.4s;
+  animation-delay: 0.6s;
 }
 
-@keyframes bounce {
+@keyframes breathePulse {
   0%,
-  80%,
   100% {
-    transform: translateY(0);
+    transform: scale(0.8);
+    opacity: 0.4;
   }
-  40% {
-    transform: translateY(-6px);
+  50% {
+    transform: scale(1.2);
+    opacity: 1;
   }
 }
 
@@ -433,7 +439,7 @@
   left: 0;
   width: var(--sidebar-width);
   height: 100dvh;
-  background-color: var(--color-surface);
+  background: var(--gradient-sidebar);
   border-right: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
@@ -474,15 +480,41 @@
 .sidebarNav {
   flex: 1;
   padding: var(--spacing-md);
-  /* Add top padding for mobile (below the menu button area) */
-  padding-top: calc(var(--header-height) + var(--spacing-md));
+  overflow-y: auto;
 }
 
-/* Desktop: reduce top padding since header is separate */
+/* ----------------------------------------------------------------------------
+   Sidebar Profile
+   ----------------------------------------------------------------------------
+   User profile section at the top of the sidebar.
+   ---------------------------------------------------------------------------- */
+.sidebarProfile {
+  padding: var(--spacing-md);
+  padding-top: calc(var(--header-height) + var(--spacing-md));
+  border-bottom: 1px solid var(--border-color);
+}
+
 @media (min-width: 768px) {
-  .sidebarNav {
+  .sidebarProfile {
     padding-top: calc(var(--spacing-3xl) + var(--spacing-md));
   }
+}
+
+/* ----------------------------------------------------------------------------
+   Sidebar Section
+   ----------------------------------------------------------------------------
+   Grouped section within sidebar navigation.
+   ---------------------------------------------------------------------------- */
+.sidebarSection {
+  margin-top: var(--spacing-md);
+  padding-top: var(--spacing-md);
+  border-top: 1px solid var(--color-neutral-100);
+}
+
+.sidebarSection:first-child {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
 }
 
 /* ----------------------------------------------------------------------------
@@ -493,6 +525,16 @@
 .sidebarFooter {
   padding: var(--spacing-md);
   border-top: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+/* Theme toggle wrapper */
+.themeToggleWrapper {
+  display: flex;
+  justify-content: center;
+  padding-bottom: var(--spacing-xs);
 }
 
 /* ----------------------------------------------------------------------------

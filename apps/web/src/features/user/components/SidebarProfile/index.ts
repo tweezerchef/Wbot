@@ -1,0 +1,1 @@
+export { SidebarProfile } from './SidebarProfile';

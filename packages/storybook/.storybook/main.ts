@@ -3,6 +3,7 @@ import { dirname, join, resolve } from 'path';
 import { fileURLToPath } from 'url';
 
 import type { StorybookConfig } from '@storybook/react-vite';
+import react from '@vitejs/plugin-react';
 
 const __filename = fileURLToPath(import.meta.url);
 
@@ -63,6 +64,64 @@ const config: StorybookConfig = {
     config.css = {
       modules: {
         localsConvention: 'camelCase',
+      },
+    };
+
+    // Add React plugin with React Compiler for automatic optimization
+    // Matches the web app configuration for consistent behavior
+    config.plugins = [
+      ...(config.plugins ?? []),
+      react({
+        babel: {
+          plugins: [['babel-plugin-react-compiler', {}]],
+        },
+      }),
+    ];
+
+    // Code splitting - separate large dependencies into chunks
+    // Fixes the "chunks are larger than 500 kB" warning
+    // Uses function-based manualChunks to only split modules that are actually imported
+    const manualChunks = (id: string) => {
+      // React core (stable, rarely changes)
+      if (id.includes('node_modules/react/') || id.includes('node_modules/react-dom/')) {
+        return 'react-vendor';
+      }
+      // Framer Motion (large animation library)
+      if (id.includes('node_modules/framer-motion/')) {
+        return 'framer-motion';
+      }
+      // TanStack ecosystem
+      if (id.includes('node_modules/@tanstack/')) {
+        return 'tanstack-vendor';
+      }
+      // Storybook addons - split into separate chunks
+      if (id.includes('node_modules/@storybook/addon-docs/')) {
+        return 'storybook-docs';
+      }
+      if (
+        id.includes('node_modules/@storybook/addon-a11y/') ||
+        id.includes('node_modules/axe-core/')
+      ) {
+        return 'storybook-a11y';
+      }
+      // Storybook core
+      if (id.includes('node_modules/@storybook/')) {
+        return 'storybook-core';
+      }
+    };
+
+    // Get existing output config (handle array case)
+    const existingOutput = config.build?.rollupOptions?.output;
+    const baseOutput = Array.isArray(existingOutput) ? existingOutput[0] : existingOutput;
+
+    config.build = {
+      ...config.build,
+      rollupOptions: {
+        ...config.build?.rollupOptions,
+        output: {
+          ...baseOutput,
+          manualChunks,
+        },
       },
     };
 

@@ -22,10 +22,15 @@ import type { MeditationState } from '../types';
 
 /** Options for the useMeditationAudio hook */
 export interface UseMeditationAudioOptions {
-  /** URL of the audio file to play */
+  /** URL of the audio file to play (not needed if using externalAudioRef) */
   audioUrl: string;
   /** Initial volume (0-1), defaults to 0.8 */
   initialVolume?: number;
+  /**
+   * External audio element ref to use instead of creating one.
+   * Used for progressive playback where the audio element is managed by useTTSGeneration.
+   */
+  externalAudioRef?: React.RefObject<HTMLAudioElement | null>;
   /** Callback when playback ends naturally */
   onEnded?: () => void;
   /** Callback on time update (every ~250ms) */
@@ -63,13 +68,16 @@ export interface UseMeditationAudioReturn {
 export function useMeditationAudio({
   audioUrl,
   initialVolume = 0.8,
+  externalAudioRef,
   onEnded,
   onTimeUpdate,
   onLoaded,
   onError,
 }: UseMeditationAudioOptions): UseMeditationAudioReturn {
-  // Audio element ref
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+  // Audio element ref - use external ref if provided, otherwise create our own
+  const internalAudioRef = useRef<HTMLAudioElement | null>(null);
+  const audioRef = externalAudioRef ?? internalAudioRef;
+  const usingExternalAudio = !!externalAudioRef;
 
   // State
   const [state, setState] = useState<MeditationState>({
@@ -98,8 +106,18 @@ export function useMeditationAudio({
 
   // Initialize audio element
   useEffect(() => {
-    const audio = new Audio();
-    audioRef.current = audio;
+    // If using external audio, don't create our own - just use the ref
+    let audio: HTMLAudioElement;
+    if (usingExternalAudio) {
+      // Wait for external audio to be available
+      if (!audioRef.current) {
+        return;
+      }
+      audio = audioRef.current;
+    } else {
+      audio = new Audio();
+      internalAudioRef.current = audio;
+    }
 
     // Set initial volume
     audio.volume = initialVolume;
@@ -167,6 +185,7 @@ export function useMeditationAudio({
       setState((prev) => ({
         ...prev,
         playbackState: 'playing',
+        isLoading: false,
       }));
     };
 
@@ -204,14 +223,21 @@ export function useMeditationAudio({
       audio.removeEventListener('play', handlePlay);
       audio.removeEventListener('pause', handlePause);
 
-      // Clean up audio element
-      audio.pause();
-      audio.src = '';
+      // Only clean up audio element if we created it
+      if (!usingExternalAudio) {
+        audio.pause();
+        audio.src = '';
+      }
     };
-  }, [initialVolume]);
+  }, [initialVolume, usingExternalAudio, audioRef]);
 
-  // Update audio source when URL changes
+  // Update audio source when URL changes (only for internal audio)
   useEffect(() => {
+    // Skip if using external audio - the TTS hook manages the source
+    if (usingExternalAudio) {
+      return;
+    }
+
     const audio = audioRef.current;
     if (!audio) {
       return;
@@ -230,7 +256,7 @@ export function useMeditationAudio({
     // Set new source
     audio.src = audioUrl;
     audio.load();
-  }, [audioUrl]);
+  }, [audioUrl, usingExternalAudio, audioRef]);
 
   // Play audio
   const play = useCallback(async () => {

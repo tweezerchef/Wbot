@@ -20,6 +20,7 @@ import os
 from enum import Enum
 from typing import Any
 
+from langchain_core.language_models import LanguageModelInput
 from langchain_core.language_models.chat_models import BaseChatModel
 from pydantic import BaseModel
 
@@ -263,7 +264,7 @@ class ResilientLLM:
 
     async def ainvoke(
         self,
-        input: Any,
+        input: LanguageModelInput,
         **kwargs: Any,  # noqa: ANN401
     ) -> Any:  # noqa: ANN401
         """
@@ -332,7 +333,7 @@ class ResilientStructuredLLM:
 
     async def ainvoke(
         self,
-        input: Any,
+        input: LanguageModelInput,
         **invoke_kwargs: Any,  # noqa: ANN401
     ) -> Any:  # noqa: ANN401
         """

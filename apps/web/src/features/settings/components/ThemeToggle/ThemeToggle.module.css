@@ -1,0 +1,59 @@
+/* ============================================================================
+   Theme Toggle Styles
+   ============================================================================
+   Toggle component for switching between light, dark, and system themes.
+   ============================================================================ */
+
+.container {
+  display: flex;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-xs);
+  background: var(--color-neutral-100);
+  border-radius: var(--radius-full);
+}
+
+.option {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-gentle);
+}
+
+.option:hover {
+  color: var(--color-text-secondary);
+  background: var(--color-neutral-200);
+}
+
+.option.active {
+  background: var(--color-surface);
+  color: var(--color-primary);
+  box-shadow: var(--shadow-sm);
+}
+
+.option:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* With labels variant */
+.container.withLabels {
+  padding: var(--spacing-xs);
+}
+
+.container.withLabels .option {
+  width: auto;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  gap: var(--spacing-xs);
+  border-radius: var(--radius-md);
+}
+
+.optionLabel {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+}

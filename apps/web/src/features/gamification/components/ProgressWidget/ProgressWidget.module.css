@@ -1,0 +1,126 @@
+/* ============================================================================
+   Progress Widget Styles
+   ============================================================================
+   Mini streak display and weekly goal visualization for the sidebar.
+   ============================================================================ */
+
+.container {
+  padding: var(--spacing-md);
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-neutral-200);
+}
+
+.sectionHeader {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: var(--spacing-sm);
+}
+
+/* Streak Section */
+.streakSection {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-md);
+  padding-bottom: var(--spacing-md);
+  border-bottom: 1px solid var(--color-neutral-100);
+}
+
+.streakIcon {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--gradient-dawn);
+  border-radius: var(--radius-md);
+  color: white;
+}
+
+.streakInfo {
+  flex: 1;
+}
+
+.streakCount {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  line-height: 1;
+}
+
+.streakLabel {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+/* Weekly Goal Section */
+.goalSection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.goalHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.goalLabel {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.goalProgress {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+}
+
+/* Day Dots */
+.dayDots {
+  display: flex;
+  gap: var(--spacing-xs);
+}
+
+.dayDot {
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  background: var(--color-neutral-100);
+  color: var(--color-text-muted);
+  transition: all var(--duration-fast) var(--ease-gentle);
+}
+
+.dayDot.completed {
+  background: var(--color-primary);
+  color: white;
+}
+
+.dayDot.today {
+  border: 2px solid var(--color-primary);
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+}
+
+.dayDot.today.completed {
+  background: var(--color-primary);
+  color: white;
+}
+
+/* Encouragement Message */
+.encouragement {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  margin-top: var(--spacing-sm);
+  text-align: center;
+}

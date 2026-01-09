@@ -1,0 +1,1 @@
+export { DiscoverNav } from './DiscoverNav';

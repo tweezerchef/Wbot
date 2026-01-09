@@ -1,0 +1,127 @@
+/* ============================================================================
+   Badge Styles
+   ============================================================================
+   Achievement badge component with locked/unlocked states.
+   ============================================================================ */
+
+.badge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-sm);
+  text-align: center;
+}
+
+/* Badge Icon Circle */
+.iconCircle {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--duration-normal) var(--ease-gentle);
+}
+
+/* Locked state */
+.iconCircle.locked {
+  background: var(--color-neutral-100);
+  color: var(--color-neutral-300);
+  opacity: 0.6;
+}
+
+/* Unlocked state with category colors */
+.iconCircle.unlocked {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.iconCircle.unlocked.consistency {
+  background: var(--gradient-dawn);
+  color: white;
+}
+
+.iconCircle.unlocked.exploration {
+  background: var(--gradient-ocean);
+  color: white;
+}
+
+.iconCircle.unlocked.milestone {
+  background: var(--gradient-forest);
+  color: white;
+}
+
+.iconCircle.unlocked.mastery {
+  background: linear-gradient(135deg, var(--color-lavender) 0%, var(--color-amethyst) 100%);
+  color: white;
+}
+
+/* Badge Name */
+.name {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+  max-width: 80px;
+  line-height: var(--line-height-tight);
+}
+
+.badge.locked .name {
+  color: var(--color-text-muted);
+}
+
+/* Progress indicator */
+.progress {
+  width: 100%;
+  max-width: 56px;
+  height: 4px;
+  background: var(--color-neutral-200);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+}
+
+.progressFill {
+  height: 100%;
+  background: var(--color-primary);
+  border-radius: var(--radius-full);
+  transition: width var(--duration-normal) var(--ease-gentle);
+}
+
+/* Unlock animation */
+.iconCircle.justUnlocked {
+  animation: unlockBounce 0.5s var(--ease-bounce);
+}
+
+@keyframes unlockBounce {
+  0% {
+    transform: scale(0.8);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* ----------------------------------------------------------------------------
+   Badge Grid Styles
+   ---------------------------------------------------------------------------- */
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+  gap: var(--spacing-md);
+}
+
+.gridSection {
+  margin-bottom: var(--spacing-lg);
+}
+
+.gridSectionTitle {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+  margin-bottom: var(--spacing-sm);
+}

@@ -541,6 +541,48 @@ export type Database = {
           },
         ];
       };
+      meditation_scripts: {
+        Row: {
+          created_at: string | null;
+          duration_estimate_seconds: number;
+          has_personalization_placeholders: boolean | null;
+          id: string;
+          is_active: boolean | null;
+          language: string | null;
+          placeholders: Json | null;
+          script_content: string;
+          title: string;
+          type: string;
+          updated_at: string | null;
+        };
+        Insert: {
+          created_at?: string | null;
+          duration_estimate_seconds: number;
+          has_personalization_placeholders?: boolean | null;
+          id: string;
+          is_active?: boolean | null;
+          language?: string | null;
+          placeholders?: Json | null;
+          script_content: string;
+          title: string;
+          type: string;
+          updated_at?: string | null;
+        };
+        Update: {
+          created_at?: string | null;
+          duration_estimate_seconds?: number;
+          has_personalization_placeholders?: boolean | null;
+          id?: string;
+          is_active?: boolean | null;
+          language?: string | null;
+          placeholders?: Json | null;
+          script_content?: string;
+          title?: string;
+          type?: string;
+          updated_at?: string | null;
+        };
+        Relationships: [];
+      };
       memories: {
         Row: {
           ai_response: string;

@@ -7,6 +7,7 @@
     "dev": "turbo dev",
     "dev:all": "concurrently -n web,ai -c blue,green \"pnpm dev:web\" \"pnpm dev:ai\"",
     "dev:web": "turbo dev --filter=@wbot/web",
+    "preview:web": "pnpm --filter @wbot/web build && pnpm --filter @wbot/web start",
     "dev:ai": "cd apps/ai && uv run uvicorn src.api.server:app --reload --port 2024",
     "storybook": "pnpm --filter @wbot/storybook dev",
     "storybook:build": "pnpm --filter @wbot/storybook build",

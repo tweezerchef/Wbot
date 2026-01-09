@@ -24,7 +24,8 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { HeadContent, Scripts, createRootRouteWithContext } from '@tanstack/react-router';
 import * as React from 'react';
 
-import type { RouterContext } from '../router';
+import { ThemeProvider } from '../features/settings';
+import type { RouterContext } from '../types';
 
 // Import global styles - applies CSS reset and variables
 import '../styles/globals.css';
@@ -78,6 +79,7 @@ export const Route = createRootRouteWithContext<RouterContext>()({
  */
 function RootDocument({ children }: { children: React.ReactNode }) {
   // Get QueryClient from router context (created per-request for SSR safety)
+
   const { queryClient } = Route.useRouteContext();
 
   return (
@@ -257,28 +259,32 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       </head>
       <body>
         {/* QueryClientProvider enables TanStack Query throughout the app */}
+        {}
         <QueryClientProvider client={queryClient}>
-          {/*
-            The app container fills the entire viewport.
-            This is important for mobile full-screen experience.
-            Using dvh (dynamic viewport height) to account for mobile browser chrome.
+          {/* ThemeProvider manages light/dark/system theme preferences */}
+          <ThemeProvider>
+            {/*
+              The app container fills the entire viewport.
+              This is important for mobile full-screen experience.
+              Using dvh (dynamic viewport height) to account for mobile browser chrome.
 
-            Critical layout styles are inlined to prevent layout shift while
-            CSS module chunks load asynchronously.
-          */}
-          <div
-            id="app"
-            style={{
-              minHeight: '100dvh',
-              display: 'flex',
-              flexDirection: 'column',
-              backgroundColor: '#ffffff', // --color-background
-              color: '#262626', // --color-text-primary
-            }}
-          >
-            {/* Child routes render here (landing or chat) */}
-            {children}
-          </div>
+              Critical layout styles are inlined to prevent layout shift while
+              CSS module chunks load asynchronously.
+            */}
+            <div
+              id="app"
+              style={{
+                minHeight: '100dvh',
+                display: 'flex',
+                flexDirection: 'column',
+                backgroundColor: 'var(--color-background)',
+                color: 'var(--color-text-primary)',
+              }}
+            >
+              {/* Child routes render here (landing or chat) */}
+              {children}
+            </div>
+          </ThemeProvider>
         </QueryClientProvider>
 
         {/* TanStack Start scripts for client-side hydration */}

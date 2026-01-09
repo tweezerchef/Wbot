@@ -14,6 +14,7 @@ Key benefits:
 ============================================================================
 """
 
+import asyncio
 import base64
 import hashlib
 import os
@@ -62,7 +63,7 @@ DEFAULT_MEDITATION_SYSTEM_PROMPT = (
 
 def convert_pcm16_to_mp3(pcm_bytes: bytes) -> bytes:
     """
-    Convert raw PCM16 audio bytes to MP3 format.
+    Convert raw PCM16 audio bytes to MP3 format (batch conversion).
 
     OpenAI outputs PCM16 with:
     - Sample rate: 24kHz
@@ -86,6 +87,79 @@ def convert_pcm16_to_mp3(pcm_bytes: bytes) -> bytes:
     mp3_buffer = BytesIO()
     audio.export(mp3_buffer, format="mp3", bitrate="128k")
     return mp3_buffer.getvalue()
+
+
+async def stream_pcm16_to_mp3(
+    pcm_generator: AsyncGenerator[bytes, None],
+) -> AsyncGenerator[bytes, None]:
+    """
+    Stream PCM16 audio to MP3 using ffmpeg subprocess for real-time conversion.
+
+    This enables true streaming audio playback - MP3 chunks are yielded as soon
+    as ffmpeg produces them, without waiting for full audio generation.
+
+    OpenAI PCM16 format:
+    - Sample rate: 24kHz
+    - Channels: 1 (mono)
+    - Sample width: 2 bytes (16-bit signed little-endian)
+
+    Args:
+        pcm_generator: Async generator yielding PCM16 audio chunks
+
+    Yields:
+        MP3 audio chunks as they're produced by ffmpeg
+    """
+    ffmpeg_path = imageio_ffmpeg.get_ffmpeg_exe()
+
+    # Start ffmpeg with stdin/stdout pipes for streaming conversion
+    proc = await asyncio.create_subprocess_exec(
+        ffmpeg_path,
+        "-f",
+        "s16le",  # Input: signed 16-bit little-endian PCM
+        "-ar",
+        "24000",  # Sample rate: 24kHz (OpenAI output)
+        "-ac",
+        "1",  # Channels: mono
+        "-i",
+        "pipe:0",  # Read from stdin
+        "-f",
+        "mp3",  # Output: MP3
+        "-b:a",
+        "128k",  # Bitrate
+        "pipe:1",  # Write to stdout
+        stdin=asyncio.subprocess.PIPE,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.DEVNULL,
+    )
+
+    # Feed PCM chunks to ffmpeg stdin in a separate task
+    async def feed_pcm() -> None:
+        try:
+            async for chunk in pcm_generator:
+                if proc.stdin:
+                    proc.stdin.write(chunk)
+                    await proc.stdin.drain()
+        finally:
+            if proc.stdin:
+                proc.stdin.close()
+                await proc.stdin.wait_closed()
+
+    # Start feeding PCM data
+    feed_task = asyncio.create_task(feed_pcm())
+
+    # Read and yield MP3 chunks as they become available
+    try:
+        while True:
+            if proc.stdout is None:
+                break
+            chunk = await proc.stdout.read(8192)  # 8KB chunks for smooth streaming
+            if not chunk:
+                break
+            yield chunk
+    finally:
+        # Wait for feed task to complete
+        await feed_task
+        await proc.wait()
 
 
 @dataclass
@@ -162,10 +236,11 @@ class OpenAIAudio:
         voice: str | None = None,
     ) -> AsyncGenerator[bytes, None]:
         """
-        Generate and stream meditation audio via Chat Completions.
+        Generate and stream meditation audio via Chat Completions with real-time delivery.
 
         This creates both the meditation script AND audio in a single call.
-        Streams PCM16 from OpenAI, then converts to MP3 and yields the result.
+        Uses ffmpeg subprocess to convert PCM16 to MP3 in real-time, yielding
+        MP3 chunks as soon as they're available for immediate playback.
 
         Args:
             prompt: The meditation request (e.g., "Create a 5-minute body scan")
@@ -173,18 +248,19 @@ class OpenAIAudio:
             voice: Voice to use (defaults to instance voice)
 
         Yields:
-            Audio bytes (MP3 format) after generation completes
+            MP3 audio chunks as they're produced (real-time streaming)
         """
         voice = voice or self.voice
 
         logger.info(
-            "Starting audio stream",
+            "Starting real-time audio stream",
             voice=voice,
             model=self.model,
             prompt_length=len(prompt),
         )
 
-        try:
+        async def get_pcm_chunks_from_openai() -> AsyncGenerator[bytes, None]:
+            """Generator that yields PCM16 chunks from OpenAI streaming response."""
             # Use PCM16 format for streaming (MP3 not supported with stream=True)
             response = await self.client.chat.completions.create(
                 model=self.model,
@@ -200,10 +276,8 @@ class OpenAIAudio:
                 stream=True,
             )
 
-            # Collect all PCM16 chunks
-            # Note: delta.audio is an untyped dict from OpenAI SDK (not in type definitions)
+            # Note: delta.audio is an untyped dict from OpenAI SDK
             # Format: {"id": str, "data": str (base64), "transcript": str, "expires_at": int}
-            pcm_chunks: list[bytes] = []
             chunk_count = 0
             audio_chunk_count = 0
 
@@ -227,29 +301,33 @@ class OpenAIAudio:
                     if audio_dict and "data" in audio_dict:
                         audio_data = audio_dict["data"]
                         decoded = base64.b64decode(audio_data)
-                        pcm_chunks.append(decoded)
+                        yield decoded
                         audio_chunk_count += 1
 
             logger.info(
-                "Streaming complete",
+                "OpenAI streaming complete",
                 total_chunks=chunk_count,
                 audio_chunks=audio_chunk_count,
             )
 
-            # Convert collected PCM16 to MP3
-            if pcm_chunks:
-                pcm_audio = b"".join(pcm_chunks)
-                mp3_audio = convert_pcm16_to_mp3(pcm_audio)
+        try:
+            # Stream PCM16 through ffmpeg for real-time MP3 conversion
+            mp3_chunk_count = 0
+            total_mp3_bytes = 0
 
-                logger.info(
-                    "Audio stream complete",
-                    pcm_bytes=len(pcm_audio),
-                    mp3_bytes=len(mp3_audio),
-                    voice=voice,
-                )
+            async for mp3_chunk in stream_pcm16_to_mp3(get_pcm_chunks_from_openai()):
+                mp3_chunk_count += 1
+                total_mp3_bytes += len(mp3_chunk)
+                yield mp3_chunk
 
-                yield mp3_audio
-            else:
+            logger.info(
+                "Audio stream complete",
+                mp3_chunks=mp3_chunk_count,
+                mp3_bytes=total_mp3_bytes,
+                voice=voice,
+            )
+
+            if mp3_chunk_count == 0:
                 logger.warning("No audio data received from OpenAI")
 
         except Exception as e:

@@ -133,6 +133,7 @@ a:hover {
 :focus-visible {
   outline: 2px solid var(--color-primary);
   outline-offset: 2px;
+  border-radius: 4px;
 }
 
 /* Buttons - Reset and base styling */
@@ -224,4 +225,21 @@ th {
 
 .container-wide {
   max-width: var(--max-width-wide);
+}
+
+/* ============================================================================
+   ACCESSIBILITY - REDUCED MOTION
+   ============================================================================
+   Respect user's motion preferences for accessibility.
+   This removes animations for users who have indicated sensitivity to motion.
+   ============================================================================ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

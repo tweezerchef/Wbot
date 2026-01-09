@@ -327,10 +327,9 @@ graph TB
 
 :::info Related Documentation
 
-- [Conversations API](./conversations) - Database conversation management
 - [AI Client](./ai-client) - Message processing with AI responses
-- [Authentication Guide](/guides/authentication) - User authentication setup
+- [Authentication](./authentication) - User authentication setup
 - [Database Schema](/database/schema) - Supabase table structures
-- [Environment Variables](/deployment/environment) - Configuration setup
+- [Architecture Overview](/architecture/overview) - System architecture
 
 :::

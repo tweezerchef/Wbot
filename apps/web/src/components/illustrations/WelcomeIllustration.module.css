@@ -1,0 +1,90 @@
+/* ============================================================================
+   Welcome Illustration Styles
+   ============================================================================
+   Composed illustration for the chat empty state with layered blobs.
+   ============================================================================ */
+
+.container {
+  position: relative;
+  width: 200px;
+  height: 200px;
+}
+
+/* Background blob - centered, largest */
+.backgroundBlob {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  animation: breathe 6s ease-in-out infinite;
+}
+
+/* Main blob - centered on top of background */
+.mainBlob {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  animation: breathe 4s ease-in-out infinite;
+  animation-delay: -1s;
+}
+
+/* Accent blobs - positioned around the main blob */
+.accentBlobLeft {
+  position: absolute;
+  top: 20%;
+  left: 5%;
+  animation: float 8s ease-in-out infinite;
+}
+
+.accentBlobRight {
+  position: absolute;
+  bottom: 20%;
+  right: 10%;
+  animation: float 9s ease-in-out infinite;
+  animation-delay: -3s;
+}
+
+/* Breathing animation - subtle scale */
+@keyframes breathe {
+  0%,
+  100% {
+    transform: translate(-50%, -50%) scale(1);
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(1.05);
+  }
+}
+
+/* Float animation for accent blobs */
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+/* Sparkle dots for extra visual interest */
+.sparkle {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  background: radial-gradient(circle, rgba(155, 143, 212, 0.8) 0%, transparent 70%);
+  border-radius: 50%;
+  animation: sparkle 3s ease-in-out infinite;
+}
+
+@keyframes sparkle {
+  0%,
+  100% {
+    opacity: 0.3;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(1.5);
+  }
+}
