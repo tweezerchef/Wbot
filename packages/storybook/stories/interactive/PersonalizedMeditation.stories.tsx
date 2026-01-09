@@ -321,11 +321,15 @@ function AuthenticatedPersonalizedMeditation(
  * 3. Sign in within Storybook (form provided)
  *
  * Features:
+ * - Real-time audio streaming with progressive playback (audio starts in 2-3 seconds!)
  * - Dynamic TTS generation with loading state
  * - Personalization with user's name and goals
  * - Script placeholders ({{USER_NAME}}, {{USER_GOAL}})
  * - All standard meditation features (ambient sounds, mood tracking)
  * - Audio caching for repeated meditations
+ *
+ * New in v2: Uses MediaSource API for progressive playback - audio starts playing
+ * as soon as chunks arrive from the backend, without waiting for full generation.
  */
 const meta: Meta<typeof PersonalizedMeditation> = {
   title: 'Interactive/PersonalizedMeditation',
@@ -371,11 +375,18 @@ POST /api/meditation/stream
 \`\`\`
 
 ## Features
+- **Real-time streaming** - Audio starts playing within 2-3 seconds using MediaSource API
 - Dynamic audio generation from meditation scripts
 - Personalization with user's name and goals via placeholders
 - Loading state with progress indication during generation
 - Audio caching - repeated scripts play instantly
 - All standard meditation features (ambient, mood tracking)
+
+## Streaming Architecture (v2)
+\`\`\`
+OpenAI TTS → PCM16 chunks → ffmpeg (streaming) → MP3 chunks → MediaSource → Audio playback
+\`\`\`
+Audio starts playing as soon as the first chunks arrive, without waiting for full generation.
         `,
       },
     },

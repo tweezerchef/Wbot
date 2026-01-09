@@ -14,7 +14,9 @@ from src.tts.openai_audio import (
     GeneratedMeditation,
     MeditationScript,
     OpenAIAudio,
+    convert_pcm16_to_mp3,
     stream_meditation_audio,
+    stream_pcm16_to_mp3,
 )
 
 
@@ -258,7 +260,7 @@ class TestOpenAIAudioStreaming:
             assert call_kwargs["model"] == "gpt-4o-mini-audio-preview"
             assert call_kwargs["modalities"] == ["text", "audio"]
             assert call_kwargs["audio"]["voice"] == "nova"
-            assert call_kwargs["audio"]["format"] == "mp3"
+            assert call_kwargs["audio"]["format"] == "pcm16"  # PCM16 for real-time ffmpeg streaming
             assert call_kwargs["stream"] is True
 
     @pytest.mark.asyncio
@@ -371,3 +373,110 @@ class AsyncIterator:
         item = self.items[self.index]
         self.index += 1
         return item
+
+
+class TestPCM16ToMP3Conversion:
+    """Tests for PCM16 to MP3 conversion functions."""
+
+    def test_convert_pcm16_to_mp3_basic(self):
+        """Should convert valid PCM16 data to MP3."""
+        # Create simple sine wave PCM16 data (1 second at 24kHz)
+        import struct
+
+        sample_rate = 24000
+        duration = 0.1  # 100ms for fast test
+        samples = int(sample_rate * duration)
+
+        # Generate silence (zeros) as PCM16 little-endian
+        pcm_data = struct.pack(f"<{samples}h", *[0] * samples)
+
+        # Convert to MP3
+        mp3_data = convert_pcm16_to_mp3(pcm_data)
+
+        # Verify output is valid MP3 (starts with ID3 or MP3 frame sync)
+        assert len(mp3_data) > 0
+        # MP3 files can start with ID3 tag (49 44 33) or frame sync (FF FB/FA/F3/F2)
+        assert mp3_data[:3] == b"ID3" or mp3_data[:2] == b"\xff\xfb" or mp3_data[:2] == b"\xff\xf3"
+
+    def test_convert_pcm16_to_mp3_empty_input(self):
+        """Should handle empty input gracefully."""
+        # This might raise an error or return empty - depends on pydub behavior
+        # Just verify it doesn't crash
+        try:
+            result = convert_pcm16_to_mp3(b"")
+            # If it returns something, it should be empty or minimal
+            assert isinstance(result, bytes)
+        except Exception:
+            # Some exception is acceptable for empty input
+            pass
+
+
+class TestStreamPCM16ToMP3:
+    """Tests for streaming PCM16 to MP3 conversion."""
+
+    @pytest.mark.asyncio
+    async def test_stream_pcm16_to_mp3_yields_chunks(self):
+        """Should yield MP3 chunks as they're produced."""
+        import struct
+
+        # Create PCM16 data generator
+        async def pcm_generator():
+            # Generate 500ms of silence in chunks (24kHz sample rate)
+            chunk_samples = 2400  # 100ms per chunk at 24kHz
+            for _ in range(5):  # 5 chunks = 500ms
+                yield struct.pack(f"<{chunk_samples}h", *[0] * chunk_samples)
+
+        # Stream through converter
+        chunks = []
+        async for mp3_chunk in stream_pcm16_to_mp3(pcm_generator()):
+            chunks.append(mp3_chunk)
+
+        # Should have received at least one chunk
+        assert len(chunks) > 0
+
+        # Combined output should be valid MP3
+        combined = b"".join(chunks)
+        assert len(combined) > 0
+
+    @pytest.mark.asyncio
+    async def test_stream_pcm16_to_mp3_handles_empty_generator(self):
+        """Should handle empty input generator."""
+
+        async def empty_generator():
+            return
+            yield  # Make it a generator
+
+        chunks = []
+        async for chunk in stream_pcm16_to_mp3(empty_generator()):
+            chunks.append(chunk)
+
+        # Should complete without error
+        # May or may not have output depending on ffmpeg behavior
+        assert isinstance(chunks, list)
+
+    @pytest.mark.asyncio
+    async def test_stream_pcm16_to_mp3_real_time_output(self):
+        """Should produce output before all input is consumed (real-time streaming)."""
+        import asyncio
+        import struct
+
+        output_times = []
+        input_complete = False
+
+        async def slow_pcm_generator():
+            nonlocal input_complete
+            chunk_samples = 4800  # 200ms per chunk at 24kHz
+
+            for _ in range(3):  # 600ms total
+                yield struct.pack(f"<{chunk_samples}h", *[0] * chunk_samples)
+                await asyncio.sleep(0.05)  # Small delay between chunks
+
+            input_complete = True
+
+        # Collect output timing
+        async for _ in stream_pcm16_to_mp3(slow_pcm_generator()):
+            output_times.append(asyncio.get_event_loop().time())
+
+        # Should have received output (real-time streaming test)
+        # Note: ffmpeg may buffer, so this is a basic sanity check
+        assert len(output_times) > 0

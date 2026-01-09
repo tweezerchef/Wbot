@@ -80,19 +80,22 @@ export function PersonalizedMeditation({
   preGeneratedAudioUrl,
   authToken,
 }: PersonalizedMeditationProps) {
-  // TTS generation hook - handles API calls and progress
+  // TTS generation hook - handles API calls, progress, and progressive playback
   const {
     state: generationState,
     audioUrl,
     progress: generationProgress,
     error: generationError,
     generate: retryGeneration,
+    audioElementRef,
+    isProgressivePlaying,
   } = useTTSGeneration({
     script,
     personalization,
     preGeneratedAudioUrl,
     autoGenerate: true,
     authToken,
+    useProgressivePlayback: true, // Enable real-time streaming
     onGenerated: () => {
       setUIState('idle');
     },
@@ -149,9 +152,10 @@ export function PersonalizedMeditation({
     listenedDurationRef.current = currentTime;
   }, []);
 
-  // Initialize audio player (only when we have an audio URL)
+  // Initialize audio player - use external audio ref for progressive playback
   const { state, volume, play, pause, stop, seek, setVolume } = useMeditationAudio({
     audioUrl: audioUrl ?? '',
+    externalAudioRef: audioElementRef,
     onEnded: handleAudioComplete,
     onTimeUpdate: handleTimeUpdate,
   });
@@ -290,8 +294,8 @@ export function PersonalizedMeditation({
   // Calculate duration display
   const durationMinutes = Math.round(script.durationEstimateSeconds / 60);
 
-  // Render generating state
-  if (uiState === 'generating') {
+  // Render generating state (show player if progressive playback has started)
+  if (uiState === 'generating' && !isProgressivePlaying) {
     return (
       <div className={styles.container}>
         {introduction && <p className={styles.introduction}>{introduction}</p>}
@@ -320,7 +324,7 @@ export function PersonalizedMeditation({
             {generationProgress < 30
               ? 'Preparing your script...'
               : generationProgress < 70
-                ? 'Generating voice audio...'
+                ? 'Streaming audio...'
                 : 'Almost ready...'}
           </p>
         </div>
@@ -478,20 +482,33 @@ export function PersonalizedMeditation({
     attribution: 'Generated with ElevenLabs TTS',
   };
 
-  // Render active meditation state (playing/paused/loading)
+  // Determine status text - show streaming indicator if progressive playback is active
+  const getStatusText = () => {
+    if (isProgressivePlaying && uiState === 'generating') {
+      return 'Streaming... breathe and relax';
+    }
+    if (state.playbackState === 'playing') {
+      return 'Breathe and relax...';
+    }
+    if (state.playbackState === 'paused') {
+      return 'Paused';
+    }
+    if (state.playbackState === 'loading') {
+      return 'Loading...';
+    }
+    return 'Ready';
+  };
+
+  // Render active meditation state (playing/paused/loading/streaming)
   return (
     <div className={styles.container}>
       <div className={styles.visualContainer}>
-        <MeditationVisual playbackState={state.playbackState} variant="orb" size={140} />
-        <p className={styles.statusText}>
-          {state.playbackState === 'playing'
-            ? 'Breathe and relax...'
-            : state.playbackState === 'paused'
-              ? 'Paused'
-              : state.playbackState === 'loading'
-                ? 'Loading...'
-                : 'Ready'}
-        </p>
+        <MeditationVisual
+          playbackState={isProgressivePlaying ? 'playing' : state.playbackState}
+          variant="orb"
+          size={140}
+        />
+        <p className={styles.statusText}>{getStatusText()}</p>
       </div>
 
       <MeditationPlayer

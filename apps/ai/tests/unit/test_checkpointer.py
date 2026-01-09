@@ -38,10 +38,12 @@ def reset_checkpointer_state() -> None:
     """Reset the module-level checkpointer state before each test."""
     import src.checkpointer as cp
 
+    cp._pool = None
     cp._checkpointer = None
     cp._initialized = False
     yield
     # Cleanup after test
+    cp._pool = None
     cp._checkpointer = None
     cp._initialized = False
 
@@ -303,14 +305,20 @@ async def test_checkpointer_lifespan_yields_checkpointer(
     reset_checkpointer_state: None,
 ) -> None:
     """checkpointer_lifespan() should yield a working checkpointer."""
-    with patch("src.checkpointer.AsyncPostgresSaver.from_conn_string") as mock_from_conn:
-        # Setup mock
+    with (
+        patch("src.checkpointer.AsyncConnectionPool") as mock_pool_class,
+        patch("src.checkpointer.AsyncPostgresSaver") as mock_saver_class,
+    ):
+        # Setup mock pool
+        mock_pool = AsyncMock()
+        mock_pool.open = AsyncMock()
+        mock_pool.close = AsyncMock()
+        mock_pool_class.return_value = mock_pool
+
+        # Setup mock saver
         mock_saver = AsyncMock()
         mock_saver.setup = AsyncMock()
-        mock_saver.__aexit__ = AsyncMock()
-        mock_context = AsyncMock()
-        mock_context.__aenter__ = AsyncMock(return_value=mock_saver)
-        mock_from_conn.return_value = mock_context
+        mock_saver_class.return_value = mock_saver
 
         from src.checkpointer import checkpointer_lifespan
 
@@ -325,14 +333,20 @@ async def test_checkpointer_lifespan_cleans_up_on_exit(
     reset_checkpointer_state: None,
 ) -> None:
     """checkpointer_lifespan() should cleanup on context exit."""
-    with patch("src.checkpointer.AsyncPostgresSaver.from_conn_string") as mock_from_conn:
-        # Setup mock
+    with (
+        patch("src.checkpointer.AsyncConnectionPool") as mock_pool_class,
+        patch("src.checkpointer.AsyncPostgresSaver") as mock_saver_class,
+    ):
+        # Setup mock pool
+        mock_pool = AsyncMock()
+        mock_pool.open = AsyncMock()
+        mock_pool.close = AsyncMock()
+        mock_pool_class.return_value = mock_pool
+
+        # Setup mock saver
         mock_saver = AsyncMock()
         mock_saver.setup = AsyncMock()
-        mock_saver.__aexit__ = AsyncMock()
-        mock_context = AsyncMock()
-        mock_context.__aenter__ = AsyncMock(return_value=mock_saver)
-        mock_from_conn.return_value = mock_context
+        mock_saver_class.return_value = mock_saver
 
         import src.checkpointer as cp
         from src.checkpointer import checkpointer_lifespan
@@ -343,7 +357,7 @@ async def test_checkpointer_lifespan_cleans_up_on_exit(
 
         # After context, should be cleaned up
         assert cp._initialized is False
-        mock_saver.__aexit__.assert_called_once()
+        mock_pool.close.assert_called_once()
 
 
 @pytest.mark.asyncio
@@ -352,14 +366,20 @@ async def test_checkpointer_lifespan_cleans_up_on_exception(
     reset_checkpointer_state: None,
 ) -> None:
     """checkpointer_lifespan() should cleanup even if exception is raised."""
-    with patch("src.checkpointer.AsyncPostgresSaver.from_conn_string") as mock_from_conn:
-        # Setup mock
+    with (
+        patch("src.checkpointer.AsyncConnectionPool") as mock_pool_class,
+        patch("src.checkpointer.AsyncPostgresSaver") as mock_saver_class,
+    ):
+        # Setup mock pool
+        mock_pool = AsyncMock()
+        mock_pool.open = AsyncMock()
+        mock_pool.close = AsyncMock()
+        mock_pool_class.return_value = mock_pool
+
+        # Setup mock saver
         mock_saver = AsyncMock()
         mock_saver.setup = AsyncMock()
-        mock_saver.__aexit__ = AsyncMock()
-        mock_context = AsyncMock()
-        mock_context.__aenter__ = AsyncMock(return_value=mock_saver)
-        mock_from_conn.return_value = mock_context
+        mock_saver_class.return_value = mock_saver
 
         import src.checkpointer as cp
         from src.checkpointer import checkpointer_lifespan
@@ -370,4 +390,4 @@ async def test_checkpointer_lifespan_cleans_up_on_exception(
 
         # Should still cleanup
         assert cp._initialized is False
-        mock_saver.__aexit__.assert_called_once()
+        mock_pool.close.assert_called_once()

@@ -600,8 +600,12 @@ export const TestStartMeditation: Story = {
       await expect(canvas.queryByText('Begin Meditation')).not.toBeInTheDocument();
     });
 
-    // Verify player controls are now visible (play/stop buttons)
-    await expect(canvas.getByRole('button', { name: /play meditation/i })).toBeInTheDocument();
+    // Verify player controls are now visible
+    // After clicking start, audio begins playing so button shows "Pause meditation"
+    // Use regex to match either play or pause in case of timing variations
+    await expect(
+      canvas.getByRole('button', { name: /(?:play|pause) meditation/i })
+    ).toBeInTheDocument();
     await expect(canvas.getByRole('button', { name: /stop meditation/i })).toBeInTheDocument();
   },
 };

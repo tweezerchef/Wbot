@@ -19,8 +19,49 @@ import type {
   TTSGenerationState,
 } from '../types';
 
-import { checkMeditationCache, streamPersonalizedMeditation } from '@/lib/meditation-tts';
+import {
+  checkMeditationCache,
+  streamMeditationWithProgressivePlayback,
+  streamPersonalizedMeditation,
+} from '@/lib/meditation-tts';
 import { supabase } from '@/lib/supabase';
+
+/* ----------------------------------------------------------------------------
+   Request Deduplication
+   ---------------------------------------------------------------------------- */
+
+/**
+ * Module-level cache to deduplicate in-flight cache check requests.
+ * Prevents multiple identical requests when component re-renders or
+ * multiple instances are mounted simultaneously.
+ */
+const pendingCacheChecks = new Map<string, Promise<string | null>>();
+
+/**
+ * Get or create a deduplicated cache check request.
+ * If a request for the same key is already in flight, returns that promise.
+ */
+function deduplicatedCacheCheck(
+  authToken: string,
+  scriptId: string,
+  personalization?: { userName?: string; userGoal?: string }
+): Promise<string | null> {
+  const cacheKey = `${scriptId}:${personalization?.userName ?? ''}:${personalization?.userGoal ?? ''}`;
+
+  // Return existing in-flight request if available
+  const existing = pendingCacheChecks.get(cacheKey);
+  if (existing) {
+    return existing;
+  }
+
+  // Create new request and track it
+  const promise = checkMeditationCache(authToken, scriptId, personalization).finally(() => {
+    pendingCacheChecks.delete(cacheKey);
+  });
+
+  pendingCacheChecks.set(cacheKey, promise);
+  return promise;
+}
 
 /* ----------------------------------------------------------------------------
    Types
@@ -41,6 +82,13 @@ export interface UseTTSGenerationOptions {
    * Useful for Storybook/testing where Supabase session isn't available.
    */
   authToken?: string;
+  /**
+   * Enable progressive playback mode.
+   * When enabled, audio starts playing within 2-3 seconds using MediaSource API.
+   * When disabled, waits for full audio download before playback.
+   * @default true
+   */
+  useProgressivePlayback?: boolean;
   /** Callback when generation completes */
   onGenerated?: (result: GeneratedMeditationResult) => void;
   /** Callback when generation fails */
@@ -50,7 +98,7 @@ export interface UseTTSGenerationOptions {
 export interface UseTTSGenerationReturn {
   /** Current generation state */
   state: TTSGenerationState;
-  /** Generated audio URL (null if not yet generated) */
+  /** Generated audio URL (null if not yet generated, or when using progressive playback) */
   audioUrl: string | null;
   /** Progress percentage (0-100) during generation */
   progress: number;
@@ -58,6 +106,10 @@ export interface UseTTSGenerationReturn {
   error: string | null;
   /** Whether audio was served from cache */
   cached: boolean;
+  /** Audio element ref for progressive playback (null when using URL-based playback) */
+  audioElementRef: React.RefObject<HTMLAudioElement | null>;
+  /** Whether progressive playback is active (audio playing while still streaming) */
+  isProgressivePlaying: boolean;
   /** Start or restart generation */
   generate: () => Promise<void>;
   /** Reset state to idle */
@@ -74,6 +126,7 @@ export function useTTSGeneration({
   preGeneratedAudioUrl,
   autoGenerate = true,
   authToken: providedAuthToken,
+  useProgressivePlayback = true,
   onGenerated,
   onError,
 }: UseTTSGenerationOptions): UseTTSGenerationReturn {
@@ -83,11 +136,26 @@ export function useTTSGeneration({
   const [progress, setProgress] = useState(preGeneratedAudioUrl ? 100 : 0);
   const [error, setError] = useState<string | null>(null);
   const [cached, setCached] = useState(false);
+  const [isProgressivePlaying, setIsProgressivePlaying] = useState(false);
 
   // Refs for cleanup
   const progressIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const hasStartedRef = useRef(false);
+  const audioElementRef = useRef<HTMLAudioElement | null>(null);
+
+  // Create audio element for progressive playback
+  useEffect(() => {
+    if (useProgressivePlayback && !audioElementRef.current) {
+      audioElementRef.current = new Audio();
+    }
+    return () => {
+      if (audioElementRef.current) {
+        audioElementRef.current.pause();
+        audioElementRef.current.src = '';
+      }
+    };
+  }, [useProgressivePlayback]);
 
   // Cleanup progress interval
   const clearProgressInterval = useCallback(() => {
@@ -104,11 +172,16 @@ export function useTTSGeneration({
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
     }
+    if (audioElementRef.current) {
+      audioElementRef.current.pause();
+      audioElementRef.current.src = '';
+    }
     setState('idle');
     setAudioUrl(null);
     setProgress(0);
     setError(null);
     setCached(false);
+    setIsProgressivePlaying(false);
     hasStartedRef.current = false;
   }, [clearProgressInterval]);
 
@@ -164,8 +237,8 @@ export function useTTSGeneration({
         authToken = session.access_token;
       }
 
-      // First, check if cached audio exists
-      const cachedUrl = await checkMeditationCache(authToken, script.id, personalization);
+      // First, check if cached audio exists (deduplicated to prevent duplicate requests)
+      const cachedUrl = await deduplicatedCacheCheck(authToken, script.id, personalization);
 
       if (cachedUrl) {
         // Cache hit - instant playback
@@ -185,45 +258,86 @@ export function useTTSGeneration({
         return;
       }
 
-      // Stream new audio from API (plays as it generates)
-      const blobUrl = await streamPersonalizedMeditation(
-        authToken,
-        {
-          scriptId: script.id,
-          personalization: {
-            userName: personalization?.userName,
-            userGoal: personalization?.userGoal,
+      // Stream new audio from API
+      if (useProgressivePlayback && audioElementRef.current) {
+        // Progressive playback - audio starts playing as it streams
+        await streamMeditationWithProgressivePlayback(
+          authToken,
+          {
+            scriptId: script.id,
+            personalization: {
+              userName: personalization?.userName,
+              userGoal: personalization?.userGoal,
+            },
           },
-        },
-        (bytesReceived) => {
-          // Update progress based on estimated file size
-          // Assume ~10KB per second of audio for progress estimation
-          const estimatedBytes = script.durationEstimateSeconds * 10000;
-          const progress = Math.min(90, (bytesReceived / estimatedBytes) * 100);
-          setProgress(progress);
+          audioElementRef.current,
+          (bytesReceived, isPlaying) => {
+            // Update progress based on estimated file size
+            const estimatedBytes = script.durationEstimateSeconds * 10000;
+            const progressValue = Math.min(90, (bytesReceived / estimatedBytes) * 100);
+            setProgress(progressValue);
+            setIsProgressivePlaying(isPlaying);
+          }
+        );
+
+        // Check if aborted
+        if (abortControllerRef.current.signal.aborted) {
+          return;
         }
-      );
 
-      // Check if aborted
-      if (abortControllerRef.current.signal.aborted) {
-        URL.revokeObjectURL(blobUrl);
-        return;
+        // Success - streaming complete, audio element contains full audio
+        clearProgressInterval();
+        setProgress(100);
+        setCached(false);
+        setState('ready');
+
+        onGenerated?.({
+          scriptId: script.id,
+          audioUrl: '', // Audio is in audioElementRef, not a URL
+          durationSeconds: script.durationEstimateSeconds,
+          voiceId: 'streamed-progressive',
+          cached: false,
+        });
+      } else {
+        // Standard buffered playback - wait for full download
+        const blobUrl = await streamPersonalizedMeditation(
+          authToken,
+          {
+            scriptId: script.id,
+            personalization: {
+              userName: personalization?.userName,
+              userGoal: personalization?.userGoal,
+            },
+          },
+          (bytesReceived) => {
+            // Update progress based on estimated file size
+            const estimatedBytes = script.durationEstimateSeconds * 10000;
+            const progressValue = Math.min(90, (bytesReceived / estimatedBytes) * 100);
+            setProgress(progressValue);
+          }
+        );
+
+        // Check if aborted
+        if (abortControllerRef.current.signal.aborted) {
+          URL.revokeObjectURL(blobUrl);
+          return;
+        }
+
+        // Success - audio is ready to play
+        clearProgressInterval();
+        setProgress(100);
+        setAudioUrl(blobUrl);
+        setCached(false);
+        setState('ready');
+
+        onGenerated?.({
+          scriptId: script.id,
+          audioUrl: blobUrl,
+          durationSeconds: script.durationEstimateSeconds,
+          voiceId: 'streamed',
+          cached: false,
+        });
       }
-
-      // Success - audio is ready to play
-      clearProgressInterval();
-      setProgress(100);
-      setAudioUrl(blobUrl);
-      setCached(false);
-      setState('ready');
-
-      onGenerated?.({
-        scriptId: script.id,
-        audioUrl: blobUrl,
-        durationSeconds: script.durationEstimateSeconds,
-        voiceId: 'streamed',
-        cached: false,
-      });
     } catch (err) {
       // Check if aborted
       if (abortControllerRef.current.signal.aborted) {
@@ -243,6 +357,7 @@ export function useTTSGeneration({
     script.durationEstimateSeconds,
     personalization,
     providedAuthToken,
+    useProgressivePlayback,
     clearProgressInterval,
     onGenerated,
     onError,
@@ -272,6 +387,8 @@ export function useTTSGeneration({
     progress,
     error,
     cached,
+    audioElementRef,
+    isProgressivePlaying,
     generate,
     reset,
   };
