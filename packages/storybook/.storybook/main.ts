@@ -3,7 +3,6 @@ import { dirname, join, resolve } from 'path';
 import { fileURLToPath } from 'url';
 
 import type { StorybookConfig } from '@storybook/react-vite';
-import react from '@vitejs/plugin-react';
 
 const __filename = fileURLToPath(import.meta.url);
 
@@ -66,17 +65,6 @@ const config: StorybookConfig = {
         localsConvention: 'camelCase',
       },
     };
-
-    // Add React plugin with React Compiler for automatic optimization
-    // Matches the web app configuration for consistent behavior
-    config.plugins = [
-      ...(config.plugins ?? []),
-      react({
-        babel: {
-          plugins: [['babel-plugin-react-compiler', {}]],
-        },
-      }),
-    ];
 
     // Code splitting - separate large dependencies into chunks
     // Fixes the "chunks are larger than 500 kB" warning
