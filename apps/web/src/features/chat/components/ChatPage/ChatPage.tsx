@@ -119,9 +119,16 @@ export function ChatPage() {
     setConversationId(loaderData.conversationId);
   }, [loaderData.messages, loaderData.conversationId]);
 
-  // Sidebar open/closed state - default to closed for all devices
-  // User can toggle it open via the menu button
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  // Sidebar state - open by default (matches desktop CSS)
+  // On mobile, we close it after hydration via useEffect
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+
+  // Close sidebar on mobile after hydration (768px breakpoint matches CSS)
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.innerWidth < 768) {
+      setIsSidebarOpen(false);
+    }
+  }, []);
 
   // Interrupt data for HITL (Human-in-the-Loop) confirmation dialogs
   // When the AI suggests an activity, it pauses for user confirmation
@@ -783,7 +790,9 @@ export function ChatPage() {
       )}
 
       {/* Sidebar navigation */}
-      <aside className={`${styles.sidebar} ${isSidebarOpen ? styles.sidebarOpen : ''}`}>
+      <aside
+        className={`${styles.sidebar} ${isSidebarOpen ? styles.sidebarOpen : styles.sidebarClosed}`}
+      >
         {/* Collapse button - desktop only */}
         <button
           className={styles.collapseButton}
@@ -873,7 +882,7 @@ export function ChatPage() {
             {isSidebarOpen ? <CloseIcon /> : <MenuIcon />}
           </button>
 
-          {/* Desktop: expand button (only when sidebar is collapsed) */}
+          {/* Desktop: expand button (when sidebar is not open) */}
           {!isSidebarOpen && (
             <button
               className={styles.expandButton}

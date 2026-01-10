@@ -151,8 +151,8 @@
   /* Rounded corners - 18px as per design spec */
   border-radius: 18px;
 
-  /* Default (assistant) styling */
-  background-color: #f5f7fa;
+  /* Default (assistant) styling - uses CSS variable for dark mode support */
+  background-color: var(--color-neutral-100);
   color: var(--color-text-primary);
 
   /* Subtle shadow */
@@ -456,19 +456,20 @@
   transform: translateX(0);
 }
 
-/* Desktop: part of layout, can be collapsed */
+/* Desktop: part of layout, open by default to avoid layout shift */
 @media (min-width: 768px) {
   .sidebar {
     position: relative;
     flex-shrink: 0;
-    /* When closed on desktop, collapse width */
     transform: translateX(0);
-    width: 0;
+    /* Open by default on desktop - no JS needed for initial state */
+    width: var(--sidebar-width);
     overflow: hidden;
   }
 
-  .sidebarOpen {
-    width: var(--sidebar-width);
+  /* Only collapse when explicitly closed by user */
+  .sidebarClosed {
+    width: 0;
   }
 }
 
