@@ -67,11 +67,19 @@ async def store_memory_node(state: WellnessState, config: RunnableConfig) -> dic
     configurable = config.get("configurable", {})
     conversation_id = configurable.get("thread_id")
 
+    # Log the context for diagnostics
+    logger.info(
+        "Processing message pair",
+        user_id=user_id[:8] + "..." if user_id else "None",
+        conversation_id=conversation_id[:8] + "..." if conversation_id else "None",
+    )
+
     # Get the messages
     messages = state.get("messages", [])
 
     if len(messages) < 2:
         # Need at least 2 messages for a pair
+        logger.warning("Not enough messages for a pair", message_count=len(messages))
         logger.node_end()
         return {}
 
@@ -89,23 +97,46 @@ async def store_memory_node(state: WellnessState, config: RunnableConfig) -> dic
 
     if not user_message or not ai_response:
         # No complete pair found
+        logger.warning("No complete message pair found in state")
         logger.node_end()
         return {}
 
+    # Log the message pair being saved
+    logger.info(
+        "Found message pair to save",
+        user_msg_preview=user_message[:50] + "..." if len(user_message) > 50 else user_message,
+        ai_msg_preview=ai_response[:50] + "..." if len(ai_response) > 50 else ai_response,
+    )
+
     # Save to messages table (for conversation history)
     # Only if we have a valid conversation_id
+    messages_saved = False
     if conversation_id:
         try:
-            await save_messages(
+            supabase_ok, cache_ok = await save_messages(
                 conversation_id=conversation_id,
                 user_message=user_message,
                 ai_response=ai_response,
+            )
+            messages_saved = supabase_ok
+            logger.info(
+                "save_messages completed",
+                supabase_success=supabase_ok,
+                cache_success=cache_ok,
             )
             # Generate a title for the conversation if one doesn't exist
             # This ensures conversations have meaningful titles in history
             await generate_title_if_needed(conversation_id)
         except Exception as e:
-            logger.error("Failed to save messages", error=str(e))
+            # Log the full error for debugging
+            logger.error(
+                "CRITICAL: Failed to save messages to Supabase",
+                error=str(e),
+                conversation_id=conversation_id[:8] + "..." if conversation_id else "None",
+            )
+            # Don't re-raise - user already has their response, we don't want to fail the graph
+    else:
+        logger.warning("No conversation_id - cannot save messages")
 
     # Store the memory with embedding (for semantic search)
     # Fire-and-forget pattern - errors logged but don't fail the conversation
@@ -117,12 +148,13 @@ async def store_memory_node(state: WellnessState, config: RunnableConfig) -> dic
             conversation_id=conversation_id,
             metadata={
                 "source": "wellness_chat",
+                "messages_saved": messages_saved,
             },
         )
-        logger.info("Memory stored")
+        logger.info("Memory stored with embedding")
     except Exception as e:
         # Log but don't fail - user already has their response
-        logger.error("Failed to store memory", error=str(e))
+        logger.error("Failed to store memory with embedding", error=str(e))
 
     logger.node_end()
     return {}

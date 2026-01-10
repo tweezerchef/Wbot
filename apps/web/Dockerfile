@@ -29,14 +29,11 @@ RUN pnpm build
 # Stage 2: Production
 FROM node:20-alpine AS runner
 
-# Install pnpm
-RUN corepack enable && corepack prepare pnpm@9.15.1 --activate
-
 WORKDIR /app
 
-# Copy built assets and dependencies
+# Copy the Nitro output (self-contained production server)
+# Nitro bundles everything needed for the server
 COPY --from=builder /app/apps/web/.output /app/.output
-COPY --from=builder /app/apps/web/package.json /app/package.json
 
 # Set environment variables
 ENV NODE_ENV=production \
@@ -45,9 +42,9 @@ ENV NODE_ENV=production \
 # Expose port
 EXPOSE 3000
 
-# Health check
+# Health check - check root path since TanStack Start serves the app there
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
-    CMD node -e "require('http').get('http://localhost:3000/api/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1))"
+    CMD wget --no-verbose --tries=1 --spider http://localhost:3000/ || exit 1
 
-# Start the server
+# Start the Nitro production server
 CMD ["node", ".output/server/index.mjs"]

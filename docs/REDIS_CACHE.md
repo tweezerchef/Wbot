@@ -4,19 +4,24 @@ This document explains how Redis caching works for conversation messages in Wbot
 
 ## Architecture
 
+Wbot uses **two separate Redis instances**:
+
+1. **Local Redis** (Docker) - AI-only caching (embeddings)
+2. **Shared Redis** (Upstash) - Frontend + Backend shared caching (messages)
+
 ```
-┌─────────────────┐         ┌─────────────────┐
-│   Web Frontend  │         │   AI Backend    │
-│  (TanStack Start)│         │   (LangGraph)   │
-└────────┬────────┘         └────────┬────────┘
-         │                           │
-         │ loadMessages()            │ save_messages()
-         │ (cache-first read)        │ (write-through)
-         ▼                           ▼
-┌──────────────────────────────────────────────┐
-│              Upstash Redis                   │
-│         (Shared Remote Instance)             │
-└──────────────────────────────────────────────┘
+┌─────────────────┐         ┌─────────────────────────────────────┐
+│   Web Frontend  │         │            AI Backend               │
+│  (TanStack Start)│         │           (LangGraph)               │
+└────────┬────────┘         └──────┬─────────────────┬────────────┘
+         │                         │                 │
+         │ loadMessages()          │ save_messages() │ embeddings
+         │ (cache-first read)      │ (write-through) │ (AI-only)
+         ▼                         ▼                 ▼
+┌──────────────────────────────────────┐  ┌─────────────────────┐
+│         Upstash Redis (Shared)       │  │  Local Redis (AI)   │
+│         REDIS_URI / REDIS_SHARED_URL │  │     REDIS_URL       │
+└──────────────────────────────────────┘  └─────────────────────┘
          │
          │ cache miss
          ▼
@@ -25,6 +30,11 @@ This document explains how Redis caching works for conversation messages in Wbot
 │         (Source of Truth)                    │
 └──────────────────────────────────────────────┘
 ```
+
+### Why Two Redis Instances?
+
+- **Local Redis**: Fast, low-latency access for AI-only operations (embedding cache)
+- **Shared Redis**: Remote instance accessible by both frontend and backend for shared data (messages)
 
 ## Cache Strategy
 
@@ -99,12 +109,28 @@ Cached messages are stored as JSON arrays:
 
 ### Environment Variables
 
-Both apps need the same Redis URL:
+**AI Backend** (`apps/ai/.env`):
 
 ```bash
-# In apps/ai/.env and apps/web/.env
-REDIS_URL="rediss://...@upstash.io:6379"
+# Local Redis (Docker) - for AI-only caching (embeddings)
+REDIS_URL=redis://localhost:6379/0
+
+# Shared Redis (Upstash) - for frontend+backend message cache
+REDIS_SHARED_URL=rediss://default:YOUR_PASSWORD@your-instance.upstash.io:6379
 ```
+
+**Web Frontend** (root `.env`):
+
+```bash
+# Shared Redis (Upstash) - must match AI backend's REDIS_SHARED_URL
+REDIS_URI=rediss://default:YOUR_PASSWORD@your-instance.upstash.io:6379
+```
+
+| Variable           | Location       | Purpose                    | Points To                      |
+| ------------------ | -------------- | -------------------------- | ------------------------------ |
+| `REDIS_URL`        | `apps/ai/.env` | AI-only cache (embeddings) | Local Docker Redis             |
+| `REDIS_SHARED_URL` | `apps/ai/.env` | Shared message cache       | Remote Upstash                 |
+| `REDIS_URI`        | Root `.env`    | Web frontend cache reads   | Remote Upstash (same as above) |
 
 ### Cache Settings
 
@@ -124,9 +150,31 @@ If Redis is unavailable:
 
 ## Files
 
-| File                                | Purpose                   |
-| ----------------------------------- | ------------------------- |
-| `apps/ai/src/memory/cache.py`       | Cache functions (Python)  |
-| `apps/ai/src/memory/store.py`       | Write-through integration |
-| `apps/web/src/lib/redis.ts`         | Redis client (TypeScript) |
-| `apps/web/src/lib/conversations.ts` | Cache-first reads         |
+| File                                | Purpose                                          |
+| ----------------------------------- | ------------------------------------------------ |
+| `apps/ai/src/memory/cache.py`       | Cache functions with dual Redis support (Python) |
+| `apps/ai/src/memory/store.py`       | Write-through integration                        |
+| `apps/web/src/lib/redis.ts`         | Redis client (TypeScript)                        |
+| `apps/web/src/lib/conversations.ts` | Cache-first reads                                |
+
+## Troubleshooting
+
+### Messages not appearing after refresh
+
+**Symptom**: New messages don't show up when you refresh the page.
+
+**Likely cause**: Redis configuration mismatch between frontend and backend.
+
+**Check**:
+
+1. AI backend's `REDIS_SHARED_URL` points to Upstash (not local Redis)
+2. Root `.env` has `REDIS_URI` pointing to the same Upstash instance
+3. Run `apps/ai/scripts/test_shared_redis.py` to verify connectivity
+
+### Cache working but slow
+
+**Symptom**: Cache hits but response times are high.
+
+**Likely cause**: Using local Redis for shared cache instead of Upstash.
+
+**Check**: Ensure `REDIS_SHARED_URL` is set and points to Upstash (not localhost).

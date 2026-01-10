@@ -22,6 +22,7 @@ from dataclasses import dataclass
 from supabase import acreate_client
 from supabase._async.client import AsyncClient
 
+from src.logging_config import NodeLogger
 from src.memory.cache import (
     append_messages as cache_append_messages,
 )
@@ -30,6 +31,9 @@ from src.memory.cache import (
     get_cached_embedding,
 )
 from src.memory.embeddings import format_memory_text, generate_embedding
+
+# Logger for memory store operations
+logger = NodeLogger("memory_store")
 
 # Module-level async client cache
 # This avoids creating a new client for every operation
@@ -149,7 +153,7 @@ async def save_messages(
     conversation_id: str,
     user_message: str,
     ai_response: str,
-) -> None:
+) -> tuple[bool, bool]:
     """
     Saves user and AI messages to the messages table with write-through caching.
 
@@ -165,11 +169,26 @@ async def save_messages(
         user_message: The user's message content
         ai_response: The AI's response content
 
+    Returns:
+        Tuple of (supabase_success, cache_success) booleans for diagnostics.
+
+    Raises:
+        Exception: If Supabase insert fails (critical error).
+
     Note:
-        Uses async Supabase client for non-blocking operations.
-        Errors are logged but don't fail the conversation flow.
         Redis cache failures are silent - cache will be populated on next read.
     """
+    supabase_success = False
+    cache_success = False
+
+    # Log the save attempt with context
+    logger.info(
+        "Saving messages",
+        conversation_id=conversation_id[:8] + "..." if conversation_id else "None",
+        user_msg_len=len(user_message),
+        ai_msg_len=len(ai_response),
+    )
+
     try:
         supabase = await get_async_supabase_client()
 
@@ -189,9 +208,18 @@ async def save_messages(
 
         result = await supabase.table("messages").insert(messages).execute()
 
-        # Write-through to Redis cache
-        # Include id and created_at from Supabase response for cache consistency
-        if result.data:
+        # Verify insert succeeded
+        if result.data and len(result.data) == 2:
+            supabase_success = True
+            msg_ids = [row["id"][:8] + "..." for row in result.data]
+            logger.info(
+                "Supabase insert SUCCESS",
+                message_ids=msg_ids,
+                row_count=len(result.data),
+            )
+
+            # Write-through to Redis cache
+            # Include id and created_at from Supabase response for cache consistency
             cache_messages = [
                 {
                     "id": row["id"],
@@ -201,11 +229,34 @@ async def save_messages(
                 }
                 for row in result.data
             ]
-            await cache_append_messages(conversation_id, cache_messages)
+            cache_success = await cache_append_messages(conversation_id, cache_messages)
+
+            if cache_success:
+                logger.info("Redis cache append SUCCESS")
+            else:
+                logger.warning(
+                    "Redis cache append FAILED (non-critical)",
+                    conversation_id=conversation_id[:8] + "...",
+                )
+        else:
+            # Supabase returned unexpected result
+            logger.error(
+                "Supabase insert returned unexpected result",
+                result_data=str(result.data)[:100] if result.data else "None",
+            )
+            raise ValueError(f"Supabase insert failed: unexpected result {result.data}")
 
     except Exception as e:
-        # Fire-and-forget: log but don't raise
-        print(f"[memory] Failed to save messages: {e}")
+        # Log the error with full context
+        logger.error(
+            "save_messages FAILED",
+            error=str(e),
+            conversation_id=conversation_id[:8] + "..." if conversation_id else "None",
+        )
+        # Re-raise to let caller handle it
+        raise
+
+    return (supabase_success, cache_success)
 
 
 async def search_memories(
@@ -360,8 +411,13 @@ async def generate_title_if_needed(conversation_id: str) -> str | None:
             {"p_conversation_id": conversation_id},
         ).execute()
 
+        if result.data:
+            logger.info(
+                "Title generated",
+                title=result.data[:30] + "..." if len(result.data) > 30 else result.data,
+            )
         return result.data
     except Exception as e:
         # Log but don't fail - title is not critical
-        print(f"[store] Error generating title: {e}")
+        logger.warning("Title generation failed (non-critical)", error=str(e))
         return None
