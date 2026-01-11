@@ -53,6 +53,7 @@ from src.nodes.detect_activity.node import detect_activity_intent
 from src.nodes.generate_meditation_script.node import run_generate_meditation_script
 from src.nodes.generate_response.node import generate_response
 from src.nodes.inject_user_context.node import inject_user_context
+from src.nodes.journaling_prompt.node import provide_journaling_prompt
 from src.nodes.retrieve_memories.node import retrieve_memories
 from src.nodes.store_memory.node import store_memory_node
 
@@ -72,16 +73,14 @@ def route_activity(state: WellnessState) -> str:
     """
     activity = state.get("suggested_activity")
 
-    if activity == "breathing":
-        return "breathing_exercise"
-    elif activity == "meditation":
-        return "generate_meditation_script"
-    # Future activity types:
-    # elif activity == "journaling":
-    #     return "journaling_prompt"
+    # Route to the appropriate activity node
+    activity_routes = {
+        "breathing": "breathing_exercise",
+        "meditation": "generate_meditation_script",
+        "journaling": "journaling_prompt",
+    }
 
-    # Default: normal conversation response
-    return "generate_response"
+    return activity_routes.get(activity, "generate_response")
 
 
 async def prepare_routing(state: WellnessState) -> dict:
@@ -182,6 +181,9 @@ def build_graph() -> StateGraph:
     # AI-generated meditation script - personalized meditation with voice selection HITL
     builder.add_node("generate_meditation_script", run_generate_meditation_script)
 
+    # Journaling prompts - reflective writing with HITL confirmation
+    builder.add_node("journaling_prompt", provide_journaling_prompt)
+
     # Memory storage - persists the conversation for future retrieval
     builder.add_node("store_memory", store_memory_node)
 
@@ -214,6 +216,7 @@ def build_graph() -> StateGraph:
         {
             "breathing_exercise": "breathing_exercise",
             "generate_meditation_script": "generate_meditation_script",
+            "journaling_prompt": "journaling_prompt",
             "generate_response": "generate_response",
         },
     )
@@ -222,6 +225,7 @@ def build_graph() -> StateGraph:
     builder.add_edge("generate_response", "store_memory")
     builder.add_edge("breathing_exercise", "store_memory")
     builder.add_edge("generate_meditation_script", "store_memory")
+    builder.add_edge("journaling_prompt", "store_memory")
 
     # After storing memory, analyze the conversation for profile updates
     # This runs after the response is streamed (zero latency impact)

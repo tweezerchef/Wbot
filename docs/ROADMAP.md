@@ -184,14 +184,7 @@ This document outlines the development progress and next steps for Wbot.
   - CORS configuration
   - Content Security Policy
 
-- [ ] **5.5 Deployment**
-  - Set up Vercel project for web
-  - Deploy LangGraph to LangGraph Cloud
-  - Configure production environment variables
-  - Set up monitoring and logging
-  - Domain and SSL configuration
-
-- [ ] **5.6 Analytics & Monitoring**
+- [ ] **5.4 Analytics & Monitoring**
   - Error tracking (Sentry)
   - Usage analytics
   - Performance monitoring

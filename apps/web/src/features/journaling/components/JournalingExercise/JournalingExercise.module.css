@@ -1,0 +1,403 @@
+/* ============================================================================
+   JournalingExercise Styles
+   ============================================================================ */
+
+/* Container */
+.container {
+  width: 100%;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+/* -----------------------------------------------------------------------------
+   Idle State
+   ----------------------------------------------------------------------------- */
+
+.idleContainer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-lg);
+}
+
+.introduction {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-md);
+  line-height: 1.6;
+  margin: 0;
+}
+
+/* Prompt Card */
+.promptCard {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-lg);
+}
+
+.promptCardCompact {
+  padding: var(--spacing-md);
+}
+
+.promptHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-md);
+  margin-bottom: var(--spacing-md);
+}
+
+.categoryBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  background: color-mix(in srgb, var(--category-color, var(--color-primary)) 15%, transparent);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-sm);
+  color: var(--category-color, var(--color-primary));
+}
+
+.categoryEmoji {
+  font-size: var(--font-size-md);
+}
+
+.categoryLabel {
+  font-weight: 500;
+}
+
+.timeEstimate {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.promptMainText {
+  font-size: var(--font-size-lg);
+  font-weight: 500;
+  color: var(--color-text-primary);
+  line-height: 1.5;
+  margin: 0 0 var(--spacing-md);
+}
+
+.bestForTags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-xs);
+}
+
+.bestForTag {
+  padding: var(--spacing-xs) var(--spacing-sm);
+  background: var(--color-surface-secondary);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+/* Start Button */
+.startButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-md) var(--spacing-xl);
+  background: var(--color-primary);
+  color: white;
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-md);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  align-self: center;
+}
+
+.startButton:hover {
+  background: var(--color-primary-hover);
+  transform: translateY(-1px);
+}
+
+.startButton:active {
+  transform: translateY(0);
+}
+
+.startIcon {
+  font-size: var(--font-size-lg);
+}
+
+/* -----------------------------------------------------------------------------
+   Editor State
+   ----------------------------------------------------------------------------- */
+
+.editorContainer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.promptReminder {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-md);
+  background: var(--color-surface-secondary);
+  border-radius: var(--radius-md);
+  border-left: 3px solid var(--color-primary);
+}
+
+.promptIcon {
+  font-size: var(--font-size-lg);
+  flex-shrink: 0;
+}
+
+.promptText {
+  font-size: var(--font-size-md);
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}
+
+.followUpHints {
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--color-surface);
+  border-radius: var(--radius-sm);
+}
+
+.hintsLabel {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  font-weight: 500;
+}
+
+.hintsList {
+  margin: var(--spacing-xs) 0 0;
+  padding-left: var(--spacing-lg);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.hintsList li {
+  margin-bottom: var(--spacing-xs);
+}
+
+.hintsList li:last-child {
+  margin-bottom: 0;
+}
+
+.editor {
+  width: 100%;
+  min-height: 200px;
+  padding: var(--spacing-md);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-family: inherit;
+  font-size: var(--font-size-md);
+  line-height: 1.7;
+  color: var(--color-text-primary);
+  resize: vertical;
+  transition: border-color 0.2s ease;
+}
+
+.editor:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+.editor::placeholder {
+  color: var(--color-text-muted);
+}
+
+.editorFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-md);
+}
+
+.wordCount {
+  display: flex;
+  align-items: baseline;
+  gap: var(--spacing-xs);
+}
+
+.wordCountValid {
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+  color: var(--color-success);
+}
+
+.wordCountLow {
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+
+.wordCountLabel {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.editorActions {
+  display: flex;
+  gap: var(--spacing-sm);
+}
+
+.cancelButton {
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: transparent;
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.cancelButton:hover {
+  background: var(--color-surface-secondary);
+}
+
+.saveButton {
+  padding: var(--spacing-sm) var(--spacing-lg);
+  background: var(--color-primary);
+  color: white;
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.saveButton:hover:not(:disabled) {
+  background: var(--color-primary-hover);
+}
+
+.saveButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* -----------------------------------------------------------------------------
+   Mood After State
+   ----------------------------------------------------------------------------- */
+
+.moodContainer {
+  padding: var(--spacing-lg) 0;
+}
+
+/* -----------------------------------------------------------------------------
+   Complete State
+   ----------------------------------------------------------------------------- */
+
+.completeContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-md);
+  padding: var(--spacing-xl);
+  text-align: center;
+}
+
+.completeIcon {
+  font-size: 3rem;
+  animation: celebrate 0.5s ease-out;
+}
+
+@keyframes celebrate {
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.2);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.completeTitle {
+  font-size: var(--font-size-xl);
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin: 0;
+}
+
+.completeMessage {
+  font-size: var(--font-size-md);
+  color: var(--color-text-secondary);
+  margin: 0;
+}
+
+.shareButton {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-md) var(--spacing-lg);
+  background: var(--color-surface);
+  color: var(--color-primary);
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-md);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-top: var(--spacing-sm);
+}
+
+.shareButton:hover {
+  background: var(--color-primary);
+  color: white;
+}
+
+/* -----------------------------------------------------------------------------
+   Sharing State
+   ----------------------------------------------------------------------------- */
+
+.sharingContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-md);
+  padding: var(--spacing-xl);
+  text-align: center;
+}
+
+.sharingIcon {
+  font-size: 2.5rem;
+}
+
+.sharingMessage {
+  font-size: var(--font-size-md);
+  color: var(--color-text-secondary);
+  margin: 0;
+}
+
+/* -----------------------------------------------------------------------------
+   Responsive
+   ----------------------------------------------------------------------------- */
+
+@media (max-width: 480px) {
+  .promptHeader {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .editorFooter {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .wordCount {
+    justify-content: center;
+  }
+
+  .editorActions {
+    justify-content: stretch;
+  }
+
+  .cancelButton,
+  .saveButton {
+    flex: 1;
+  }
+}

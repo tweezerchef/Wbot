@@ -2,12 +2,13 @@
    Discover Navigation Styles
    ============================================================================
    Navigation items for discovering activities (breathing, meditation, etc).
+   Supports collapsible categories with test mode indicators.
    ============================================================================ */
 
 .container {
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-xs);
+  gap: var(--spacing-2xs);
 }
 
 .sectionHeader {
@@ -20,8 +21,14 @@
   margin-bottom: var(--spacing-xs);
 }
 
-/* Navigation Item */
-.navItem {
+/* Category Wrapper */
+.categoryWrapper {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Category Header */
+.category {
   display: flex;
   align-items: center;
   gap: var(--spacing-sm);
@@ -44,27 +51,28 @@
   -webkit-tap-highlight-color: transparent;
 }
 
-.navItem:hover {
+.category:hover {
   background: var(--color-primary-light);
   color: var(--color-text-primary);
 }
 
-.navItem:focus-visible {
+.category:focus-visible {
   outline: 2px solid var(--color-primary);
   outline-offset: 2px;
 }
 
-.navItem.active {
-  background: var(--color-primary-light);
-  color: var(--color-primary);
+.category.disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
-.navItem.active .navIcon {
-  color: var(--color-primary);
+.category.disabled:hover {
+  background: transparent;
+  color: var(--color-text-secondary);
 }
 
-/* Icon */
-.navIcon {
+/* Category Icon */
+.categoryIcon {
   width: 20px;
   height: 20px;
   display: flex;
@@ -74,14 +82,24 @@
   transition: color var(--duration-fast) var(--ease-gentle);
 }
 
-.navItem:hover .navIcon {
+.category:hover .categoryIcon {
   color: var(--color-text-secondary);
 }
 
-/* Label */
-.navLabel {
+/* Category Label */
+.categoryLabel {
   flex: 1;
   text-align: left;
+}
+
+/* Chevron Icon */
+.chevron {
+  transition: transform var(--duration-fast) var(--ease-gentle);
+  color: var(--color-text-muted);
+}
+
+.chevronOpen {
+  transform: rotate(90deg);
 }
 
 /* Coming Soon Badge */
@@ -93,12 +111,81 @@
   border-radius: var(--radius-full);
 }
 
-.navItem.disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
+/* Category Items Container */
+.categoryItems {
+  display: flex;
+  flex-direction: column;
+  margin-left: var(--spacing-md);
+  padding-left: var(--spacing-sm);
+  border-left: 1px solid var(--color-border-light);
+  margin-top: var(--spacing-2xs);
+  margin-bottom: var(--spacing-xs);
 }
 
-.navItem.disabled:hover {
-  background: transparent;
+/* Sub Item */
+.subItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-sm);
+  width: 100%;
+  height: 36px;
+  padding: 0 var(--spacing-sm);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
   color: var(--color-text-secondary);
+  background: transparent;
+  cursor: pointer;
+  transition:
+    background-color var(--duration-fast) var(--ease-gentle),
+    color var(--duration-fast) var(--ease-gentle);
+
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.subItem:hover {
+  background: var(--color-primary-light);
+  color: var(--color-text-primary);
+}
+
+.subItem:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.subItemLabel {
+  flex: 1;
+  text-align: left;
+}
+
+/* AI Badge */
+.aiBadge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-muted);
+}
+
+.aiItem {
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
+.aiItem:hover {
+  color: var(--color-text-secondary);
+}
+
+/* ============================================================================
+   Dark Mode Overrides
+   ============================================================================ */
+
+:global([data-theme='dark']) .comingSoon {
+  background: var(--color-neutral-800);
+  color: var(--color-neutral-400);
+}
+
+:global([data-theme='dark']) .categoryItems {
+  border-left-color: var(--color-border);
 }

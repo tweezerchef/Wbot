@@ -47,16 +47,24 @@ import {
 import type { BreathingTechnique, BreathingStats } from '@/features/breathing';
 import { ProgressWidget } from '@/features/gamification';
 import {
+  JournalingExercise,
+  JournalingConfirmation,
+  JournalHistory,
+  CATEGORY_INFO,
+  type JournalEntry,
+} from '@/features/journaling';
+import {
   AIGeneratedMeditation,
   GuidedMeditation,
   VoiceSelectionConfirmation,
 } from '@/features/meditation';
-import { DiscoverNav } from '@/features/navigation';
+import { DiscoverNav, ActivityRenderer, type DirectComponent } from '@/features/navigation';
 import { ThemeToggle } from '@/features/settings';
 import { SidebarProfile } from '@/features/user';
 import {
   createAIClient,
   isBreathingConfirmation,
+  isJournalingConfirmation,
   isVoiceSelection,
   type Message,
   type InterruptPayload,
@@ -160,6 +168,12 @@ export function ChatPage() {
     | null;
 
   const [activeActivity, setActiveActivity] = useState<ActivityState>(null);
+
+  // Direct activity state - for sidebar navigation (will integrate with backend)
+  const [directActivity, setDirectActivity] = useState<DirectComponent | null>(null);
+
+  // Selected journal entry for viewing
+  const [selectedJournalEntry, setSelectedJournalEntry] = useState<JournalEntry | null>(null);
 
   // Reference to the message container for auto-scrolling
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -521,6 +535,89 @@ export function ChatPage() {
   );
 
   /* --------------------------------------------------------------------------
+     Handle Journaling Prompt Confirmation (HITL resume)
+     -------------------------------------------------------------------------- */
+  const handleJournalingConfirm = useCallback(
+    async (decision: 'start' | 'change_prompt' | 'not_now', promptId?: string) => {
+      // Clear the interrupt UI
+      setInterruptData(null);
+      setIsLoading(true);
+      setStreamingContent('');
+
+      try {
+        // Get session for auth
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+
+        if (!session || !conversationId) {
+          console.error('No session or conversation ID');
+          setIsLoading(false);
+          return;
+        }
+
+        // Resume the graph with user's decision
+        const client = createAIClient(session.access_token);
+        let fullResponse = '';
+
+        for await (const event of client.resumeInterrupt(
+          { decision, prompt_id: promptId },
+          conversationId
+        )) {
+          switch (event.type) {
+            case 'token':
+              fullResponse = event.content;
+              setStreamingContent(fullResponse);
+              break;
+
+            case 'done': {
+              // Add the activity message to the list
+              const assistantMessage: Message = {
+                id: `assistant-${String(Date.now())}`,
+                role: 'assistant',
+                content: fullResponse,
+                createdAt: new Date(),
+              };
+              setMessages((prev) => [...prev, assistantMessage]);
+              setStreamingContent('');
+
+              // Touch conversation for ordering
+              void touchConversation(conversationId);
+              break;
+            }
+
+            case 'error': {
+              console.error('Resume stream error:', event.error);
+              const errorMessage: Message = {
+                id: `error-${String(Date.now())}`,
+                role: 'system',
+                content: `Sorry, something went wrong: ${event.error}`,
+                createdAt: new Date(),
+              };
+              setMessages((prev) => [...prev, errorMessage]);
+              setStreamingContent('');
+              break;
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Failed to resume graph:', error);
+        const errorMessage: Message = {
+          id: `error-${String(Date.now())}`,
+          role: 'system',
+          content: "Sorry, I couldn't continue. Please try again.",
+          createdAt: new Date(),
+        };
+        setMessages((prev) => [...prev, errorMessage]);
+      } finally {
+        setIsLoading(false);
+        inputRef.current?.focus();
+      }
+    },
+    [conversationId]
+  );
+
+  /* --------------------------------------------------------------------------
      Immersive Breathing Overlay Handlers
      -------------------------------------------------------------------------- */
 
@@ -669,6 +766,48 @@ export function ChatPage() {
   const handleActivityClose = useCallback(() => {
     setActiveActivity(null);
     inputRef.current?.focus();
+  }, []);
+
+  /* --------------------------------------------------------------------------
+     Direct Activity Handlers (sidebar navigation)
+     -------------------------------------------------------------------------- */
+
+  /**
+   * Handle opening a component directly from DiscoverNav.
+   * Backend integration for session tracking will be added in future iteration.
+   */
+  const handleDirectComponent = useCallback((component: DirectComponent) => {
+    setDirectActivity(component);
+    // Close sidebar on mobile
+    if (typeof window !== 'undefined' && window.innerWidth < 768) {
+      setIsSidebarOpen(false);
+    }
+  }, []);
+
+  /**
+   * Handle closing the direct activity overlay.
+   */
+  const handleDirectActivityClose = useCallback(() => {
+    setDirectActivity(null);
+    inputRef.current?.focus();
+  }, []);
+
+  /* --------------------------------------------------------------------------
+     Journal Entry Handlers
+     -------------------------------------------------------------------------- */
+
+  /**
+   * Handle selecting a journal entry from JournalHistory.
+   */
+  const handleSelectJournalEntry = useCallback((entry: JournalEntry) => {
+    setSelectedJournalEntry(entry);
+  }, []);
+
+  /**
+   * Handle closing the journal entry viewer.
+   */
+  const handleCloseJournalEntry = useCallback(() => {
+    setSelectedJournalEntry(null);
   }, []);
 
   /* --------------------------------------------------------------------------
@@ -834,6 +973,7 @@ export function ChatPage() {
                 }
                 inputRef.current?.focus();
               }}
+              onTestComponent={handleDirectComponent}
             />
           </div>
 
@@ -842,6 +982,16 @@ export function ChatPage() {
             <ConversationHistory
               currentConversationId={conversationId}
               onSelectConversation={(id) => void handleSelectConversation(id)}
+              onCloseSidebar={() => {
+                setIsSidebarOpen(false);
+              }}
+            />
+          </div>
+
+          {/* Journal Entries */}
+          <div className={styles.sidebarSection}>
+            <JournalHistory
+              onSelectEntry={handleSelectJournalEntry}
               onCloseSidebar={() => {
                 setIsSidebarOpen(false);
               }}
@@ -977,6 +1127,27 @@ export function ChatPage() {
             </div>
           )}
 
+          {/* Journaling prompt confirmation (HITL interrupt) */}
+          {interruptData && isJournalingConfirmation(interruptData) && (
+            <div className={styles.messageRow}>
+              <div
+                className={`${styles.bubble} ${styles.bubbleAssistant} ${styles.bubbleActivity}`}
+              >
+                <JournalingConfirmation
+                  proposedPrompt={interruptData.proposed_prompt}
+                  message={interruptData.message}
+                  availablePrompts={interruptData.available_prompts}
+                  onConfirm={(prompt) => {
+                    void handleJournalingConfirm('start', prompt.id);
+                  }}
+                  onDecline={() => {
+                    void handleJournalingConfirm('not_now');
+                  }}
+                />
+              </div>
+            </div>
+          )}
+
           {/* Loading indicator when waiting for first token */}
           {isLoading && !streamingContent && !interruptData && (
             <div className={styles.loadingIndicator}>
@@ -1062,6 +1233,76 @@ export function ChatPage() {
           />
         )}
       </ActivityOverlay>
+
+      {/* Direct Activity Overlay - for sidebar navigation */}
+      {directActivity && (
+        <ActivityOverlay
+          isOpen={true}
+          onClose={handleDirectActivityClose}
+          activityType={directActivity.type}
+        >
+          <ActivityRenderer component={directActivity} onClose={handleDirectActivityClose} />
+        </ActivityOverlay>
+      )}
+
+      {/* Journal Entry Viewer Overlay */}
+      {selectedJournalEntry &&
+        (() => {
+          const categoryInfo = CATEGORY_INFO[selectedJournalEntry.prompt_category];
+          return (
+            <div
+              className={styles.journalOverlay}
+              onClick={handleCloseJournalEntry}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') {
+                  handleCloseJournalEntry();
+                }
+              }}
+              role="dialog"
+              aria-modal="true"
+              aria-label="Journal entry viewer"
+            >
+              <div
+                className={styles.journalViewer}
+                onClick={(e) => {
+                  e.stopPropagation();
+                }}
+                role="document"
+              >
+                <button
+                  className={styles.journalCloseButton}
+                  onClick={handleCloseJournalEntry}
+                  aria-label="Close journal entry"
+                >
+                  <CloseIcon />
+                </button>
+                <div className={styles.journalHeader}>
+                  <span
+                    className={styles.journalCategory}
+                    style={{ backgroundColor: categoryInfo.color }}
+                  >
+                    {categoryInfo.emoji} {categoryInfo.label}
+                  </span>
+                  <span className={styles.journalDate}>
+                    {new Date(selectedJournalEntry.created_at).toLocaleDateString('en-US', {
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric',
+                    })}
+                  </span>
+                </div>
+                <div className={styles.journalPrompt}>{selectedJournalEntry.prompt_text}</div>
+                <div className={styles.journalContent}>{selectedJournalEntry.entry_text}</div>
+                <div className={styles.journalMeta}>
+                  <span>{String(selectedJournalEntry.word_count)} words</span>
+                  {selectedJournalEntry.is_favorite && (
+                    <span className={styles.favorite}>★ Favorite</span>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })()}
     </div>
   );
 }
@@ -1194,6 +1435,24 @@ function MessageBubble({ message, isStreaming = false }: MessageBubbleProps) {
       <div className={styles.messageRow}>
         <div className={`${styles.bubble} ${styles.bubbleAssistant} ${styles.bubbleActivity}`}>
           <AIGeneratedMeditation activityData={activity} onComplete={handleExerciseComplete} />
+        </div>
+      </div>
+    );
+  }
+
+  // Render journaling exercise inline if detected
+  if (parsedContent?.hasActivity && parsedContent.activity?.activity === 'journaling') {
+    const activity = parsedContent.activity;
+
+    return (
+      <div className={styles.messageRow}>
+        <div className={`${styles.bubble} ${styles.bubbleAssistant} ${styles.bubbleActivity}`}>
+          <JournalingExercise
+            prompt={activity.prompt}
+            introduction={activity.introduction}
+            enableSharing={activity.enable_sharing}
+            onComplete={handleExerciseComplete}
+          />
         </div>
       </div>
     );

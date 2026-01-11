@@ -541,6 +541,65 @@ export type Database = {
           },
         ];
       };
+      journal_entries: {
+        Row: {
+          conversation_id: string | null;
+          created_at: string;
+          entry_text: string;
+          id: string;
+          is_favorite: boolean;
+          mood_after: number | null;
+          mood_before: number | null;
+          prompt_category: string;
+          prompt_text: string;
+          shared_with_ai: boolean;
+          updated_at: string;
+          user_id: string;
+          word_count: number;
+          writing_duration_seconds: number | null;
+        };
+        Insert: {
+          conversation_id?: string | null;
+          created_at?: string;
+          entry_text: string;
+          id?: string;
+          is_favorite?: boolean;
+          mood_after?: number | null;
+          mood_before?: number | null;
+          prompt_category: string;
+          prompt_text: string;
+          shared_with_ai?: boolean;
+          updated_at?: string;
+          user_id: string;
+          word_count?: number;
+          writing_duration_seconds?: number | null;
+        };
+        Update: {
+          conversation_id?: string | null;
+          created_at?: string;
+          entry_text?: string;
+          id?: string;
+          is_favorite?: boolean;
+          mood_after?: number | null;
+          mood_before?: number | null;
+          prompt_category?: string;
+          prompt_text?: string;
+          shared_with_ai?: boolean;
+          updated_at?: string;
+          user_id?: string;
+          word_count?: number;
+          writing_duration_seconds?: number | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'journal_entries_conversation_id_fkey';
+            columns: ['conversation_id'];
+            isOneToOne: false;
+            referencedRelation: 'conversations';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       meditation_scripts: {
         Row: {
           created_at: string | null;
