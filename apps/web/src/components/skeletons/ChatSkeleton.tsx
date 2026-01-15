@@ -85,7 +85,7 @@ export function ChatSkeleton() {
         <div
           style={{
             flex: 1,
-            padding: '24px',
+            padding: '16px', // Matches var(--spacing-md) in ChatPage
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
@@ -107,46 +107,32 @@ export function ChatSkeleton() {
             }}
           />
 
-          {/* Welcome text skeleton */}
+          {/* Welcome text - REAL content for LCP (Largest Contentful Paint) */}
+          {/* Using actual text instead of skeleton placeholder ensures Lighthouse can identify an LCP element */}
           <div style={{ textAlign: 'center', maxWidth: '400px', width: '100%' }}>
-            {/* Headline */}
-            <div
+            {/* Real headline text - this becomes the LCP candidate */}
+            <h1
               style={{
-                height: '28px',
-                width: '200px',
-                margin: '0 auto 12px',
-                background: 'linear-gradient(90deg, #e5e5e5 25%, #d4d4d4 50%, #e5e5e5 75%)',
-                backgroundSize: '200% 100%',
-                borderRadius: '6px',
-                animation: 'skeleton-shimmer 1.5s ease-in-out infinite',
-                animationDelay: '0.2s',
+                fontSize: '32px',
+                fontWeight: 600,
+                color: '#1f2937', // var(--color-text-primary) fallback
+                margin: '0 0 12px 0',
+                lineHeight: 1.2,
               }}
-            />
-            {/* Subtext lines */}
-            <div
+            >
+              Welcome to Wbot
+            </h1>
+            {/* Real subtext */}
+            <p
               style={{
-                height: '16px',
-                width: '100%',
-                background: 'linear-gradient(90deg, #f5f5f5 25%, #e5e5e5 50%, #f5f5f5 75%)',
-                backgroundSize: '200% 100%',
-                borderRadius: '4px',
-                marginBottom: '8px',
-                animation: 'skeleton-shimmer 1.5s ease-in-out infinite',
-                animationDelay: '0.3s',
+                fontSize: '16px',
+                color: '#6b7280', // var(--color-text-secondary) fallback
+                margin: 0,
+                lineHeight: 1.5,
               }}
-            />
-            <div
-              style={{
-                height: '16px',
-                width: '80%',
-                margin: '0 auto',
-                background: 'linear-gradient(90deg, #f5f5f5 25%, #e5e5e5 50%, #f5f5f5 75%)',
-                backgroundSize: '200% 100%',
-                borderRadius: '4px',
-                animation: 'skeleton-shimmer 1.5s ease-in-out infinite',
-                animationDelay: '0.4s',
-              }}
-            />
+            >
+              Your AI wellness companion
+            </p>
           </div>
 
           {/* Quick action cards skeleton */}
