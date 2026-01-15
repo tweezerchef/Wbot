@@ -36,6 +36,11 @@ import time
 
 import redis.asyncio as redis
 
+from src.logging_config import NodeLogger
+
+# Logger for cache operations
+logger = NodeLogger("cache")
+
 # Configuration constants
 MAX_ENTRIES_PER_USER = 1000
 EMBEDDING_TTL_SECONDS = 7 * 24 * 60 * 60  # 7 days
@@ -49,20 +54,36 @@ MESSAGES_COUNTS_KEY = "conv_msgs_counts"  # Hash: conversation_id -> message_cou
 
 
 def _get_redis_url() -> str | None:
-    """Returns Redis URL from environment, or None if not configured.
+    """Returns local Redis URL from environment, or None if not configured.
 
+    Used for AI-only caching (embeddings).
     Checks REDIS_URI first (LangGraph convention), falls back to REDIS_URL.
     """
     return os.getenv("REDIS_URI") or os.getenv("REDIS_URL")
 
 
-# Global connection pool (initialized lazily)
+def _get_shared_redis_url() -> str | None:
+    """Returns shared Redis URL from environment, or None if not configured.
+
+    Used for caching that needs to be shared between frontend and backend (messages).
+    Uses REDIS_SHARED_URL which should point to a remote Redis instance (e.g., Upstash).
+    """
+    return os.getenv("REDIS_SHARED_URL")
+
+
+# Global connection pools (initialized lazily)
+# Local Redis pool - for AI-only caching (embeddings)
 _redis_pool: redis.ConnectionPool | None = None
+# Shared Redis pool - for frontend/backend shared caching (messages)
+_shared_redis_pool: redis.ConnectionPool | None = None
 
 
 async def get_redis_client() -> redis.Redis | None:
     """
-    Returns an async Redis client using a shared connection pool.
+    Returns an async Redis client for LOCAL Redis (AI-only caching).
+
+    Used for embedding cache which is only accessed by the AI backend.
+    Uses REDIS_URL/REDIS_URI environment variable.
 
     Returns None if Redis is not configured or unavailable.
     Uses a global connection pool for efficiency.
@@ -74,10 +95,14 @@ async def get_redis_client() -> redis.Redis | None:
 
     redis_url = _get_redis_url()
     if not redis_url:
+        logger.warning("REDIS_URI/REDIS_URL not configured - local cache disabled")
         return None
 
     try:
         if _redis_pool is None:
+            # Log the Redis URL (mask password for security)
+            masked_url = redis_url.split("@")[-1] if "@" in redis_url else redis_url[:30] + "..."
+            logger.info("Creating LOCAL Redis connection pool", redis_host=masked_url)
             _redis_pool = redis.ConnectionPool.from_url(
                 redis_url,
                 max_connections=10,
@@ -89,7 +114,48 @@ async def get_redis_client() -> redis.Redis | None:
         await client.ping()
         return client
     except Exception as e:
-        print(f"[cache] Redis connection failed: {e}")
+        logger.error("Local Redis connection FAILED", error=str(e))
+        return None
+
+
+async def get_shared_redis_client() -> redis.Redis | None:
+    """
+    Returns an async Redis client for SHARED Redis (frontend + backend caching).
+
+    Used for message cache which needs to be accessible by both the AI backend
+    and the web frontend. Uses REDIS_SHARED_URL environment variable which
+    should point to a remote Redis instance (e.g., Upstash).
+
+    Returns None if Redis is not configured or unavailable.
+    Uses a global connection pool for efficiency.
+
+    Returns:
+        redis.Redis instance or None if unavailable.
+    """
+    global _shared_redis_pool
+
+    redis_url = _get_shared_redis_url()
+    if not redis_url:
+        logger.warning("REDIS_SHARED_URL not configured - shared message cache disabled")
+        return None
+
+    try:
+        if _shared_redis_pool is None:
+            # Log the Redis URL (mask password for security)
+            masked_url = redis_url.split("@")[-1] if "@" in redis_url else redis_url[:30] + "..."
+            logger.info("Creating SHARED Redis connection pool (Upstash)", redis_host=masked_url)
+            _shared_redis_pool = redis.ConnectionPool.from_url(
+                redis_url,
+                max_connections=10,
+                socket_connect_timeout=REDIS_CONNECT_TIMEOUT,
+            )
+
+        client = redis.Redis(connection_pool=_shared_redis_pool)
+        # Quick health check
+        await client.ping()
+        return client
+    except Exception as e:
+        logger.error("Shared Redis connection FAILED", error=str(e))
         return None
 
 
@@ -278,11 +344,16 @@ async def get_cache_stats(user_id: str) -> dict[str, object]:
 
 
 async def close_redis_pool() -> None:
-    """Closes the Redis connection pool. Call during shutdown."""
-    global _redis_pool
+    """Closes both Redis connection pools. Call during shutdown."""
+    global _redis_pool, _shared_redis_pool
+
     if _redis_pool is not None:
         await _redis_pool.aclose()
         _redis_pool = None
+
+    if _shared_redis_pool is not None:
+        await _shared_redis_pool.aclose()
+        _shared_redis_pool = None
 
 
 # =============================================================================
@@ -363,8 +434,9 @@ async def _evict_oldest_conversations(client: redis.Redis, messages_to_free: int
 
 async def get_cached_messages(conversation_id: str) -> list[dict[str, object]] | None:
     """
-    Retrieves cached messages for a conversation.
+    Retrieves cached messages for a conversation from SHARED Redis.
 
+    Uses the shared Redis (Upstash) so both frontend and backend see the same data.
     Updates the access time in the LRU index to support eviction.
 
     Args:
@@ -373,7 +445,7 @@ async def get_cached_messages(conversation_id: str) -> list[dict[str, object]] |
     Returns:
         List of message dicts [{id, role, content, created_at}, ...] or None if not cached.
     """
-    client = await get_redis_client()
+    client = await get_shared_redis_client()
     if client is None:
         return None
 
@@ -382,6 +454,10 @@ async def get_cached_messages(conversation_id: str) -> list[dict[str, object]] |
     try:
         data = await client.get(key)
         if data is None:
+            logger.info(
+                "Cache MISS",
+                conversation_id=conversation_id[:8] + "..." if conversation_id else "None",
+            )
             return None
 
         messages = json.loads(data)
@@ -389,16 +465,26 @@ async def get_cached_messages(conversation_id: str) -> list[dict[str, object]] |
         # Update access time in LRU index (keeps frequently accessed convos in cache)
         await client.zadd(MESSAGES_LRU_KEY, {conversation_id: time.time()})
 
+        logger.info(
+            "Cache HIT",
+            conversation_id=conversation_id[:8] + "...",
+            message_count=len(messages),
+        )
         return messages
     except Exception as e:
-        print(f"[cache] Error retrieving messages: {e}")
+        logger.error(
+            "Cache retrieval FAILED",
+            error=str(e),
+            conversation_id=conversation_id[:8] + "..." if conversation_id else "None",
+        )
         return None
 
 
 async def cache_messages(conversation_id: str, messages: list[dict[str, object]]) -> bool:
     """
-    Caches all messages for a conversation (full replacement).
+    Caches all messages for a conversation (full replacement) in SHARED Redis.
 
+    Uses the shared Redis (Upstash) so both frontend and backend see the same data.
     Used when populating cache from a database read.
     Triggers eviction if total message count exceeds limit.
 
@@ -409,7 +495,7 @@ async def cache_messages(conversation_id: str, messages: list[dict[str, object]]
     Returns:
         True if caching succeeded, False otherwise.
     """
-    client = await get_redis_client()
+    client = await get_shared_redis_client()
     if client is None:
         return False
 
@@ -444,8 +530,9 @@ async def cache_messages(conversation_id: str, messages: list[dict[str, object]]
 
 async def append_messages(conversation_id: str, new_messages: list[dict[str, object]]) -> bool:
     """
-    Appends new messages to an existing cached conversation.
+    Appends new messages to an existing cached conversation in SHARED Redis.
 
+    Uses the shared Redis (Upstash) so both frontend and backend see the same data.
     Used for write-through caching after saving messages to the database.
     If the conversation is not in cache, creates a new entry with just the
     new messages (ensures write-through works even if cache was evicted).
@@ -457,8 +544,12 @@ async def append_messages(conversation_id: str, new_messages: list[dict[str, obj
     Returns:
         True if append/create succeeded, False on error.
     """
-    client = await get_redis_client()
+    client = await get_shared_redis_client()
     if client is None:
+        logger.warning(
+            "Shared Redis client unavailable - cannot append messages",
+            conversation_id=conversation_id[:8] + "..." if conversation_id else "None",
+        )
         return False
 
     key = _messages_key(conversation_id)
@@ -471,9 +562,20 @@ async def append_messages(conversation_id: str, new_messages: list[dict[str, obj
             # This ensures write-through pattern works even if cache was evicted
             existing = []
             old_count = 0
+            logger.info(
+                "Cache miss - creating new entry",
+                conversation_id=conversation_id[:8] + "...",
+                new_message_count=len(new_messages),
+            )
         else:
             existing = json.loads(data)
             old_count = len(existing)
+            logger.info(
+                "Appending to existing cache",
+                conversation_id=conversation_id[:8] + "...",
+                existing_count=old_count,
+                new_message_count=len(new_messages),
+            )
 
         updated = existing + new_messages
         new_count = len(updated)
@@ -493,16 +595,26 @@ async def append_messages(conversation_id: str, new_messages: list[dict[str, obj
         pipe.hset(MESSAGES_COUNTS_KEY, conversation_id, new_count)
         await pipe.execute()
 
+        logger.info(
+            "Cache append SUCCESS",
+            conversation_id=conversation_id[:8] + "...",
+            total_cached_messages=new_count,
+        )
         return True
     except Exception as e:
-        print(f"[cache] Error appending messages: {e}")
+        logger.error(
+            "Cache append FAILED",
+            error=str(e),
+            conversation_id=conversation_id[:8] + "..." if conversation_id else "None",
+        )
         return False
 
 
 async def invalidate_conversation_cache(conversation_id: str) -> bool:
     """
-    Removes a conversation from the cache.
+    Removes a conversation from the SHARED Redis cache.
 
+    Uses the shared Redis (Upstash) so both frontend and backend see the same data.
     Call this when a conversation is deleted or needs full refresh.
 
     Args:
@@ -511,7 +623,7 @@ async def invalidate_conversation_cache(conversation_id: str) -> bool:
     Returns:
         True if invalidation succeeded, False otherwise.
     """
-    client = await get_redis_client()
+    client = await get_shared_redis_client()
     if client is None:
         return False
 
@@ -532,16 +644,16 @@ async def invalidate_conversation_cache(conversation_id: str) -> bool:
 
 async def get_message_cache_stats() -> dict[str, object]:
     """
-    Returns statistics about the message cache.
+    Returns statistics about the SHARED message cache (Upstash).
 
     Useful for monitoring and debugging.
 
     Returns:
         Dict with total_messages, conversation_count, oldest_conversation, etc.
     """
-    client = await get_redis_client()
+    client = await get_shared_redis_client()
     if client is None:
-        return {"error": "Redis not available"}
+        return {"error": "Shared Redis not available"}
 
     try:
         total_messages = await _get_total_cached_messages(client)

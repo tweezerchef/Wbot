@@ -173,6 +173,27 @@ const aiGeneratedMeditationActivitySchema = z.object({
   audio_url: z.string().optional(),
 });
 
+/** Schema for journaling prompt configuration */
+const journalingPromptSchema = z.object({
+  id: z.string(),
+  category: z.enum(['reflection', 'gratitude', 'processing', 'growth', 'self_compassion']),
+  text: z.string(),
+  follow_up_questions: z.array(z.string()),
+  estimated_time_minutes: z.number(),
+  best_for: z.array(z.string()),
+});
+
+/** Schema for journaling activity data */
+const journalingActivitySchema = z.object({
+  type: z.literal('activity'),
+  activity: z.literal('journaling'),
+  status: z.enum(['ready', 'writing', 'complete']),
+  prompt: journalingPromptSchema,
+  introduction: z.string(),
+  enable_sharing: z.boolean(),
+  conversation_context: z.string(),
+});
+
 /** Union of all activity types */
 const activityDataSchema = z.discriminatedUnion('activity', [
   breathingActivitySchema,
@@ -180,7 +201,7 @@ const activityDataSchema = z.discriminatedUnion('activity', [
   meditationActivitySchema,
   personalizedMeditationActivitySchema,
   aiGeneratedMeditationActivitySchema,
-  // Future: journalingActivitySchema
+  journalingActivitySchema,
 ]);
 
 // -----------------------------------------------------------------------------
@@ -227,6 +248,12 @@ export type AIMeditationContext = z.infer<typeof aiMeditationContextSchema>;
 
 /** Inferred type for AI-generated meditation activity data */
 export type AIGeneratedMeditationActivityData = z.infer<typeof aiGeneratedMeditationActivitySchema>;
+
+/** Inferred type for journaling prompt configuration */
+export type JournalingPrompt = z.infer<typeof journalingPromptSchema>;
+
+/** Inferred type for journaling activity data */
+export type JournalingActivityData = z.infer<typeof journalingActivitySchema>;
 
 /** Inferred type for any activity data */
 export type ActivityData = z.infer<typeof activityDataSchema>;

@@ -7,5 +7,6 @@
 export * from './auth';
 export * from './breathing';
 export * from './chat';
+export * from './journaling';
 export * from './meditation';
 export * from './wellness';

@@ -15,6 +15,7 @@ import { fileURLToPath } from 'node:url';
 
 import { tanstackStart } from '@tanstack/react-start/plugin/vite';
 import react from '@vitejs/plugin-react';
+import { nitro } from 'nitro/vite';
 import { visualizer } from 'rollup-plugin-visualizer';
 import { defineConfig } from 'vite';
 import tsConfigPaths from 'vite-tsconfig-paths';
@@ -41,6 +42,9 @@ export default defineConfig({
     // TanStack Start plugin - handles routing, SSR, server functions
     // Must come before React plugin
     tanstackStart(),
+
+    // Nitro plugin - enables production server deployment
+    nitro(),
 
     // React plugin with React Compiler for automatic optimization
     react({

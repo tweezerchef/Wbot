@@ -27,6 +27,7 @@ import {
   type InterruptPayload,
   type SSEEvent,
   isBreathingConfirmation,
+  isJournalingConfirmation,
   isVoiceSelection,
   parseErrorMessage,
   parseHistoryResponse,
@@ -41,7 +42,7 @@ export type {
   InterruptPayload,
   VoiceSelectionPayload,
 } from './schemas/ai-client';
-export { isBreathingConfirmation, isVoiceSelection };
+export { isBreathingConfirmation, isJournalingConfirmation, isVoiceSelection };
 
 /* ----------------------------------------------------------------------------
    Configuration
@@ -415,7 +416,7 @@ export class AIClient {
    * }
    */
   async *resumeInterrupt(
-    resumeData: { decision: string; technique_id?: string; voice_id?: string },
+    resumeData: { decision: string; technique_id?: string; voice_id?: string; prompt_id?: string },
     threadId: string
   ): AsyncGenerator<StreamEvent> {
     yield { type: 'start' };
@@ -429,6 +430,7 @@ export class AIClient {
           decision: resumeData.decision,
           technique_id: resumeData.technique_id,
           voice_id: resumeData.voice_id,
+          prompt_id: resumeData.prompt_id,
         }),
       });
 

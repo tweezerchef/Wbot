@@ -1,181 +1,189 @@
-Based on the provided code, here's a comprehensive Docusaurus markdown documentation for the Embeddings Module:
+I'll create a Docusaurus markdown file for this Redis Cache Module:
 
 ````markdown
 ---
-sidebar_position: 2
-title: Embeddings Module
-description: Generate semantic embeddings for memory storage and retrieval using Google Gemini
+sidebar_position: 3
+title: Redis Cache Module
+description: Distributed caching for embeddings and conversation messages
 ---
 
-# Embeddings Module
+# Redis Cache Module
 
 ## Overview
 
-The Embeddings Module leverages Google's Gemini embedding model to generate high-quality semantic vector representations of text. These embeddings are crucial for storing and retrieving conversational memories with high semantic accuracy.
+The Redis Cache Module provides a robust, distributed caching mechanism for Wbot, supporting two primary caching strategies:
 
-## Constants
+- Embedding caching with per-user isolation and LRU eviction
+- Conversation message caching with write-through pattern
 
-```python
-EMBEDDING_DIMENSIONS = 768  # Recommended balanced dimension for embeddings
-```
-````
+## Key Features
 
-:::tip Dimension Selection
-The module uses 768 dimensions, which provides an optimal balance between embedding quality and storage efficiency. Gemini supports dimensions from 128 to 3072.
-:::
-
-## Functions
-
-### `get_genai_client() -> genai.Client`
-
-Creates a cached Google GenAI client for embedding generation.
-
-**Returns:**
-
-- Configured `genai.Client` instance
-
-**Authentication:**
-
-- Requires `GOOGLE_API_KEY` environment variable
-- Uses the same key as Gemini LLM
-
-**Example:**
-
-```python
-client = get_genai_client()
-```
-
-:::warning API Key
-Ensure you set the `GOOGLE_API_KEY` environment variable before use.
-:::
-
-### `generate_embedding(text: str) -> list[float]`
-
-Generates a semantic embedding for a given text.
-
-**Parameters:**
-
-- `text` (str): Text to embed, typically a combined user message and AI response
-
-**Returns:**
-
-- Embedding vector (768 float values)
-
-**Example:**
-
-```python
-embedding = await generate_embedding("I'm feeling stressed about work")
-assert len(embedding) == 768
-```
-
-### `generate_embeddings_batch(texts: list[str]) -> list[list[float]]`
-
-Generates embeddings for multiple texts in a single API call.
-
-**Parameters:**
-
-- `texts` (list[str]): List of texts to embed
-
-**Returns:**
-
-- List of embedding vectors
-
-**Example:**
-
-```python
-embeddings = await generate_embeddings_batch(["Hello", "World"])
-assert len(embeddings) == 2
-```
-
-### `format_memory_text(user_message: str, ai_response: str) -> str`
-
-Formats a conversation pair into a standard text format for embedding.
-
-**Parameters:**
-
-- `user_message` (str): User's original message
-- `ai_response` (str): AI's response
-
-**Returns:**
-
-- Formatted conversation text
-
-**Example:**
-
-```python
-formatted_text = format_memory_text("I'm stressed", "I hear you...")
-```
-
-## Mermaid Architecture Diagram
-
-```mermaid
-graph TD
-    A[Input Text] --> B[Gemini Embedding Model]
-    B --> C{Embedding Generation}
-    C --> D[768-Dimensional Vector]
-    D --> E[Vector Database Storage]
-    D --> F[Semantic Search]
-```
+- Async Redis operations
+- Per-user embedding cache with automatic eviction
+- Shared message cache accessible by frontend and backend
+- Configurable time-to-live (TTL) for cached entries
+- Graceful fallback on Redis connection failures
 
 ## Configuration
 
 ### Environment Variables
 
-- `GOOGLE_API_KEY`: Required for API authentication
-  - Obtain from [Google AI Studio](https://makersuite.google.com/app/apikey)
+:::warning Configuration
+Required environment variables for Redis caching:
+:::
 
-### Model Configuration
+- `REDIS_URI` / `REDIS_URL`: Local Redis for AI-only caching
+- `REDIS_SHARED_URL`: Shared Redis for frontend/backend message caching
 
-- Model: `gemini-embedding-001`
-- Task Type: `SEMANTIC_SIMILARITY`
-- Dimensions: 768
+### Cache Configuration Constants
 
-:::info Performance
-The embeddings are optimized for:
+```python
+# Embedding cache settings
+MAX_ENTRIES_PER_USER = 1000
+EMBEDDING_TTL_SECONDS = 7 * 24 * 60 * 60  # 7 days
 
-- Memory retrieval
-- Semantic similarity matching
-- Efficient storage
+# Message cache settings
+MAX_CACHED_MESSAGES = 10_000
+MESSAGES_TTL_SECONDS = 24 * 60 * 60  # 24 hours
+```
+````
+
+## API Reference
+
+### Embedding Caching
+
+#### `get_cached_embedding(user_id: str, text: str)`
+
+Retrieves a cached embedding for a specific user and text.
+
+```python
+async def get_cached_embedding(user_id: str, text: str) -> list[float] | None
+```
+
+**Parameters:**
+
+- `user_id`: User identifier for cache isolation
+- `text`: Text whose embedding to retrieve
+
+**Returns:**
+
+- Cached embedding or `None` if not found
+
+**Example:**
+
+```python
+embedding = await get_cached_embedding("user123", "Hello world")
+```
+
+#### `cache_embedding(user_id: str, text: str, embedding: list[float])`
+
+Stores an embedding in the cache with automatic LRU management.
+
+```python
+async def cache_embedding(user_id: str, text: str, embedding: list[float]) -> bool
+```
+
+**Parameters:**
+
+- `user_id`: User identifier
+- `text`: Original text
+- `embedding`: Embedding vector to cache
+
+**Returns:**
+
+- `True` if caching succeeded, `False` otherwise
+
+### Message Caching
+
+#### `get_cached_messages(conversation_id: str)`
+
+Retrieves cached messages for a conversation.
+
+```python
+async def get_cached_messages(conversation_id: str) -> list[dict[str, object]] | None
+```
+
+**Parameters:**
+
+- `conversation_id`: Unique conversation identifier
+
+**Returns:**
+
+- List of cached messages or `None`
+
+#### `append_messages(conversation_id: str, new_messages: list[dict[str, object]])`
+
+Appends new messages to an existing conversation cache.
+
+```python
+async def append_messages(conversation_id: str, new_messages: list[dict[str, object]]) -> bool
+```
+
+**Parameters:**
+
+- `conversation_id`: Unique conversation identifier
+- `new_messages`: New messages to append
+
+**Returns:**
+
+- `True` if appending succeeded, `False` otherwise
+
+## Architecture
+
+```mermaid
+graph TD
+    A[Embedding/Message Generation] --> B{Check Redis Cache}
+    B -->|Cache Hit| C[Return Cached Data]
+    B -->|Cache Miss| D[Generate/Retrieve Data]
+    D --> E[Store in Cache]
+    E --> F[Update LRU Tracking]
+
+    G[Exceed Cache Limit] --> H[Evict Oldest Entries]
+```
+
+## Eviction Strategies
+
+### Embedding Cache
+
+- LRU (Least Recently Used) eviction
+- Per-user limit of 1000 entries
+- 7-day time-to-live (TTL)
+
+### Message Cache
+
+- Total limit of 10,000 messages across all conversations
+- Evicts oldest-accessed conversations first
+- 24-hour time-to-live (TTL)
+
+## Best Practices
+
+:::tip Caching Guidelines
+
+- Always handle potential `None` returns from cache retrieval
+- Use try/except for robust error handling
+- Configure appropriate TTL for your use case
   :::
-
-## Error Handling
-
-:::warning Potential Errors
-
-- Missing API key
-- Network connectivity issues
-- API rate limiting
-  :::
-
-## Related Modules
-
-- [LangGraph Architecture](/ai/langgraph) - Graph-based AI processing
-- [Database Schema](/database/schema) - Conversation and memory tables
-
-## Version Compatibility
-
-- Python 3.10+
-- google-generativeai library
-- Async Python runtime
 
 ## Performance Considerations
 
-- Uses thread pooling to prevent blocking
-- Caches GenAI client
-- Supports batch embedding generation
-- Low-latency semantic vector generation
+- Uses connection pooling for Redis clients
+- Async operations minimize blocking
+- Configurable connection timeouts
+- Supports multiple Redis instances (local and shared)
+
+## Related Documentation
+
+- [Embedding Generation](/docs/embeddings)
+- [Conversation Storage](/docs/conversations)
 
 ```
 
-This documentation provides a comprehensive overview of the Embeddings Module, following Docusaurus markdown conventions. It includes:
+This documentation provides a comprehensive overview of the Redis Cache Module, following Docusaurus conventions and highlighting the key features, configuration, and usage patterns.
 
-1. Module overview
-2. Detailed function descriptions
-3. Code examples
-4. Configuration details
-5. Mermaid architecture diagram
-6. Error handling guidelines
-7. Performance considerations
-
-The documentation is designed to be practical, developer-focused, and easy to navigate.
+Key improvements:
+- Detailed API reference
+- Mermaid architecture diagram
+- Configuration details
+- Best practices and performance considerations
+- Clear explanation of eviction strategies
 ```

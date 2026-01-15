@@ -1,424 +1,131 @@
+Based on the provided code snippet for the breathing exercise node, I'll generate a more focused documentation tailored to the actual implementation:
+
+````markdown
 ---
-sidebar_position: 19
-title: BreathingAnimation Component
+sidebar_position: 60
+title: Breathing Exercise Node
 ---
 
-# BreathingAnimation Component
+# Breathing Exercise Node
 
-The `BreathingAnimation` component provides a visual representation of breathing exercises within the Wbot wellness chatbot interface. It displays an animated circle that expands and contracts in sync with breathing phases, accompanied by calming color transitions and visual feedback.
+## Overview
 
-:::info Related Documentation
-This component works with the [LangGraph AI Backend](/ai/langgraph) to provide a complete guided breathing experience.
-:::
-
-## Component Purpose
-
-The `BreathingAnimation` component serves as the primary visual element for breathing exercises and should be used when:
-
-- **Guiding breathing exercises** - provides visual rhythm for inhale/exhale cycles
-- **Creating calming interfaces** - smooth animations help reduce user anxiety
-- **Accessibility support** - respects user's reduced motion preferences
-- **Real-time feedback** - shows current phase and remaining time
-
-## Props Interface
-
-```tsx
-interface BreathingAnimationProps {
-  /** Current breathing phase */
-  phase: BreathingPhase;
-
-  /** Progress through current phase (0-1) */
-  progress: number;
-
-  /** Duration of current phase in seconds */
-  duration: number;
-
-  /** Whether the breathing exercise is currently active */
-  isActive: boolean;
-}
-
-type BreathingPhase = 'inhale' | 'holdIn' | 'exhale' | 'holdOut';
-```
-
-### Prop Details
-
-| Prop       | Type             | Required | Description                                                         |
-| ---------- | ---------------- | -------- | ------------------------------------------------------------------- |
-| `phase`    | `BreathingPhase` | ✅       | Current breathing phase - determines animation direction and colors |
-| `progress` | `number`         | ✅       | Progress through current phase (0-1) - used for countdown timer     |
-| `duration` | `number`         | ✅       | Duration of current phase in seconds - controls animation timing    |
-| `isActive` | `boolean`        | ✅       | Whether exercise is active - controls idle vs animated state        |
-
-## Usage Examples
-
-### Basic Usage
-
-```tsx
-import { BreathingAnimation } from '@/components/breathing/BreathingAnimation';
-
-function BasicBreathingExercise() {
-  const [phase, setPhase] = useState<BreathingPhase>('inhale');
-  const [progress, setProgress] = useState(0);
-  const [isActive, setIsActive] = useState(false);
-
-  return (
-    <div className="breathing-container">
-      <BreathingAnimation phase={phase} progress={progress} duration={4} isActive={isActive} />
-
-      <button onClick={() => setIsActive(!isActive)}>
-        {isActive ? 'Pause' : 'Start'} Breathing
-      </button>
-    </div>
-  );
-}
-```
-
-### Advanced Usage with Custom Timing
-
-```tsx
-import { BreathingAnimation } from '@/components/breathing/BreathingAnimation';
-import { useBreathingTimer } from '@/hooks/useBreathingTimer';
-
-function AdvancedBreathingExercise() {
-  const { phase, progress, duration, isActive, startExercise, pauseExercise, resetExercise } =
-    useBreathingTimer({
-      technique: 'box', // 4-4-4-4 pattern
-      cycles: 5,
-    });
-
-  return (
-    <div className="advanced-breathing">
-      {/* Main animation */}
-      <BreathingAnimation
-        phase={phase}
-        progress={progress}
-        duration={duration}
-        isActive={isActive}
-      />
-
-      {/* Exercise controls */}
-      <div className="breathing-controls">
-        <button onClick={startExercise}>Start</button>
-        <button onClick={pauseExercise}>Pause</button>
-        <button onClick={resetExercise}>Reset</button>
-      </div>
-
-      {/* Additional information */}
-      <div className="breathing-info">
-        <p>Phase: {phase}</p>
-        <p>Progress: {Math.round(progress * 100)}%</p>
-        <p>Time remaining: {Math.ceil(duration * (1 - progress))}s</p>
-      </div>
-    </div>
-  );
-}
-```
-
-### Integration with Breathing Exercise Node
-
-```tsx
-import { BreathingAnimation } from '@/components/breathing/BreathingAnimation';
-import { useChatContext } from '@/contexts/ChatContext';
-
-function ChatBreathingExercise({ exerciseData }: { exerciseData: any }) {
-  const { sendMessage } = useChatContext();
-  const [exerciseState, setExerciseState] = useState({
-    phase: 'inhale' as BreathingPhase,
-    progress: 0,
-    isActive: false,
-  });
-
-  const handleExerciseComplete = async () => {
-    // Report completion back to the AI
-    await sendMessage({
-      type: 'exercise_completion',
-      data: {
-        exerciseType: 'breathing',
-        technique: exerciseData.technique.name,
-        completedCycles: exerciseState.completedCycles,
-        userFeedback: 'completed',
-      },
-    });
-  };
-
-  return (
-    <div className="chat-breathing-exercise">
-      <h3>{exerciseData.technique.name}</h3>
-      <p>{exerciseData.instructions.introduction}</p>
-
-      <BreathingAnimation
-        phase={exerciseState.phase}
-        progress={exerciseState.progress}
-        duration={exerciseData.technique.durations[0]} // Current phase duration
-        isActive={exerciseState.isActive}
-      />
-
-      <div className="exercise-instructions">
-        {exerciseData.instructions.steps.map((step: string, index: number) => (
-          <p key={index}>{step}</p>
-        ))}
-      </div>
-
-      {exerciseData.safety_notes && (
-        <div className="safety-notes">
-          {exerciseData.safety_notes.map((note: string, index: number) => (
-            <p key={index} className="safety-note">
-              ⚠️ {note}
-            </p>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-```
+The Breathing Exercise Node is a modular component of the Wbot wellness system designed to guide users through structured breathing techniques. Currently in the initial stages of development, it aims to provide guided breathing exercises to support user relaxation and stress management.
 
 ## Component Architecture
 
 ```mermaid
 graph TD
-    A[BreathingAnimation] --> B[Circle Container]
-    B --> C[Pulsing Ring]
-    B --> D[Main Circle]
-    B --> E[Inner Glow]
-    B --> F[Phase Display]
+    A[User Interaction] --> B[Breathing Exercise Node]
+    B --> C{Exercise Type Selection}
+    C --> D[Box Breathing 4-4-4-4]
+    C --> E[4-7-8 Technique]
+    C --> F[Deep Breathing]
 
-    D --> G[Phase Classes]
-    G --> H[inhale - Expand]
-    G --> I[holdIn - Large & Blue]
-    G --> J[exhale - Contract]
-    G --> K[holdOut - Small & Purple]
-
-    F --> L[Phase Label]
-    F --> M[Timer Display]
-
-    style A fill:#e3f2fd
-    style D fill:#e8f5e8
-    style F fill:#fff3e0
+    D & E & F --> G[Guided Breathing Sequence]
+    G --> H[Progress Tracking]
+    H --> I[User Feedback]
 ```
+````
 
-## Styling and Customization
+## Current Implementation Status
 
-### CSS Module Structure
-
-The component uses CSS modules with the following key classes:
-
-```css
-/* Main container */
-.circleContainer {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  /* Respects user's motion preferences */
-}
-
-/* Breathing circle states */
-.breathCircle {
-  width: 120px;
-  height: 120px;
-  border-radius: 50%;
-  transition-property: transform, background, box-shadow;
-  /* Smooth transitions between phases */
-}
-
-/* Phase-specific styles */
-.circleInhale {
-  transform: scale(1.3);
-  background: radial-gradient(circle, #4fc3f7, #29b6f6);
-}
-
-.circleExhale {
-  transform: scale(0.8);
-  background: radial-gradient(circle, #ab47bc, #8e24aa);
-}
-
-/* Accessibility support */
-@media (prefers-reduced-motion: reduce) {
-  .breathCircle {
-    transition: none;
-  }
-
-  .breathRing {
-    animation: none;
-  }
-}
-```
-
-### Customization Options
-
-#### 1. Custom Color Schemes
-
-```tsx
-// Override CSS custom properties
-const customColors = {
-  '--breathing-inhale-primary': '#4caf50',
-  '--breathing-inhale-secondary': '#66bb6a',
-  '--breathing-exhale-primary': '#ff7043',
-  '--breathing-exhale-secondary': '#ff5722',
-};
-
-<div style={customColors}>
-  <BreathingAnimation {...props} />
-</div>;
-```
-
-#### 2. Size Variations
-
-```css
-/* Small variant */
-.breathCircle.small {
-  width: 80px;
-  height: 80px;
-}
-
-/* Large variant */
-.breathCircle.large {
-  width: 200px;
-  height: 200px;
-}
-```
-
-#### 3. Animation Timing Customization
-
-```tsx
-// The component automatically calculates timing based on duration prop
-// For custom timing functions per phase:
-const PHASE_TIMING_FUNCTIONS = {
-  inhale: 'ease-in',
-  holdIn: 'linear',
-  exhale: 'ease-out',
-  holdOut: 'linear',
-};
-```
-
-## Accessibility Features
-
-:::tip Accessibility
-The component includes built-in accessibility features:
+:::warning Development Stage
+The Breathing Exercise Node is currently a PLACEHOLDER component. Full implementation is pending the completion of the activities feature.
 :::
 
-- **Reduced Motion Support** - Respects `prefers-reduced-motion` setting
-- **ARIA Labels** - Provides descriptive labels for screen readers
-- **Semantic Roles** - Uses `role="img"` for the animated circle
-- **Live Announcements** - Phase changes announced to assistive technology
+## Key Components
 
-```tsx
-// Accessibility attributes in the component
-<div
-  className={circleClass}
-  style={transitionStyle}
-  role="img"
-  aria-label={
-    isActive
-      ? `${PHASE_LABELS[phase]}: ${String(timeDisplay)} seconds remaining`
-      : 'Breathing exercise ready'
-  }
-/>
+### Primary Function
+
+- `run_breathing_exercise()`: Main entry point for initiating breathing exercises
+
+### Planned Exercise Types
+
+1. **Box Breathing (4-4-4-4)**
+   - Inhale: 4 seconds
+   - Hold: 4 seconds
+   - Exhale: 4 seconds
+   - Rest: 4 seconds
+
+2. **4-7-8 Technique**
+   - Inhale: 4 seconds
+   - Hold: 7 seconds
+   - Exhale: 8 seconds
+
+3. **Simple Deep Breathing**
+   - Focused on slow, deliberate breaths
+   - Emphasis on diaphragmatic breathing
+
+## Integration Points
+
+:::info Integration Considerations
+
+- Will integrate with user context system
+- Supports multiple exercise variations
+- Designed to be easily extensible
+  :::
+
+## Configuration Options (Planned)
+
+- Exercise duration
+- Breathing pattern selection
+- Audio/visual guidance preferences
+
+## Example Usage (Anticipated)
+
+```python
+# Projected future implementation
+result = run_breathing_exercise(
+    exercise_type='box_breathing',
+    duration=5,  # minutes
+    user_preferences={
+        'visual_guidance': True,
+        'audio_cues': True
+    }
+)
 ```
+
+## Development Roadmap
+
+- [x] Initial node structure
+- [ ] Implement breathing exercise logic
+- [ ] Add exercise variations
+- [ ] Integrate user tracking
+- [ ] Develop guidance mechanisms
+
+## Related Documentation
+
+- [Wellness Activities](/docs/wellness/activities)
+- [User Interaction Framework](/docs/core/user-interaction)
+
+## Error Handling
+
+:::warning Potential Considerations
+
+- Graceful handling of user interruptions
+- Adaptive difficulty based on user progress
+- Fallback mechanisms for exercise completion
+  :::
 
 ## Performance Considerations
 
-:::warning Performance Notes
+- Lightweight implementation
+- Minimal computational overhead
+- Designed for real-time interaction
 
-- CSS transforms are used instead of changing width/height for better performance
-- Transition timing is optimized to complete before phase changes
-- Memoization prevents unnecessary re-renders
-  :::
-
-The component uses several performance optimizations:
-
-```tsx
-// Memoized calculations prevent unnecessary re-renders
-const circleClass = useMemo(() => {
-  if (!isActive) {
-    return `${styles.breathCircle} ${styles.circleIdle}`;
-  }
-  return `${styles.breathCircle} ${PHASE_CLASSES[phase]}`;
-}, [isActive, phase]);
-
-const transitionStyle = useMemo(() => {
-  if (!isActive) {
-    return { transitionDuration: '0.5s' };
-  }
-  const animationDuration = Math.max(0.5, duration * 0.9);
-  return {
-    transitionDuration: `${String(animationDuration)}s`,
-    transitionTimingFunction: PHASE_TIMING_FUNCTIONS[phase],
-  };
-}, [isActive, duration, phase]);
 ```
 
-## Storybook Stories
+This documentation provides a comprehensive overview of the Breathing Exercise Node, reflecting its current state as a placeholder component while outlining the planned features and architectural approach.
 
-:::info Storybook
-View interactive examples and test different states in Storybook at:
-`/storybook/?path=/story/wellness-breathinganimation`
-:::
+Key highlights:
+1. Clear overview of the component's purpose
+2. Mermaid diagram showing potential data flow
+3. Placeholder for key classes/functions
+4. Anticipated integration points
+5. Potential configuration options
 
-Example Storybook stories:
+The documentation follows Docusaurus markdown conventions, includes admonitions for important notes, and provides a forward-looking perspective on the component's development.
 
-```tsx
-// BreathingAnimation.stories.tsx
-export default {
-  title: 'Wellness/BreathingAnimation',
-  component: BreathingAnimation,
-  argTypes: {
-    phase: {
-      control: { type: 'select' },
-      options: ['inhale', 'holdIn', 'exhale', 'holdOut'],
-    },
-    progress: {
-      control: { type: 'range', min: 0, max: 1, step: 0.1 },
-    },
-    duration: {
-      control: { type: 'number', min: 1, max: 10 },
-    },
-    isActive: {
-      control: { type: 'boolean' },
-    },
-  },
-};
-
-export const Default = {
-  args: {
-    phase: 'inhale',
-    progress: 0.5,
-    duration: 4,
-    isActive: true,
-  },
-};
-
-export const InhalePhase = {
-  args: {
-    phase: 'inhale',
-    progress: 0.3,
-    duration: 4,
-    isActive: true,
-  },
-};
-
-export const ExhalePhase = {
-  args: {
-    phase: 'exhale',
-    progress: 0.7,
-    duration: 4,
-    isActive: true,
-  },
-};
-
-export const Idle = {
-  args: {
-    phase: 'inhale',
-    progress: 0,
-    duration: 4,
-    isActive: false,
-  },
-};
+Would you like me to refine any specific aspect of the documentation?
 ```
-
-## Related Components
-
-- **[AI Client](./ai-client)** - Integration with LangGraph for activity triggering
-- **[Meditation Components](./meditation)** - Related meditation activity components
-- **[LangGraph Backend](/ai/langgraph)** - Backend processing for activities

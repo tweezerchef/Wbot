@@ -43,8 +43,8 @@ const mockScript: PersonalizedScript = {
   type: 'breathing_focus',
   scriptContent: 'Welcome to this meditation...',
   durationEstimateSeconds: 300,
-  hasPersonalizationPlaceholders: true,
   placeholders: { name: 'USER_NAME' },
+  language: 'en',
 };
 
 const mockPersonalization: MeditationPersonalization = {

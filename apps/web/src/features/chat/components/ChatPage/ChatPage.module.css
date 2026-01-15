@@ -151,8 +151,8 @@
   /* Rounded corners - 18px as per design spec */
   border-radius: 18px;
 
-  /* Default (assistant) styling */
-  background-color: #f5f7fa;
+  /* Default (assistant) styling - uses CSS variable for dark mode support */
+  background-color: var(--color-neutral-100);
   color: var(--color-text-primary);
 
   /* Subtle shadow */
@@ -456,19 +456,20 @@
   transform: translateX(0);
 }
 
-/* Desktop: part of layout, can be collapsed */
+/* Desktop: part of layout, open by default to avoid layout shift */
 @media (min-width: 768px) {
   .sidebar {
     position: relative;
     flex-shrink: 0;
-    /* When closed on desktop, collapse width */
     transform: translateX(0);
-    width: 0;
+    /* Open by default on desktop - no JS needed for initial state */
+    width: var(--sidebar-width);
     overflow: hidden;
   }
 
-  .sidebarOpen {
-    width: var(--sidebar-width);
+  /* Only collapse when explicitly closed by user */
+  .sidebarClosed {
+    width: 0;
   }
 }
 
@@ -727,4 +728,117 @@
 .completedDetail {
   font-size: var(--font-size-xs);
   color: var(--color-text-secondary);
+}
+
+/* ----------------------------------------------------------------------------
+   Journal Entry Viewer Overlay
+   ----------------------------------------------------------------------------
+   Modal overlay for viewing past journal entries.
+   ---------------------------------------------------------------------------- */
+.journalOverlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.6);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-lg);
+  animation: fadeIn var(--transition-fast) forwards;
+}
+
+.journalViewer {
+  position: relative;
+  width: 100%;
+  max-width: 600px;
+  max-height: 80vh;
+  background-color: var(--color-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  overflow-y: auto;
+  padding: var(--spacing-lg);
+  animation: slideUp var(--transition-normal) forwards;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.journalCloseButton {
+  position: absolute;
+  top: var(--spacing-md);
+  right: var(--spacing-md);
+  padding: var(--spacing-xs);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  color: var(--color-text-muted);
+  transition:
+    color var(--transition-fast),
+    background-color var(--transition-fast);
+}
+
+.journalCloseButton:hover {
+  color: var(--color-text-primary);
+  background-color: var(--color-neutral-100);
+}
+
+.journalHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  margin-bottom: var(--spacing-md);
+}
+
+.journalCategory {
+  font-size: var(--font-size-xs);
+  padding: 4px 12px;
+  border-radius: var(--radius-full);
+  color: white;
+  font-weight: var(--font-weight-medium);
+  text-transform: capitalize;
+}
+
+.journalDate {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.journalPrompt {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+  margin-bottom: var(--spacing-md);
+  padding-bottom: var(--spacing-md);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.journalContent {
+  font-size: var(--font-size-base);
+  color: var(--color-text-secondary);
+  line-height: 1.7;
+  white-space: pre-wrap;
+  margin-bottom: var(--spacing-md);
+}
+
+.journalMeta {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  padding-top: var(--spacing-md);
+  border-top: 1px solid var(--border-color);
+}
+
+.journalMeta .favorite {
+  color: var(--color-warning);
 }

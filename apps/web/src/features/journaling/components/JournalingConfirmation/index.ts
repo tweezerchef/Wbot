@@ -1,0 +1,1 @@
+export { JournalingConfirmation } from './JournalingConfirmation';

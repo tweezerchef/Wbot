@@ -1,0 +1,1 @@
+export { JournalHistory } from './JournalHistory';

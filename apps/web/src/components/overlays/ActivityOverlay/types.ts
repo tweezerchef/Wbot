@@ -7,7 +7,13 @@
  */
 
 /** Types of activities that can be displayed in the overlay */
-export type ActivityType = 'breathing' | 'meditation' | 'library' | 'series';
+export type ActivityType =
+  | 'breathing'
+  | 'meditation'
+  | 'library'
+  | 'series'
+  | 'wellness'
+  | 'gamification';
 
 /** Animation state for enter/exit transitions */
 export type AnimationState = 'entering' | 'entered' | 'exiting' | 'exited';

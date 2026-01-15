@@ -1,0 +1,46 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: wbot
+
+# Reference the base kustomization (which includes all manifests)
+resources:
+  - ../../
+
+# Labels for all resources
+labels:
+  - pairs:
+      environment: local
+    includeSelectors: false
+
+# Override images to use local tags
+images:
+  - name: wbot-ai
+    newName: wbot-ai
+    newTag: local
+  - name: wbot-web
+    newName: wbot-web
+    newTag: local
+
+# Reduce replicas for local development
+patches:
+  - patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: wbot-ai
+      spec:
+        replicas: 1
+    target:
+      kind: Deployment
+      name: wbot-ai
+  - patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: wbot-web
+      spec:
+        replicas: 1
+    target:
+      kind: Deployment
+      name: wbot-web

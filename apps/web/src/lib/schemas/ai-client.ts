@@ -56,6 +56,33 @@ export const breathingConfirmationPayloadSchema = z.object({
 export type BreathingConfirmationPayload = z.infer<typeof breathingConfirmationPayloadSchema>;
 
 // ----------------------------------------------------------------------------
+// Journaling Confirmation Schemas
+// ----------------------------------------------------------------------------
+
+/** Schema for journaling prompt info from the backend */
+export const journalingPromptInfoSchema = z.object({
+  id: z.string(),
+  category: z.enum(['reflection', 'gratitude', 'processing', 'growth', 'self_compassion']),
+  text: z.string(),
+  follow_up_questions: z.array(z.string()),
+  estimated_time_minutes: z.number(),
+  best_for: z.array(z.string()),
+});
+
+export type JournalingPromptInfo = z.infer<typeof journalingPromptInfoSchema>;
+
+/** Schema for journaling confirmation interrupt payload */
+export const journalingConfirmationPayloadSchema = z.object({
+  type: z.literal('journaling_confirmation'),
+  proposed_prompt: journalingPromptInfoSchema,
+  message: z.string(),
+  available_prompts: z.array(journalingPromptInfoSchema),
+  options: z.array(z.enum(['start', 'change_prompt', 'not_now'])),
+});
+
+export type JournalingConfirmationPayload = z.infer<typeof journalingConfirmationPayloadSchema>;
+
+// ----------------------------------------------------------------------------
 // Voice Selection Schemas
 // ----------------------------------------------------------------------------
 
@@ -89,6 +116,7 @@ export type VoiceSelectionPayload = z.infer<typeof voiceSelectionPayloadSchema>;
 /** Schema for any interrupt payload */
 export const interruptPayloadSchema = z.discriminatedUnion('type', [
   breathingConfirmationPayloadSchema,
+  journalingConfirmationPayloadSchema,
   voiceSelectionPayloadSchema,
 ]);
 
@@ -149,6 +177,15 @@ export function isBreathingConfirmation(
   payload: InterruptPayload
 ): payload is BreathingConfirmationPayload {
   return payload.type === 'breathing_confirmation';
+}
+
+/**
+ * Type guard for journaling confirmation payload
+ */
+export function isJournalingConfirmation(
+  payload: InterruptPayload
+): payload is JournalingConfirmationPayload {
+  return payload.type === 'journaling_confirmation';
 }
 
 /**
