@@ -82,6 +82,7 @@
 
   /* Enable scrolling */
   overflow-y: auto;
+  scrollbar-gutter: stable; /* Reserve space for scrollbar to prevent CLS */
 
   /* Padding around messages */
   padding: var(--spacing-md);
@@ -687,6 +688,7 @@
   flex-direction: column;
   flex: 1;
   min-width: 0; /* Prevent flex item from overflowing */
+  contain: layout; /* Isolate layout recalculations to reduce CLS */
 }
 
 /* ----------------------------------------------------------------------------

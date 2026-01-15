@@ -23,7 +23,7 @@
 
 import { useQueryClient } from '@tanstack/react-query';
 import { getRouteApi, useNavigate } from '@tanstack/react-router';
-import React, { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo, lazy, Suspense } from 'react';
 import { z } from 'zod';
 
 import { ChatEmptyState } from '../ChatEmptyState';
@@ -32,6 +32,7 @@ import { ConversationHistory } from '../ConversationHistory';
 import styles from './ChatPage.module.css';
 
 import { ActivityOverlay } from '@/components/overlays';
+import { ActivityLoadingSkeleton } from '@/components/skeletons';
 import {
   MenuIcon,
   CloseIcon,
@@ -40,26 +41,62 @@ import {
   NewChatIcon,
   LogoutIcon,
 } from '@/components/ui/icons';
-import {
-  BreathingConfirmation,
-  WimHofExercise,
-  ImmersiveBreathing,
-  ImmersiveBreathingConfirmation,
-} from '@/features/breathing';
+// Lazy load activity components to reduce initial bundle size
+// These are only loaded when the user triggers an activity
+const ImmersiveBreathing = lazy(() =>
+  import('@/features/breathing/components/ImmersiveBreathing/ImmersiveBreathing').then((m) => ({
+    default: m.ImmersiveBreathing,
+  }))
+);
+const ImmersiveBreathingConfirmation = lazy(() =>
+  import('@/features/breathing/components/ImmersiveBreathing/ImmersiveBreathingConfirmation').then(
+    (m) => ({ default: m.ImmersiveBreathingConfirmation })
+  )
+);
+const WimHofExercise = lazy(() =>
+  import('@/features/breathing/components/WimHofExercise/WimHofExercise').then((m) => ({
+    default: m.WimHofExercise,
+  }))
+);
+const BreathingConfirmation = lazy(() =>
+  import('@/features/breathing/components/BreathingConfirmation/BreathingConfirmation').then(
+    (m) => ({ default: m.BreathingConfirmation })
+  )
+);
+const AIGeneratedMeditation = lazy(() =>
+  import('@/features/meditation/components/GuidedMeditation/AIGeneratedMeditation').then((m) => ({
+    default: m.AIGeneratedMeditation,
+  }))
+);
+const GuidedMeditation = lazy(() =>
+  import('@/features/meditation/components/GuidedMeditation/GuidedMeditation').then((m) => ({
+    default: m.GuidedMeditation,
+  }))
+);
+const VoiceSelectionConfirmation = lazy(() =>
+  import('@/features/meditation/components/VoiceSelectionConfirmation/VoiceSelectionConfirmation').then(
+    (m) => ({ default: m.VoiceSelectionConfirmation })
+  )
+);
+const JournalingExercise = lazy(() =>
+  import('@/features/journaling/components/JournalingExercise/JournalingExercise').then((m) => ({
+    default: m.JournalingExercise,
+  }))
+);
+const JournalingConfirmation = lazy(() =>
+  import('@/features/journaling/components/JournalingConfirmation/JournalingConfirmation').then(
+    (m) => ({ default: m.JournalingConfirmation })
+  )
+);
+const JournalHistory = lazy(() =>
+  import('@/features/journaling/components/JournalHistory/JournalHistory').then((m) => ({
+    default: m.JournalHistory,
+  }))
+);
+// Non-lazy imports for types and constants
 import type { BreathingTechnique, BreathingStats } from '@/features/breathing';
 import { ProgressWidget } from '@/features/gamification';
-import {
-  JournalingExercise,
-  JournalingConfirmation,
-  JournalHistory,
-  CATEGORY_INFO,
-  type JournalEntry,
-} from '@/features/journaling';
-import {
-  AIGeneratedMeditation,
-  GuidedMeditation,
-  VoiceSelectionConfirmation,
-} from '@/features/meditation';
+import { CATEGORY_INFO, type JournalEntry } from '@/features/journaling';
 import { DiscoverNav, ActivityRenderer, type DirectComponent } from '@/features/navigation';
 import { ThemeToggle } from '@/features/settings';
 import { SidebarProfile } from '@/features/user';
@@ -194,17 +231,15 @@ export function ChatPage() {
     setConversationId(loaderData.conversationId);
   }, [loaderData.messages, loaderData.conversationId]);
 
-  // Sidebar state - closed by default to match critical CSS in __root.tsx
-  // This prevents CLS (layout shift) on initial render
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-
-  // Open sidebar on desktop BEFORE paint to prevent CLS
-  // useLayoutEffect runs synchronously before browser paint
-  useLayoutEffect(() => {
-    if (typeof window !== 'undefined' && window.innerWidth >= 768) {
-      setIsSidebarOpen(true);
-    }
-  }, []);
+  // Sidebar state - SSR-safe initialization
+  // On server: false (matches critical CSS), on client: true for desktop
+  // This prevents CLS by computing correct initial state without needing useLayoutEffect
+  const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
+    if (typeof window === 'undefined') {
+      return false;
+    } // SSR: closed
+    return window.innerWidth >= 768; // Client: open on desktop
+  });
 
   // Interrupt data for HITL (Human-in-the-Loop) confirmation dialogs
   // When the AI suggests an activity, it pauses for user confirmation
@@ -1065,12 +1100,14 @@ export function ChatPage() {
 
           {/* Journal Entries */}
           <div className={styles.sidebarSection}>
-            <JournalHistory
-              onSelectEntry={handleSelectJournalEntry}
-              onCloseSidebar={() => {
-                setIsSidebarOpen(false);
-              }}
-            />
+            <Suspense fallback={<ActivityLoadingSkeleton />}>
+              <JournalHistory
+                onSelectEntry={handleSelectJournalEntry}
+                onCloseSidebar={() => {
+                  setIsSidebarOpen(false);
+                }}
+              />
+            </Suspense>
           </div>
 
           {/* Progress Widget */}
@@ -1170,14 +1207,16 @@ export function ChatPage() {
               <div
                 className={`${styles.bubble} ${styles.bubbleAssistant} ${styles.bubbleActivity}`}
               >
-                <BreathingConfirmation
-                  proposedTechnique={interruptData.proposed_technique}
-                  message={interruptData.message}
-                  availableTechniques={interruptData.available_techniques}
-                  onConfirm={(decision, techniqueId) => {
-                    void handleBreathingConfirm(decision, techniqueId);
-                  }}
-                />
+                <Suspense fallback={<ActivityLoadingSkeleton />}>
+                  <BreathingConfirmation
+                    proposedTechnique={interruptData.proposed_technique}
+                    message={interruptData.message}
+                    availableTechniques={interruptData.available_techniques}
+                    onConfirm={(decision, techniqueId) => {
+                      void handleBreathingConfirm(decision, techniqueId);
+                    }}
+                  />
+                </Suspense>
               </div>
             </div>
           )}
@@ -1188,16 +1227,18 @@ export function ChatPage() {
               <div
                 className={`${styles.bubble} ${styles.bubbleAssistant} ${styles.bubbleActivity}`}
               >
-                <VoiceSelectionConfirmation
-                  message={interruptData.message}
-                  availableVoices={interruptData.available_voices}
-                  recommendedVoice={interruptData.recommended_voice}
-                  meditationPreview={interruptData.meditation_preview}
-                  durationMinutes={interruptData.duration_minutes}
-                  onConfirm={(decision, voiceId) => {
-                    void handleVoiceSelectionConfirm(decision, voiceId);
-                  }}
-                />
+                <Suspense fallback={<ActivityLoadingSkeleton />}>
+                  <VoiceSelectionConfirmation
+                    message={interruptData.message}
+                    availableVoices={interruptData.available_voices}
+                    recommendedVoice={interruptData.recommended_voice}
+                    meditationPreview={interruptData.meditation_preview}
+                    durationMinutes={interruptData.duration_minutes}
+                    onConfirm={(decision, voiceId) => {
+                      void handleVoiceSelectionConfirm(decision, voiceId);
+                    }}
+                  />
+                </Suspense>
               </div>
             </div>
           )}
@@ -1208,17 +1249,19 @@ export function ChatPage() {
               <div
                 className={`${styles.bubble} ${styles.bubbleAssistant} ${styles.bubbleActivity}`}
               >
-                <JournalingConfirmation
-                  proposedPrompt={interruptData.proposed_prompt}
-                  message={interruptData.message}
-                  availablePrompts={interruptData.available_prompts}
-                  onConfirm={(prompt) => {
-                    void handleJournalingConfirm('start', prompt.id);
-                  }}
-                  onDecline={() => {
-                    void handleJournalingConfirm('not_now');
-                  }}
-                />
+                <Suspense fallback={<ActivityLoadingSkeleton />}>
+                  <JournalingConfirmation
+                    proposedPrompt={interruptData.proposed_prompt}
+                    message={interruptData.message}
+                    availablePrompts={interruptData.available_prompts}
+                    onConfirm={(prompt) => {
+                      void handleJournalingConfirm('start', prompt.id);
+                    }}
+                    onDecline={() => {
+                      void handleJournalingConfirm('not_now');
+                    }}
+                  />
+                </Suspense>
               </div>
             </div>
           )}
@@ -1286,27 +1329,29 @@ export function ChatPage() {
         onClose={handleActivityClose}
         activityType="breathing"
       >
-        {activeActivity?.phase === 'confirming' && (
-          <ImmersiveBreathingConfirmation
-            proposedTechnique={activeActivity.data.proposedTechnique}
-            message={activeActivity.data.message}
-            availableTechniques={activeActivity.data.availableTechniques}
-            onConfirm={(technique) => {
-              void handleImmersiveBreathingConfirm(technique);
-            }}
-            onDecline={() => {
-              void handleImmersiveBreathingDecline();
-            }}
-          />
-        )}
-        {activeActivity?.phase === 'active' && (
-          <ImmersiveBreathing
-            technique={activeActivity.data.technique}
-            introduction={activeActivity.data.introduction}
-            onComplete={handleImmersiveBreathingComplete}
-            onExit={handleActivityClose}
-          />
-        )}
+        <Suspense fallback={<ActivityLoadingSkeleton />}>
+          {activeActivity?.phase === 'confirming' && (
+            <ImmersiveBreathingConfirmation
+              proposedTechnique={activeActivity.data.proposedTechnique}
+              message={activeActivity.data.message}
+              availableTechniques={activeActivity.data.availableTechniques}
+              onConfirm={(technique) => {
+                void handleImmersiveBreathingConfirm(technique);
+              }}
+              onDecline={() => {
+                void handleImmersiveBreathingDecline();
+              }}
+            />
+          )}
+          {activeActivity?.phase === 'active' && (
+            <ImmersiveBreathing
+              technique={activeActivity.data.technique}
+              introduction={activeActivity.data.introduction}
+              onComplete={handleImmersiveBreathingComplete}
+              onExit={handleActivityClose}
+            />
+          )}
+        </Suspense>
       </ActivityOverlay>
 
       {/* Direct Activity Overlay - for sidebar navigation */}
@@ -1437,12 +1482,14 @@ function MessageBubble({ message, isStreaming = false }: MessageBubbleProps) {
     return (
       <div className={styles.messageRow}>
         <div className={`${styles.bubble} ${styles.bubbleAssistant} ${styles.bubbleActivity}`}>
-          <WimHofExercise
-            technique={activity.technique}
-            introduction={activity.introduction}
-            isFirstTime={activity.is_first_time}
-            onComplete={handleExerciseComplete}
-          />
+          <Suspense fallback={<ActivityLoadingSkeleton />}>
+            <WimHofExercise
+              technique={activity.technique}
+              introduction={activity.introduction}
+              isFirstTime={activity.is_first_time}
+              onComplete={handleExerciseComplete}
+            />
+          </Suspense>
         </div>
       </div>
     );
@@ -1492,11 +1539,13 @@ function MessageBubble({ message, isStreaming = false }: MessageBubbleProps) {
     return (
       <div className={styles.messageRow}>
         <div className={`${styles.bubble} ${styles.bubbleAssistant} ${styles.bubbleActivity}`}>
-          <GuidedMeditation
-            track={activity.track}
-            introduction={activity.introduction}
-            onComplete={handleExerciseComplete}
-          />
+          <Suspense fallback={<ActivityLoadingSkeleton />}>
+            <GuidedMeditation
+              track={activity.track}
+              introduction={activity.introduction}
+              onComplete={handleExerciseComplete}
+            />
+          </Suspense>
         </div>
       </div>
     );
