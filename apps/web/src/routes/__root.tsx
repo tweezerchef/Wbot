@@ -318,6 +318,56 @@ function RootDocument({ children }: { children: React.ReactNode }) {
                   overflow: hidden;
                 }
               }
+
+              /* === ChatPage Critical Layout === */
+              /*
+               * Essential chat layout styles inlined to prevent layout shift.
+               * These match the CSS module classes in ChatPage.module.css.
+               */
+              [class*="_container_"][class*="_chatPage_"],
+              [class*="_chatPage_"] {
+                display: flex;
+                height: 100dvh;
+                overflow: hidden;
+                background: linear-gradient(135deg, #e8f4f3 0%, #f0edf5 100%);
+              }
+
+              [class*="_chatMain_"] {
+                display: flex;
+                flex-direction: column;
+                flex: 1;
+                min-width: 0;
+              }
+
+              [class*="_header_"][class*="_chatPage_"] {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                height: 64px;
+                padding: 0 var(--spacing-md);
+                border-bottom: 1px solid var(--border-color);
+                background: var(--color-background);
+              }
+
+              [class*="_messages_"] {
+                flex: 1;
+                overflow-y: auto;
+                padding: var(--spacing-md);
+              }
+
+              [class*="_inputArea_"] {
+                display: flex;
+                gap: var(--spacing-sm);
+                padding: var(--spacing-md);
+                border-top: 1px solid var(--border-color);
+                background: var(--color-background);
+              }
+
+              /* Loading skeleton pulse animation */
+              @keyframes skeleton-pulse {
+                0%, 100% { opacity: 1; }
+                50% { opacity: 0.5; }
+              }
             `,
           }}
         />
