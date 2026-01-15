@@ -23,7 +23,8 @@
 
 import { useQueryClient } from '@tanstack/react-query';
 import { getRouteApi, useNavigate } from '@tanstack/react-router';
-import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo } from 'react';
+import { z } from 'zod';
 
 import { ChatEmptyState } from '../ChatEmptyState';
 import { ConversationHistory } from '../ConversationHistory';
@@ -82,6 +83,30 @@ import { supabase } from '@/lib/supabase';
 const routeApi = getRouteApi('/_authed/chat');
 
 /* ----------------------------------------------------------------------------
+   Loader Data Validation
+   ---------------------------------------------------------------------------- */
+const chatLoaderDataSchema = z.object({
+  conversationId: z.uuid().nullable(),
+  messages: z.array(
+    z.object({
+      id: z.string(),
+      role: z.enum(['user', 'assistant', 'system']),
+      content: z.string(),
+      createdAt: z.coerce.date(),
+    })
+  ),
+  userEmail: z.email().optional(),
+  userId: z.uuid().optional(),
+});
+
+type ChatLoaderData = z.infer<typeof chatLoaderDataSchema>;
+
+const emptyLoaderData: ChatLoaderData = {
+  conversationId: null,
+  messages: [],
+};
+
+/* ----------------------------------------------------------------------------
    Chat Page Component
    ---------------------------------------------------------------------------- */
 
@@ -97,7 +122,16 @@ const routeApi = getRouteApi('/_authed/chat');
  */
 export function ChatPage() {
   // Get initial data from route loader (most recent conversation)
-  const loaderData = routeApi.useLoaderData();
+  // Memoize to prevent new object references on every render (would cause infinite loop)
+  const rawLoaderData = routeApi.useLoaderData();
+  const loaderData = useMemo(() => {
+    const result = chatLoaderDataSchema.safeParse(rawLoaderData);
+    if (!result.success) {
+      console.error('Invalid chat loader data:', result.error);
+      return emptyLoaderData;
+    }
+    return result.data;
+  }, [rawLoaderData]);
 
   // Navigation for redirects (e.g., after logout)
   const navigate = useNavigate();
@@ -160,14 +194,15 @@ export function ChatPage() {
     setConversationId(loaderData.conversationId);
   }, [loaderData.messages, loaderData.conversationId]);
 
-  // Sidebar state - open by default (matches desktop CSS)
-  // On mobile, we close it after hydration via useEffect
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  // Sidebar state - closed by default to match critical CSS in __root.tsx
+  // This prevents CLS (layout shift) on initial render
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
-  // Close sidebar on mobile after hydration (768px breakpoint matches CSS)
-  useEffect(() => {
-    if (typeof window !== 'undefined' && window.innerWidth < 768) {
-      setIsSidebarOpen(false);
+  // Open sidebar on desktop BEFORE paint to prevent CLS
+  // useLayoutEffect runs synchronously before browser paint
+  useLayoutEffect(() => {
+    if (typeof window !== 'undefined' && window.innerWidth >= 768) {
+      setIsSidebarOpen(true);
     }
   }, []);
 
@@ -931,6 +966,11 @@ export function ChatPage() {
     }
   };
 
+  // Typed wrapper keeps JSX callback inference safe.
+  const handleConversationSelection = (selectedConversationId: string) => {
+    void handleSelectConversation(selectedConversationId);
+  };
+
   /* --------------------------------------------------------------------------
      Escape Key Handler - closes sidebar
      -------------------------------------------------------------------------- */
@@ -1016,7 +1056,7 @@ export function ChatPage() {
             <ConversationHistory
               userId={loaderData.userId}
               currentConversationId={conversationId}
-              onSelectConversation={(id) => void handleSelectConversation(id)}
+              onSelectConversation={handleConversationSelection}
               onCloseSidebar={() => {
                 setIsSidebarOpen(false);
               }}

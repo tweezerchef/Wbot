@@ -292,11 +292,6 @@ function RootDocument({ children }: { children: React.ReactNode }) {
                 background-color: var(--color-background);
               }
 
-              /* === Smooth Loading Transition === */
-              /* Content is visible immediately with critical CSS above */
-              /* This class just provides a smooth transition when full CSS loads */
-              body.loaded { transition: none; }
-
               /* === Button Reset === */
               button { cursor: pointer; border: none; background: none; padding: 0; font: inherit; }
               button:disabled { cursor: not-allowed; opacity: 0.5; }
@@ -369,16 +364,6 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 
         {/* TanStack Start scripts for client-side hydration */}
         <Scripts />
-
-        {/*
-          Mark body as loaded after hydration.
-          The 'loaded' class can be used for CSS transitions if needed.
-        */}
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `document.body.classList.add('loaded');`,
-          }}
-        />
       </body>
     </html>
   );
