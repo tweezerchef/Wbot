@@ -21,6 +21,7 @@
    - Conversation history loaded on mount
    ============================================================================ */
 
+import { useQueryClient } from '@tanstack/react-query';
 import { getRouteApi, useNavigate } from '@tanstack/react-router';
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 
@@ -71,6 +72,7 @@ import {
 } from '@/lib/ai-client';
 import { createConversation, loadMessages, touchConversation } from '@/lib/conversations';
 import { parseActivityContent } from '@/lib/parseActivity';
+import { conversationKeys } from '@/lib/queries';
 import { supabase } from '@/lib/supabase';
 
 /* ----------------------------------------------------------------------------
@@ -114,6 +116,37 @@ export function ChatPage() {
 
   // Current conversation ID - initialized from loader data
   const [conversationId, setConversationId] = useState<string | null>(loaderData.conversationId);
+
+  // Query client for cache invalidation after direct Supabase operations
+  const queryClient = useQueryClient();
+
+  // Keep conversation list/detail cache in sync with manual updates
+  const invalidateConversationCache = useCallback(
+    (userId: string, conversationId?: string) => {
+      void queryClient.invalidateQueries({ queryKey: conversationKeys.list(userId) });
+      if (conversationId) {
+        void queryClient.invalidateQueries({ queryKey: conversationKeys.detail(conversationId) });
+      }
+    },
+    [queryClient]
+  );
+
+  const createConversationForUser = useCallback(
+    async (userId: string) => {
+      const newConversationId = await createConversation(userId);
+      invalidateConversationCache(userId, newConversationId);
+      return newConversationId;
+    },
+    [invalidateConversationCache]
+  );
+
+  const touchConversationForUser = useCallback(
+    async (currentConversationId: string, userId: string) => {
+      await touchConversation(currentConversationId);
+      invalidateConversationCache(userId, currentConversationId);
+    },
+    [invalidateConversationCache]
+  );
 
   /* --------------------------------------------------------------------------
      Sync state with loader data when route is revisited
@@ -244,7 +277,8 @@ export function ChatPage() {
       // Get or create conversation ID (lazy creation on first message)
       let currentConversationId = conversationId;
       if (!currentConversationId) {
-        currentConversationId = await createConversation(session.user.id);
+        const newConversationId = await createConversationForUser(session.user.id);
+        currentConversationId = newConversationId;
         setConversationId(currentConversationId);
       }
 
@@ -275,7 +309,7 @@ export function ChatPage() {
 
             // Update conversation timestamp for "most recent" ordering
             if (currentConversationId) {
-              void touchConversation(currentConversationId);
+              void touchConversationForUser(currentConversationId, session.user.id);
             }
             break;
           }
@@ -416,7 +450,7 @@ export function ChatPage() {
               setStreamingContent('');
 
               // Touch conversation for ordering
-              void touchConversation(conversationId);
+              void touchConversationForUser(conversationId, session.user.id);
               break;
             }
 
@@ -448,7 +482,7 @@ export function ChatPage() {
         inputRef.current?.focus();
       }
     },
-    [conversationId]
+    [conversationId, touchConversationForUser]
   );
 
   /* --------------------------------------------------------------------------
@@ -499,7 +533,7 @@ export function ChatPage() {
               setStreamingContent('');
 
               // Touch conversation for ordering
-              void touchConversation(conversationId);
+              void touchConversationForUser(conversationId, session.user.id);
               break;
             }
 
@@ -531,7 +565,7 @@ export function ChatPage() {
         inputRef.current?.focus();
       }
     },
-    [conversationId]
+    [conversationId, touchConversationForUser]
   );
 
   /* --------------------------------------------------------------------------
@@ -582,7 +616,7 @@ export function ChatPage() {
               setStreamingContent('');
 
               // Touch conversation for ordering
-              void touchConversation(conversationId);
+              void touchConversationForUser(conversationId, session.user.id);
               break;
             }
 
@@ -614,7 +648,7 @@ export function ChatPage() {
         inputRef.current?.focus();
       }
     },
-    [conversationId]
+    [conversationId, touchConversationForUser]
   );
 
   /* --------------------------------------------------------------------------
@@ -662,7 +696,7 @@ export function ChatPage() {
               // During live HITL, we skip adding the activity message to local state
               // because the user sees the activity in the ImmersiveBreathing overlay.
               // The message is persisted via the backend and will appear when loading history.
-              void touchConversation(conversationId);
+              void touchConversationForUser(conversationId, session.user.id);
               break;
             }
 
@@ -688,7 +722,7 @@ export function ChatPage() {
         },
       });
     },
-    [activeActivity, conversationId]
+    [activeActivity, conversationId, touchConversationForUser]
   );
 
   /**
@@ -729,7 +763,7 @@ export function ChatPage() {
             };
             setMessages((prev) => [...prev, assistantMessage]);
             setStreamingContent('');
-            void touchConversation(conversationId);
+            void touchConversationForUser(conversationId, session.user.id);
             break;
           }
 
@@ -746,7 +780,7 @@ export function ChatPage() {
       setIsLoading(false);
       inputRef.current?.focus();
     }
-  }, [conversationId]);
+  }, [conversationId, touchConversationForUser]);
 
   /**
    * Handle breathing exercise completion.
@@ -842,9 +876,9 @@ export function ChatPage() {
         return;
       }
 
-      // Create a new conversation in the database
-      const newId = await createConversation(session.user.id);
-      setConversationId(newId);
+      // Create a new conversation in the database using mutation
+      const newConversationId = await createConversationForUser(session.user.id);
+      setConversationId(newConversationId);
 
       // Clear local state
       setMessages([]);
@@ -980,6 +1014,7 @@ export function ChatPage() {
           {/* Conversation History */}
           <div className={styles.sidebarSection}>
             <ConversationHistory
+              userId={loaderData.userId}
               currentConversationId={conversationId}
               onSelectConversation={(id) => void handleSelectConversation(id)}
               onCloseSidebar={() => {
@@ -1265,6 +1300,9 @@ export function ChatPage() {
               <div
                 className={styles.journalViewer}
                 onClick={(e) => {
+                  e.stopPropagation();
+                }}
+                onKeyDown={(e) => {
                   e.stopPropagation();
                 }}
                 role="document"

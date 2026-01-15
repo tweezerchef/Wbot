@@ -3,28 +3,29 @@
  *
  * Displays recent conversations and provides search functionality.
  * Renders within the sidebar below the "New Conversation" button.
+ *
+ * Uses TanStack Query for conversation list fetching, which provides:
+ * - Automatic cache invalidation when conversations are created/deleted
+ * - Consistent data across components
+ * - Better loading/error states
  */
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { useState, useEffect, useRef } from 'react';
 
 import styles from './ConversationHistory.module.css';
 
 import { HistoryIcon, SearchIcon, ChevronDownIcon } from '@/components/ui/icons';
-import {
-  getConversationsWithPreview,
-  searchConversations,
-  getDisplayTitle,
-  getMessagePreview,
-  getRelativeTime,
-  type ConversationPreview,
-  type SearchResult,
-} from '@/lib/conversationHistory';
+import { searchConversations, getRelativeTime, type SearchResult } from '@/lib/conversationHistory';
+import { conversationListOptions, type ConversationWithPreview } from '@/lib/queries';
 
 /* ----------------------------------------------------------------------------
    Props Interface
    ---------------------------------------------------------------------------- */
 
 interface ConversationHistoryProps {
+  /** User ID for fetching conversations (undefined if not authenticated) */
+  userId: string | undefined;
   /** Currently active conversation ID */
   currentConversationId: string | null;
   /** Callback when a conversation is selected */
@@ -34,10 +35,43 @@ interface ConversationHistoryProps {
 }
 
 /* ----------------------------------------------------------------------------
+   Helper Functions
+   ---------------------------------------------------------------------------- */
+
+/** Get display title for a conversation */
+function getDisplayTitle(conv: ConversationWithPreview): string {
+  if (conv.title) {
+    return conv.title;
+  }
+
+  if (conv.last_message_content) {
+    // Use first message as title (truncated)
+    const preview = conv.last_message_content.slice(0, 40);
+    return preview.length < conv.last_message_content.length ? `${preview}...` : preview;
+  }
+
+  return 'New Conversation';
+}
+
+/** Get message preview for a conversation */
+function getMessagePreview(conv: ConversationWithPreview): string {
+  if (!conv.last_message_content) {
+    return 'No messages yet';
+  }
+
+  const role = conv.last_message_role === 'user' ? 'You: ' : '';
+  const content = conv.last_message_content.slice(0, 50);
+  const truncated = content.length < conv.last_message_content.length ? '...' : '';
+
+  return `${role}${content}${truncated}`;
+}
+
+/* ----------------------------------------------------------------------------
    Component
    ---------------------------------------------------------------------------- */
 
 export function ConversationHistory({
+  userId,
   currentConversationId,
   onSelectConversation,
   onCloseSidebar,
@@ -45,10 +79,17 @@ export function ConversationHistory({
   // Panel expansion state
   const [isExpanded, setIsExpanded] = useState(false);
 
-  // Conversation list state
-  const [conversations, setConversations] = useState<ConversationPreview[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [hasMore, setHasMore] = useState(true);
+  // Use TanStack Query for conversation list
+  // Only fetch when panel is expanded and userId is available
+  const {
+    data: conversations = [],
+    isLoading,
+    isFetching,
+  } = useQuery({
+    // Use empty string fallback - query won't run if userId is falsy anyway
+    ...conversationListOptions(userId ?? '', { limit: 50 }),
+    enabled: isExpanded && Boolean(userId),
+  });
 
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
@@ -57,43 +98,6 @@ export function ConversationHistory({
 
   // Debounce timer ref
   const searchTimerRef = useRef<number | null>(null);
-
-  /* --------------------------------------------------------------------------
-     Load Conversations on Expand
-     -------------------------------------------------------------------------- */
-  const loadConversations = useCallback(
-    async (refresh = false) => {
-      if (isLoading) {
-        return;
-      }
-
-      setIsLoading(true);
-      try {
-        const offset = refresh ? 0 : conversations.length;
-        const newConversations = await getConversationsWithPreview(6, offset);
-
-        if (refresh) {
-          setConversations(newConversations);
-        } else {
-          setConversations((prev) => [...prev, ...newConversations]);
-        }
-
-        setHasMore(newConversations.length === 6);
-      } catch (error) {
-        console.error('Failed to load conversations:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    },
-    [conversations.length, isLoading]
-  );
-
-  // Load on first expand
-  useEffect(() => {
-    if (isExpanded && conversations.length === 0) {
-      void loadConversations(true);
-    }
-  }, [isExpanded, conversations.length, loadConversations]);
 
   /* --------------------------------------------------------------------------
      Search Handler with Debounce
@@ -151,14 +155,11 @@ export function ConversationHistory({
     }
   };
 
-  const handleLoadMore = () => {
-    void loadConversations(false);
-  };
-
   /* --------------------------------------------------------------------------
      Render
      -------------------------------------------------------------------------- */
   const showSearchResults = searchQuery.trim().length > 0;
+  const showLoading = isLoading || isFetching;
 
   return (
     <div className={styles.container}>
@@ -229,7 +230,7 @@ export function ConversationHistory({
                 </li>
               )
             ) : (
-              // Recent Conversations
+              // Recent Conversations (from Query cache)
               <>
                 {conversations.map((conv) => (
                   <li key={conv.id}>
@@ -250,18 +251,9 @@ export function ConversationHistory({
                   </li>
                 ))}
 
-                {/* Load More Button */}
-                {hasMore && !isLoading && conversations.length > 0 && (
-                  <li>
-                    <button className={styles.loadMoreButton} onClick={handleLoadMore}>
-                      Load more...
-                    </button>
-                  </li>
-                )}
+                {showLoading && <li className={styles.loadingState}>Loading...</li>}
 
-                {isLoading && <li className={styles.loadingState}>Loading...</li>}
-
-                {conversations.length === 0 && !isLoading && (
+                {conversations.length === 0 && !showLoading && (
                   <li className={styles.emptyState}>No conversations yet</li>
                 )}
               </>

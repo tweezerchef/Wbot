@@ -33,10 +33,14 @@ export function getRouter() {
         // Data stays fresh for 1 minute before refetching
         // This prevents immediate refetch after SSR hydration
         staleTime: 60 * 1000,
+        // Keep unused data in cache for 5 minutes before garbage collection
+        gcTime: 5 * 60 * 1000,
         // Don't refetch when window regains focus (prevents jarring UX in chat)
         refetchOnWindowFocus: false,
-        // Only retry once on failure
-        retry: 1,
+        // Retry twice on failure with exponential backoff
+        retry: 2,
+        // Explicit exponential backoff: 1s, 2s, 4s... capped at 30s
+        retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 30000),
       },
     },
   });
@@ -61,14 +65,13 @@ export function getRouter() {
 // ----------------------------------------------------------------------------
 // Type Registration
 // ----------------------------------------------------------------------------
-// Create a router instance for type inference only
-// Prefixed with _ to indicate it's only used for type extraction
-const _router = getRouter();
+// Export AppRouter type for use in other files (e.g., test utilities)
+export type AppRouter = ReturnType<typeof getRouter>;
 
 // Type registration for TypeScript support
-// This enables type-safe routing throughout the app
+// This enables type-safe routing throughout the app (useNavigate, useSearch, etc.)
 declare module '@tanstack/react-router' {
   interface Register {
-    router: typeof _router;
+    router: AppRouter;
   }
 }

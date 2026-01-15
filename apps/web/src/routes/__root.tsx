@@ -20,15 +20,85 @@
 // ============================================================================
 
 /// <reference types="vite/client" />
-import { QueryClientProvider } from '@tanstack/react-query';
+import { QueryClientProvider, QueryErrorResetBoundary } from '@tanstack/react-query';
 import { HeadContent, Scripts, createRootRouteWithContext } from '@tanstack/react-router';
 import * as React from 'react';
+import { ErrorBoundary, type FallbackProps } from 'react-error-boundary';
 
 import { ThemeProvider } from '../features/settings';
 import type { RouterContext } from '../types';
 
 // Import global styles - applies CSS reset and variables
 import '../styles/globals.css';
+
+// ----------------------------------------------------------------------------
+// Query Error Fallback Component
+// ----------------------------------------------------------------------------
+
+/**
+ * Error fallback for TanStack Query errors.
+ *
+ * Displays when a query fails and allows the user to retry.
+ * Integrates with QueryErrorResetBoundary to reset failed queries on retry.
+ */
+function QueryErrorFallback({ error, resetErrorBoundary }: FallbackProps) {
+  return (
+    <div
+      role="alert"
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: '100dvh',
+        padding: 'var(--spacing-lg)',
+        textAlign: 'center',
+        backgroundColor: 'var(--color-background)',
+        color: 'var(--color-text-primary)',
+      }}
+    >
+      <h2
+        style={{
+          fontSize: 'var(--font-size-xl)',
+          fontWeight: 'var(--font-weight-semibold)',
+          marginBottom: 'var(--spacing-md)',
+        }}
+      >
+        Something went wrong
+      </h2>
+      <p
+        style={{
+          color: 'var(--color-text-secondary)',
+          marginBottom: 'var(--spacing-lg)',
+          maxWidth: '400px',
+        }}
+      >
+        {error instanceof Error ? error.message : 'An unexpected error occurred'}
+      </p>
+      <button
+        onClick={resetErrorBoundary}
+        style={{
+          backgroundColor: 'var(--color-primary)',
+          color: 'var(--color-text-inverse)',
+          padding: 'var(--spacing-sm) var(--spacing-lg)',
+          borderRadius: 'var(--radius-md)',
+          fontSize: 'var(--font-size-base)',
+          fontWeight: 'var(--font-weight-medium)',
+          cursor: 'pointer',
+          transition: 'background-color var(--transition-fast)',
+        }}
+        onMouseOver={(e) => {
+          e.currentTarget.style.backgroundColor = 'var(--color-primary-hover)';
+        }}
+        onMouseOut={(e) => {
+          e.currentTarget.style.backgroundColor = 'var(--color-primary)';
+        }}
+      >
+        Try Again
+      </button>
+    </div>
+  );
+}
 
 // ----------------------------------------------------------------------------
 // Root Route Definition
@@ -259,32 +329,42 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       </head>
       <body>
         {/* QueryClientProvider enables TanStack Query throughout the app */}
-        {}
         <QueryClientProvider client={queryClient}>
-          {/* ThemeProvider manages light/dark/system theme preferences */}
-          <ThemeProvider>
-            {/*
-              The app container fills the entire viewport.
-              This is important for mobile full-screen experience.
-              Using dvh (dynamic viewport height) to account for mobile browser chrome.
+          {/*
+            QueryErrorResetBoundary + ErrorBoundary provides graceful error handling
+            for TanStack Query errors. When a query fails, users see a friendly
+            error message with a retry button that resets failed queries.
+          */}
+          <QueryErrorResetBoundary>
+            {({ reset }) => (
+              <ErrorBoundary onReset={reset} FallbackComponent={QueryErrorFallback}>
+                {/* ThemeProvider manages light/dark/system theme preferences */}
+                <ThemeProvider>
+                  {/*
+                    The app container fills the entire viewport.
+                    This is important for mobile full-screen experience.
+                    Using dvh (dynamic viewport height) to account for mobile browser chrome.
 
-              Critical layout styles are inlined to prevent layout shift while
-              CSS module chunks load asynchronously.
-            */}
-            <div
-              id="app"
-              style={{
-                minHeight: '100dvh',
-                display: 'flex',
-                flexDirection: 'column',
-                backgroundColor: 'var(--color-background)',
-                color: 'var(--color-text-primary)',
-              }}
-            >
-              {/* Child routes render here (landing or chat) */}
-              {children}
-            </div>
-          </ThemeProvider>
+                    Critical layout styles are inlined to prevent layout shift while
+                    CSS module chunks load asynchronously.
+                  */}
+                  <div
+                    id="app"
+                    style={{
+                      minHeight: '100dvh',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      backgroundColor: 'var(--color-background)',
+                      color: 'var(--color-text-primary)',
+                    }}
+                  >
+                    {/* Child routes render here (landing or chat) */}
+                    {children}
+                  </div>
+                </ThemeProvider>
+              </ErrorBoundary>
+            )}
+          </QueryErrorResetBoundary>
         </QueryClientProvider>
 
         {/* TanStack Start scripts for client-side hydration */}
