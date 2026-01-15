@@ -1561,7 +1561,9 @@ function MessageBubble({ message, isStreaming = false }: MessageBubbleProps) {
     return (
       <div className={styles.messageRow}>
         <div className={`${styles.bubble} ${styles.bubbleAssistant} ${styles.bubbleActivity}`}>
-          <AIGeneratedMeditation activityData={activity} onComplete={handleExerciseComplete} />
+          <Suspense fallback={<ActivityLoadingSkeleton />}>
+            <AIGeneratedMeditation activityData={activity} onComplete={handleExerciseComplete} />
+          </Suspense>
         </div>
       </div>
     );
@@ -1574,12 +1576,14 @@ function MessageBubble({ message, isStreaming = false }: MessageBubbleProps) {
     return (
       <div className={styles.messageRow}>
         <div className={`${styles.bubble} ${styles.bubbleAssistant} ${styles.bubbleActivity}`}>
-          <JournalingExercise
-            prompt={activity.prompt}
-            introduction={activity.introduction}
-            enableSharing={activity.enable_sharing}
-            onComplete={handleExerciseComplete}
-          />
+          <Suspense fallback={<ActivityLoadingSkeleton />}>
+            <JournalingExercise
+              prompt={activity.prompt}
+              introduction={activity.introduction}
+              enableSharing={activity.enable_sharing}
+              onComplete={handleExerciseComplete}
+            />
+          </Suspense>
         </div>
       </div>
     );
