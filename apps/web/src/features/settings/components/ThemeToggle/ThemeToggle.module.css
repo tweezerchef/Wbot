@@ -22,18 +22,32 @@
   background: transparent;
   color: var(--color-text-muted);
   cursor: pointer;
-  transition: all var(--duration-fast) var(--ease-gentle);
+  /* GPU-accelerated transitions only - avoids non-composited animation warnings */
+  transition:
+    transform var(--duration-fast) var(--ease-gentle),
+    opacity var(--duration-fast) var(--ease-gentle);
 }
 
 .option:hover {
+  /* Visual states applied without transition (instant) */
   color: var(--color-text-secondary);
   background: var(--color-neutral-200);
+  /* GPU-accelerated hover feedback */
+  transform: scale(1.05);
+  opacity: 0.9;
+}
+
+.option:active {
+  transform: scale(0.95);
 }
 
 .option.active {
+  /* Active state applied instantly, no animation needed */
   background: var(--color-surface);
   color: var(--color-primary);
   box-shadow: var(--shadow-sm);
+  transform: none;
+  opacity: 1;
 }
 
 .option:focus-visible {

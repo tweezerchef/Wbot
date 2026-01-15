@@ -84,11 +84,41 @@ const themeOptions: { value: Theme; icon: () => React.ReactNode; label: string }
    ---------------------------------------------------------------------------- */
 
 export function ThemeToggle({ showLabels = false, className }: ThemeToggleProps) {
-  const { theme, setTheme } = useTheme();
+  const { theme, setTheme, mounted } = useTheme();
 
   const containerClasses = [styles.container, showLabels && styles.withLabels, className]
     .filter(Boolean)
     .join(' ');
+
+  // Render disabled placeholder during SSR/hydration to prevent mismatch
+  // Server always renders with 'system' as active (defaultTheme)
+  // After mount, the actual theme from localStorage is shown
+  if (!mounted) {
+    return (
+      <div className={containerClasses} role="radiogroup" aria-label="Theme selection">
+        {themeOptions.map((option) => {
+          const Icon = option.icon;
+          // Match server's defaultTheme='system' to avoid hydration mismatch
+          const isActive = option.value === 'system';
+
+          return (
+            <button
+              key={option.value}
+              className={`${styles.option} ${isActive ? styles.active : ''}`}
+              role="radio"
+              aria-checked={isActive}
+              aria-label={option.label}
+              type="button"
+              disabled
+            >
+              <Icon />
+              {showLabels && <span className={styles.optionLabel}>{option.label}</span>}
+            </button>
+          );
+        })}
+      </div>
+    );
+  }
 
   return (
     <div className={containerClasses} role="radiogroup" aria-label="Theme selection">
