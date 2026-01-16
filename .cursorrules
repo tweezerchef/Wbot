@@ -606,6 +606,18 @@ Before implementing new features or making significant changes, check if relevan
 
 ## CSS Guidelines
 
+### Use CSS Modules
+
+Components should import styles from their co-located `.module.css` file:
+
+```typescript
+import styles from './MyComponent.module.css';
+
+export function MyComponent() {
+  return <div className={styles.container}>...</div>;
+}
+```
+
 ### Use CSS Variables
 
 All colors, spacing, and typography should use variables from `variables.css`:
