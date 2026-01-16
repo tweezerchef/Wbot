@@ -20,8 +20,6 @@ import { createServerFn } from '@tanstack/react-start';
 import { zodValidator } from '@tanstack/zod-adapter';
 import { z } from 'zod';
 
-import { ChatSkeleton } from '@/components/skeletons';
-import { ChatPage } from '@/features/chat';
 import type { Message } from '@/lib/ai-client';
 import { getMostRecentConversation, loadMessagesWithCache } from '@/lib/conversations.server';
 import { authMiddleware } from '@/lib/middleware';
@@ -200,9 +198,5 @@ export const Route = createFileRoute('/_authed/chat')({
     return data;
   },
 
-  // Show skeleton immediately to prevent FOUC on initial load/refresh
-  pendingMs: 0,
-  pendingComponent: ChatSkeleton,
-
-  component: ChatPage,
+  // Component is defined in chat.lazy.tsx for code splitting.
 });

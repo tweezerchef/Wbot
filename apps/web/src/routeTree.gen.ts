@@ -8,120 +8,121 @@
 // You should NOT make any changes in this file as it will be overwritten.
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
-import { Route as rootRouteImport } from './routes/__root';
-import { Route as SignupRouteImport } from './routes/signup';
-import { Route as AuthedRouteImport } from './routes/_authed';
-import { Route as IndexRouteImport } from './routes/index';
-import { Route as AuthedChatRouteImport } from './routes/_authed/chat';
+import { Route as rootRouteImport } from './routes/__root'
+import { Route as SignupRouteImport } from './routes/signup'
+import { Route as AuthedRouteImport } from './routes/_authed'
+import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthedChatRouteImport } from './routes/_authed/chat'
 
 const SignupRoute = SignupRouteImport.update({
   id: '/signup',
   path: '/signup',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const AuthedRoute = AuthedRouteImport.update({
   id: '/_authed',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const AuthedChatRoute = AuthedChatRouteImport.update({
   id: '/chat',
   path: '/chat',
   getParentRoute: () => AuthedRoute,
-} as any).lazy(() => import('./routes/_authed/chat.lazy').then((d) => d.Route));
+} as any).lazy(() => import('./routes/_authed/chat.lazy').then((d) => d.Route))
 
 export interface FileRoutesByFullPath {
-  '/': typeof IndexRoute;
-  '/signup': typeof SignupRoute;
-  '/chat': typeof AuthedChatRoute;
+  '/': typeof IndexRoute
+  '/signup': typeof SignupRoute
+  '/chat': typeof AuthedChatRoute
 }
 export interface FileRoutesByTo {
-  '/': typeof IndexRoute;
-  '/signup': typeof SignupRoute;
-  '/chat': typeof AuthedChatRoute;
+  '/': typeof IndexRoute
+  '/signup': typeof SignupRoute
+  '/chat': typeof AuthedChatRoute
 }
 export interface FileRoutesById {
-  __root__: typeof rootRouteImport;
-  '/': typeof IndexRoute;
-  '/_authed': typeof AuthedRouteWithChildren;
-  '/signup': typeof SignupRoute;
-  '/_authed/chat': typeof AuthedChatRoute;
+  __root__: typeof rootRouteImport
+  '/': typeof IndexRoute
+  '/_authed': typeof AuthedRouteWithChildren
+  '/signup': typeof SignupRoute
+  '/_authed/chat': typeof AuthedChatRoute
 }
 export interface FileRouteTypes {
-  fileRoutesByFullPath: FileRoutesByFullPath;
-  fullPaths: '/' | '/signup' | '/chat';
-  fileRoutesByTo: FileRoutesByTo;
-  to: '/' | '/signup' | '/chat';
-  id: '__root__' | '/' | '/_authed' | '/signup' | '/_authed/chat';
-  fileRoutesById: FileRoutesById;
+  fileRoutesByFullPath: FileRoutesByFullPath
+  fullPaths: '/' | '/signup' | '/chat'
+  fileRoutesByTo: FileRoutesByTo
+  to: '/' | '/signup' | '/chat'
+  id: '__root__' | '/' | '/_authed' | '/signup' | '/_authed/chat'
+  fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute;
-  AuthedRoute: typeof AuthedRouteWithChildren;
-  SignupRoute: typeof SignupRoute;
+  IndexRoute: typeof IndexRoute
+  AuthedRoute: typeof AuthedRouteWithChildren
+  SignupRoute: typeof SignupRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
     '/signup': {
-      id: '/signup';
-      path: '/signup';
-      fullPath: '/signup';
-      preLoaderRoute: typeof SignupRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
+      id: '/signup'
+      path: '/signup'
+      fullPath: '/signup'
+      preLoaderRoute: typeof SignupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_authed': {
-      id: '/_authed';
-      path: '';
-      fullPath: '';
-      preLoaderRoute: typeof AuthedRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
+      id: '/_authed'
+      path: ''
+      fullPath: ''
+      preLoaderRoute: typeof AuthedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
-      id: '/';
-      path: '/';
-      fullPath: '/';
-      preLoaderRoute: typeof IndexRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_authed/chat': {
-      id: '/_authed/chat';
-      path: '/chat';
-      fullPath: '/chat';
-      preLoaderRoute: typeof AuthedChatRouteImport;
-      parentRoute: typeof AuthedRoute;
-    };
+      id: '/_authed/chat'
+      path: '/chat'
+      fullPath: '/chat'
+      preLoaderRoute: typeof AuthedChatRouteImport
+      parentRoute: typeof AuthedRoute
+    }
   }
 }
 
 interface AuthedRouteChildren {
-  AuthedChatRoute: typeof AuthedChatRoute;
+  AuthedChatRoute: typeof AuthedChatRoute
 }
 
 const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedChatRoute: AuthedChatRoute,
-};
+}
 
-const AuthedRouteWithChildren = AuthedRoute._addFileChildren(AuthedRouteChildren);
+const AuthedRouteWithChildren =
+  AuthedRoute._addFileChildren(AuthedRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthedRoute: AuthedRouteWithChildren,
   SignupRoute: SignupRoute,
-};
+}
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
-  ._addFileTypes<FileRouteTypes>();
+  ._addFileTypes<FileRouteTypes>()
 
-import type { getRouter } from './router.tsx';
-import type { createStart } from '@tanstack/react-start';
+import type { getRouter } from './router.tsx'
+import type { createStart } from '@tanstack/react-start'
 declare module '@tanstack/react-start' {
   interface Register {
-    ssr: true;
-    router: Awaited<ReturnType<typeof getRouter>>;
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
   }
 }

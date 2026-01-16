@@ -50,6 +50,9 @@ RUN corepack enable && corepack prepare pnpm@9.15.1 --activate
 RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
     pnpm install --prod --no-lockfile
 
+# Reset workdir to app root for runtime consistency
+WORKDIR /app
+
 # Set environment variables
 ENV NODE_ENV=production \
     PORT=3000
@@ -62,4 +65,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
     CMD wget --no-verbose --tries=1 --spider http://localhost:3000/ || exit 1
 
 # Start the Nitro production server
-CMD ["node", "index.mjs"]
+CMD ["node", ".output/server/index.mjs"]
