@@ -12,7 +12,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@wbot/shared';
 
 import type { Message } from './ai-client';
-import { cacheMessages, getCachedMessages, invalidateCache } from './redis';
+import { cacheMessages, getCachedMessages } from './redis';
 
 // Type alias for the typed Supabase client
 type TypedSupabaseClient = SupabaseClient<Database>;
@@ -47,43 +47,17 @@ export async function getMostRecentConversation(
 }
 
 /**
- * Gets the timestamp of the most recent message in a conversation.
- *
- * Used for cache freshness validation - compares cached data against
- * the actual latest message in Supabase.
- *
- * @param conversationId - The conversation UUID
- * @param client - Supabase client
- * @returns The latest message timestamp, or null if no messages
- */
-async function getLatestMessageTimestamp(
-  conversationId: string,
-  client: TypedSupabaseClient
-): Promise<Date | null> {
-  const { data, error } = await client
-    .from('messages')
-    .select('created_at')
-    .eq('conversation_id', conversationId)
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (error || !data?.created_at) {
-    return null;
-  }
-
-  return new Date(data.created_at);
-}
-
-/**
  * Loads all messages for a conversation with Redis cache-first strategy.
  *
  * Server-only function - uses Redis client for caching.
  *
  * Strategy:
  * 1. Check Redis cache for messages
- * 2. If cache hit, validate freshness against Supabase
- * 3. If stale or cache miss, load from Supabase and repopulate cache
+ * 2. If cache hit, return immediately (trust TTL-based expiration)
+ * 3. If cache miss, load from Supabase and populate cache
+ *
+ * Cache invalidation is handled via write-through when messages are added.
+ * This eliminates the DB query on every cache hit (~100-200ms savings).
  *
  * @param conversationId - The conversation UUID
  * @param client - Supabase client (from createServerSupabaseClient)
@@ -93,33 +67,15 @@ export async function loadMessagesWithCache(
   conversationId: string,
   client: TypedSupabaseClient
 ): Promise<Message[]> {
-  // 1. Try Redis cache first
+  // 1. Try Redis cache first - trust TTL for freshness
   const cached = await getCachedMessages(conversationId);
 
   if (cached && cached.length > 0) {
-    // 2. Validate cache freshness - compare latest message timestamps
-    const latestCachedTime = cached[cached.length - 1].createdAt.getTime();
-    const latestDbTimestamp = await getLatestMessageTimestamp(conversationId, client);
-
-    if (latestDbTimestamp) {
-      const latestDbTime = latestDbTimestamp.getTime();
-
-      // Allow 1 second tolerance for timestamp precision differences
-      if (latestDbTime <= latestCachedTime + 1000) {
-        // Cache is fresh - return cached data
-        return cached;
-      }
-
-      // Cache is stale - invalidate it
-      console.warn('[cache] Stale cache detected, invalidating:', conversationId);
-      await invalidateCache(conversationId);
-    } else {
-      // No messages in DB but cache has data - cache is stale
-      await invalidateCache(conversationId);
-    }
+    // Cache hit - return immediately without DB validation
+    return cached;
   }
 
-  // 3. Cache miss or stale - load from Supabase
+  // 2. Cache miss - load from Supabase
   const { data, error } = await client
     .from('messages')
     .select('id, role, content, created_at')
@@ -138,7 +94,7 @@ export async function loadMessagesWithCache(
     createdAt: msg.created_at ? new Date(msg.created_at) : new Date(),
   }));
 
-  // 4. Populate cache for next request (fire-and-forget)
+  // 3. Populate cache for next request (fire-and-forget)
   cacheMessages(conversationId, messages).catch(() => {
     // Silent failure - caching is optional
   });

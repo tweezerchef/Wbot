@@ -24,7 +24,16 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { getRouteApi, useNavigate } from '@tanstack/react-router';
 import type { MeditationTrack } from '@wbot/shared';
-import React, { useState, useRef, useEffect, useCallback, useMemo, lazy, Suspense } from 'react';
+import React, {
+  useState,
+  useRef,
+  useEffect,
+  useCallback,
+  useMemo,
+  lazy,
+  Suspense,
+  startTransition,
+} from 'react';
 import { ErrorBoundary } from 'react-error-boundary';
 import { z } from 'zod';
 
@@ -213,10 +222,15 @@ export function ChatPage() {
      TanStack Router pattern: loader re-runs on navigation, but useState only
      uses initial value on first render. This effect syncs state when loader
      data changes (e.g., navigating away and back to the chat page).
+
+     Using startTransition marks these updates as non-urgent, allowing the
+     browser to prioritize layout stability over state updates (reduces CLS).
      -------------------------------------------------------------------------- */
   useEffect(() => {
-    setMessages(loaderData.messages);
-    setConversationId(loaderData.conversationId);
+    startTransition(() => {
+      setMessages(loaderData.messages);
+      setConversationId(loaderData.conversationId);
+    });
   }, [loaderData.messages, loaderData.conversationId]);
 
   // Hydration tracking - prevents CLS by deferring width collapse until after paint

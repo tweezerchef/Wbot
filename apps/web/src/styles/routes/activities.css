@@ -1,0 +1,60 @@
+/**
+ * Activities CSS Bundle (Lazy Loaded)
+ *
+ * Contains styles for all wellness activities:
+ * - Breathing exercises
+ * - Meditation components
+ * - Journaling exercises
+ * - Wellness profile
+ *
+ * This CSS is dynamically loaded when an activity is triggered,
+ * NOT on initial page load. Use loadActivityCSS() utility.
+ */
+
+/* ============================================================================
+   Breathing Exercises
+   ============================================================================ */
+@import '../../features/breathing/components/BreathingExercise/BreathingExercise.module.css';
+@import '../../features/breathing/components/BreathingConfirmation/BreathingConfirmation.module.css';
+@import '../../features/breathing/components/WimHofExercise/WimHofExercise.module.css';
+
+/* Immersive Breathing (full-screen experience) */
+@import '../../features/breathing/components/ImmersiveBreathing/ImmersiveBreathing.module.css';
+@import '../../features/breathing/components/ImmersiveBreathing/ImmersiveBreathingConfirmation.module.css';
+@import '../../features/breathing/components/ImmersiveBreathing/BreathingCircle.module.css';
+@import '../../features/breathing/components/ImmersiveBreathing/BreathingControls.module.css';
+@import '../../features/breathing/components/ImmersiveBreathing/BreathingProgress.module.css';
+@import '../../features/breathing/components/ImmersiveBreathing/BreathingBackground.module.css';
+
+/* ============================================================================
+   Meditation Components
+   ============================================================================ */
+@import '../../features/meditation/components/GuidedMeditation/GuidedMeditation.module.css';
+@import '../../features/meditation/components/GuidedMeditation/MeditationStreakBadge.module.css';
+@import '../../features/meditation/components/GuidedMeditation/MeditationVisual.module.css';
+@import '../../features/meditation/components/GuidedMeditation/MoodCheck.module.css';
+@import '../../features/meditation/components/GuidedMeditation/TimerMeditation.module.css';
+@import '../../features/meditation/components/GuidedMeditation/VoiceSelector.module.css';
+
+/* Meditation Library and Series */
+@import '../../features/meditation/components/MeditationLibrary/MeditationLibrary.module.css';
+@import '../../features/meditation/components/MeditationSeries/MeditationSeries.module.css';
+@import '../../features/meditation/components/MeditationSeries/BadgeUnlock.module.css';
+
+/* Voice and Player */
+@import '../../features/meditation/components/VoiceSelectionConfirmation/VoiceSelectionConfirmation.module.css';
+@import '../../features/meditation/components/PrerecordedMeditationPlayer/PrerecordedMeditationPlayer.module.css';
+@import '../../features/meditation/components/PrerecordedMeditations/PrerecordedMeditations.module.css';
+
+/* ============================================================================
+   Journaling Components
+   ============================================================================ */
+@import '../../features/journaling/components/JournalingExercise/JournalingExercise.module.css';
+@import '../../features/journaling/components/JournalingConfirmation/JournalingConfirmation.module.css';
+@import '../../features/journaling/components/JournalHistory/JournalHistory.module.css';
+
+/* ============================================================================
+   Wellness Components
+   ============================================================================ */
+@import '../../features/wellness/components/MoodCheck/MoodCheck.module.css';
+@import '../../features/wellness/components/WellnessProfile/WellnessProfile.module.css';

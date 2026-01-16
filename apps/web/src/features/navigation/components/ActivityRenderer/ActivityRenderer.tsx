@@ -12,6 +12,7 @@
 import { lazy, Suspense } from 'react';
 
 // Types only - no runtime code (tree-shaken away)
+
 import type { DirectComponent } from '../../types';
 
 import type { WimHofTechnique } from '@/features/breathing/types';

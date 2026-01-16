@@ -25,6 +25,9 @@
     "test:coverage": "turbo test:coverage",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "hook:pre-commit": "sh .husky/pre-commit",
+    "hook:pre-push": "sh .husky/pre-push",
+    "hooks": "pnpm hook:pre-commit",
     "deps:install": "./scripts/install-deps.sh",
     "clean": "turbo clean",
     "db:push": "pnpm exec supabase db push --linked",
@@ -88,6 +91,7 @@
     "supabase": "^2.72.7",
     "tsx": "^4.21.0",
     "turbo": "^2.7.2",
+    "typed-css-modules": "^0.9.1",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.51.0"
   },

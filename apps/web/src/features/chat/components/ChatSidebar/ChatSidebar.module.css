@@ -109,6 +109,10 @@
 
   /* Prevent layout shift from async content loading */
   contain: layout style;
+
+  /* Optimize rendering for off-screen sections */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 200px;
 }
 
 .sidebarSection:first-child {
@@ -202,5 +206,98 @@
   .collapseButton:hover {
     background-color: var(--color-primary-light);
     color: var(--color-primary);
+  }
+}
+
+/* ----------------------------------------------------------------------------
+   Skeleton Placeholders
+   ----------------------------------------------------------------------------
+   Fixed-height placeholders for Suspense fallbacks to prevent CLS.
+   Heights match actual component dimensions.
+   ---------------------------------------------------------------------------- */
+.skeletonProfile {
+  min-height: 72px;
+  background: linear-gradient(
+    90deg,
+    var(--color-neutral-100) 25%,
+    var(--color-neutral-50) 50%,
+    var(--color-neutral-100) 75%
+  );
+  background-size: 200% 100%;
+  border-radius: var(--radius-md);
+  animation: skeleton-shimmer 1.5s ease-in-out infinite;
+}
+
+.skeletonDiscoverNav {
+  min-height: 200px;
+  background: linear-gradient(
+    90deg,
+    var(--color-neutral-100) 25%,
+    var(--color-neutral-50) 50%,
+    var(--color-neutral-100) 75%
+  );
+  background-size: 200% 100%;
+  border-radius: var(--radius-md);
+  animation: skeleton-shimmer 1.5s ease-in-out infinite;
+}
+
+.skeletonConversationHistory {
+  min-height: 150px;
+  background: linear-gradient(
+    90deg,
+    var(--color-neutral-100) 25%,
+    var(--color-neutral-50) 50%,
+    var(--color-neutral-100) 75%
+  );
+  background-size: 200% 100%;
+  border-radius: var(--radius-md);
+  animation: skeleton-shimmer 1.5s ease-in-out infinite;
+}
+
+.skeletonJournalHistory {
+  min-height: 100px;
+  background: linear-gradient(
+    90deg,
+    var(--color-neutral-100) 25%,
+    var(--color-neutral-50) 50%,
+    var(--color-neutral-100) 75%
+  );
+  background-size: 200% 100%;
+  border-radius: var(--radius-md);
+  animation: skeleton-shimmer 1.5s ease-in-out infinite;
+}
+
+.skeletonMeditations {
+  min-height: 100px;
+  background: linear-gradient(
+    90deg,
+    var(--color-neutral-100) 25%,
+    var(--color-neutral-50) 50%,
+    var(--color-neutral-100) 75%
+  );
+  background-size: 200% 100%;
+  border-radius: var(--radius-md);
+  animation: skeleton-shimmer 1.5s ease-in-out infinite;
+}
+
+.skeletonProgressWidget {
+  min-height: 80px;
+  background: linear-gradient(
+    90deg,
+    var(--color-neutral-100) 25%,
+    var(--color-neutral-50) 50%,
+    var(--color-neutral-100) 75%
+  );
+  background-size: 200% 100%;
+  border-radius: var(--radius-md);
+  animation: skeleton-shimmer 1.5s ease-in-out infinite;
+}
+
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
   }
 }

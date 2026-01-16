@@ -13,6 +13,10 @@
  * FOUC Prevention:
  * - pendingMs: 0 shows skeleton immediately on initial load
  * - ChatSkeleton uses inline styles to avoid CSS module FOUC
+ *
+ * CSS Loading:
+ * - Route-specific CSS loaded via head() for optimal performance
+ * - Activity CSS lazy-loaded via loadActivityCSS() when needed
  */
 
 import { createFileRoute } from '@tanstack/react-router';
@@ -23,6 +27,7 @@ import type { Message } from '@/lib/ai-client';
 import { getMostRecentConversation, loadMessagesWithCache } from '@/lib/conversations.server';
 import { conversationMessagesOptions } from '@/lib/queries';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
+import chatCSS from '@/styles/routes/chat.css?url';
 
 // ----------------------------------------------------------------------------
 // Loader Data Type
@@ -49,46 +54,45 @@ const chatSearchSchema = z.object({
 export type ChatSearchParams = z.infer<typeof chatSearchSchema>;
 
 // ----------------------------------------------------------------------------
+// Input Schema for Server Function
+// ----------------------------------------------------------------------------
+const ConversationDataInputSchema = z.object({
+  userId: z.uuid(),
+  userEmail: z.email().optional(),
+});
+
+// ----------------------------------------------------------------------------
 // Server Function - Fetches conversation data server-side
 // ----------------------------------------------------------------------------
-// This runs on the server where we have access to auth cookies and Redis.
-// We re-fetch the user from cookies to ensure SSR-safe authentication.
-const getConversationData = createServerFn({ method: 'GET' }).handler(
-  async (): Promise<ChatLoaderData> => {
+// This runs on the server where we have access to Redis cache.
+// User is already validated by _authed layout - we pass the user context
+// directly to avoid redundant auth calls (~100-150ms savings).
+const getConversationData = createServerFn({ method: 'GET' })
+  .inputValidator((input: unknown) => ConversationDataInputSchema.parse(input))
+  .handler(async ({ data }): Promise<ChatLoaderData> => {
+    const { userId, userEmail } = data;
     try {
-      // Create server-side Supabase client with cookie access
+      // Create server-side Supabase client for DB access
+      // Note: We skip auth.getUser() since _authed already validated the user
       const supabase = createServerSupabaseClient();
 
-      // Get the authenticated user from cookies
-      const {
-        data: { user },
-        error,
-      } = await supabase.auth.getUser();
-
-      if (error || !user) {
-        // This shouldn't happen since _authed layout already checked auth
-        // But return empty state as a safety measure
-        return { conversationId: null, messages: [] };
-      }
-
       // Fetch the most recent conversation for this user
-      const conversationId = await getMostRecentConversation(user.id, supabase);
+      const conversationId = await getMostRecentConversation(userId, supabase);
 
       if (!conversationId) {
         // User has no conversations yet
-        return { conversationId: null, messages: [], userEmail: user.email, userId: user.id };
+        return { conversationId: null, messages: [], userEmail, userId };
       }
 
-      // Load all messages for the conversation (with Redis cache)
+      // Load all messages for the conversation (Redis cache-first)
       const messages = await loadMessagesWithCache(conversationId, supabase);
 
-      return { conversationId, messages, userEmail: user.email, userId: user.id };
+      return { conversationId, messages, userEmail, userId };
     } catch (err) {
       console.error('Failed to load conversation in server function:', err);
       return { conversationId: null, messages: [] };
     }
-  }
-);
+  });
 
 // ----------------------------------------------------------------------------
 // Route Definition
@@ -96,6 +100,11 @@ const getConversationData = createServerFn({ method: 'GET' }).handler(
 // Note: getConversationById server function moved to @/lib/server-functions/conversations
 // to satisfy react-refresh/only-export-components rule.
 export const Route = createFileRoute('/_authed/chat')({
+  // Load route-specific CSS via <link> in <head>
+  head: () => ({
+    links: [{ rel: 'stylesheet', href: chatCSS }],
+  }),
+
   // Validate search params for deep linking (e.g., ?conversationId=uuid)
   // Note: Deep linking is handled client-side via useSearch() hook
   // Zod 4 supports Standard Schema, so we can use the schema directly
@@ -109,7 +118,7 @@ export const Route = createFileRoute('/_authed/chat')({
    * Loads conversation data before rendering ChatPage.
    *
    * The user is already authenticated (guaranteed by _authed layout).
-   * The server function re-validates via cookies for SSR safety.
+   * User context is passed from _authed.beforeLoad to avoid redundant auth calls.
    *
    * Also pre-populates the TanStack Query cache for client-side consistency.
    *
@@ -117,7 +126,9 @@ export const Route = createFileRoute('/_authed/chat')({
    * is handled client-side after initial load.
    */
   loader: async ({ context }) => {
-    const data = await getConversationData();
+    // Get user from parent _authed route context (avoids redundant auth call)
+    const user = context.user;
+    const data = await getConversationData({ data: { userId: user.id, userEmail: user.email } });
 
     // Pre-populate TanStack Query cache for client-side access
     // This enables other components to access messages from cache

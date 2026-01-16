@@ -518,26 +518,26 @@ SUPABASE_SERVICE_KEY=     # Service role key (server only)
 
 ## Key Files Reference
 
-| Purpose            | File Path                                    |
-| ------------------ | -------------------------------------------- |
-| Root layout        | `apps/web/src/routes/__root.tsx`             |
-| Router config      | `apps/web/src/router.tsx`                    |
-| Chat page          | `apps/web/src/components/pages/ChatPage/`    |
-| Breathing activity | `apps/web/src/components/BreathingExercise/` |
-| Conversations      | `apps/web/src/lib/conversations.ts`          |
-| Supabase client    | `apps/web/src/lib/supabase.ts`               |
-| AI client          | `apps/web/src/lib/ai-client.ts`              |
-| CSS variables      | `apps/web/src/styles/variables.css`          |
-| AI graph           | `apps/ai/src/graph/wellness.py`              |
-| Graph state        | `apps/ai/src/graph/state.py`                 |
-| Memory system      | `apps/ai/src/memory/`                        |
-| System prompt      | `apps/ai/src/prompts/wellness_system.py`     |
-| DB migrations      | `supabase/migrations/*.sql`                  |
-| Shared types       | `packages/shared/src/types/*.ts`             |
-| Roadmap            | `docs/ROADMAP.md`                            |
-| Internal docs      | `docs/`                                      |
-| Cursor rules       | `.cursorrules`                               |
-| Cursor ignore      | `.cursorignore`                              |
+| Purpose            | File Path                                         |
+| ------------------ | ------------------------------------------------- |
+| Root layout        | `apps/web/src/routes/__root.tsx`                  |
+| Router config      | `apps/web/src/router.tsx`                         |
+| Chat page          | `apps/web/src/features/chat/components/ChatPage/` |
+| Breathing activity | `apps/web/src/features/breathing/components/`     |
+| Conversations      | `apps/web/src/lib/conversations.ts`               |
+| Supabase client    | `apps/web/src/lib/supabase.ts`                    |
+| AI client          | `apps/web/src/lib/ai-client.ts`                   |
+| CSS variables      | `apps/web/src/styles/variables.css`               |
+| AI graph           | `apps/ai/src/graph/wellness.py`                   |
+| Graph state        | `apps/ai/src/graph/state.py`                      |
+| Memory system      | `apps/ai/src/memory/`                             |
+| System prompt      | `apps/ai/src/prompts/wellness_system.py`          |
+| DB migrations      | `supabase/migrations/*.sql`                       |
+| Shared types       | `packages/shared/src/types/*.ts`                  |
+| Roadmap            | `docs/ROADMAP.md`                                 |
+| Internal docs      | `docs/`                                           |
+| Cursor rules       | `.cursorrules`                                    |
+| Cursor ignore      | `.cursorignore`                                   |
 
 ---
 
@@ -602,6 +602,18 @@ Before implementing new features or making significant changes, check if relevan
 ---
 
 ## CSS Guidelines
+
+### Use CSS Modules
+
+Components should import styles from their co-located `.module.css` file:
+
+```typescript
+import styles from './MyComponent.module.css';
+
+export function MyComponent() {
+  return <div className={styles.container}>...</div>;
+}
+```
 
 ### Use CSS Variables
 
