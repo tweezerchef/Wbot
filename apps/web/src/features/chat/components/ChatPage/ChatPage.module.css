@@ -707,7 +707,9 @@
   flex-direction: column;
   flex: 1;
   min-width: 0; /* Prevent flex item from overflowing */
-  contain: layout; /* Isolate layout recalculations to reduce CLS */
+  min-height: 0; /* Prevent flex item from expanding beyond container */
+  overflow: hidden; /* Contain overflow to prevent layout shifts */
+  contain: strict; /* Upgraded from layout - isolates all layout/paint recalculations to reduce CLS */
 }
 
 /* ----------------------------------------------------------------------------

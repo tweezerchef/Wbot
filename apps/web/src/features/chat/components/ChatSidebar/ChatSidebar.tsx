@@ -15,11 +15,18 @@ import { ConversationHistory } from '../ConversationHistory';
 import styles from './ChatSidebar.module.css';
 
 import { ErrorFallback } from '@/components/feedback';
-import { ActivityLoadingSkeleton } from '@/components/skeletons';
 import { ChevronLeftIcon, LogoutIcon, NewChatIcon } from '@/components/ui/icons';
 import type { JournalEntry } from '@/features/journaling/types';
 import type { DirectComponent } from '@/features/navigation/types';
 import { ThemeToggle } from '@/features/settings';
+
+// Preload CSS modules for lazy-loaded components to fix TanStack Start dev server CSS collection
+// These imports ensure CSS is in Vite's cache before SSR style collection
+import '@/features/user/components/SidebarProfile/SidebarProfile.module.css';
+import '@/features/navigation/components/DiscoverNav/DiscoverNav.module.css';
+import '@/features/journaling/components/JournalHistory/JournalHistory.module.css';
+import '@/features/gamification/components/ProgressWidget/ProgressWidget.module.css';
+import '@/features/meditation/components/PrerecordedMeditations/PrerecordedMeditations.module.css';
 
 // Lazy load sidebar components
 const SidebarProfile = lazy(() =>
@@ -132,7 +139,7 @@ export function ChatSidebar({
       {/* User Profile Section */}
       <div className={styles.sidebarProfile}>
         <ErrorBoundary FallbackComponent={ErrorFallback}>
-          <Suspense fallback={<div style={{ height: 48 }} />}>
+          <Suspense fallback={<div className={styles.skeletonProfile} />}>
             <SidebarProfile email={userEmail} streakDays={0} />
           </Suspense>
         </ErrorBoundary>
@@ -148,7 +155,7 @@ export function ChatSidebar({
         {/* Discover Section */}
         <div className={styles.sidebarSection}>
           <ErrorBoundary FallbackComponent={ErrorFallback}>
-            <Suspense fallback={<div style={{ height: 200 }} />}>
+            <Suspense fallback={<div className={styles.skeletonDiscoverNav} />}>
               <DiscoverNav
                 onItemClick={(item) => {
                   onActivityRequest(item);
@@ -172,7 +179,7 @@ export function ChatSidebar({
         {/* Journal Entries */}
         <div className={styles.sidebarSection}>
           <ErrorBoundary FallbackComponent={ErrorFallback}>
-            <Suspense fallback={<ActivityLoadingSkeleton />}>
+            <Suspense fallback={<div className={styles.skeletonJournalHistory} />}>
               <JournalHistory onSelectEntry={onSelectJournalEntry} onCloseSidebar={onClose} />
             </Suspense>
           </ErrorBoundary>
@@ -181,7 +188,7 @@ export function ChatSidebar({
         {/* Pre-recorded Meditation Library */}
         <div className={styles.sidebarSection}>
           <ErrorBoundary FallbackComponent={ErrorFallback}>
-            <Suspense fallback={<ActivityLoadingSkeleton />}>
+            <Suspense fallback={<div className={styles.skeletonMeditations} />}>
               <PrerecordedMeditations
                 onSelectTrack={onSelectPrerecordedMeditation}
                 onCloseSidebar={onClose}
@@ -193,7 +200,7 @@ export function ChatSidebar({
         {/* Progress Widget */}
         <div className={styles.sidebarSection}>
           <ErrorBoundary FallbackComponent={ErrorFallback}>
-            <Suspense fallback={<div style={{ height: 80 }} />}>
+            <Suspense fallback={<div className={styles.skeletonProgressWidget} />}>
               <ProgressWidget streakDays={0} weeklyGoalCompleted={0} weeklyGoalTarget={5} />
             </Suspense>
           </ErrorBoundary>

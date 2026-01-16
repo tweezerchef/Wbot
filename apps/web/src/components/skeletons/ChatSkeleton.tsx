@@ -60,8 +60,14 @@ export function ChatSkeleton() {
       >
         {/* Sidebar placeholder - shown on desktop to match ChatPage layout */}
         <div className="skeleton-sidebar">
-          {/* Profile area placeholder */}
-          <div style={{ padding: '80px 16px 16px 16px', borderBottom: '1px solid #e5e5e5' }}>
+          {/* Profile area placeholder - matches SidebarProfile min-height: 72px */}
+          <div
+            style={{
+              padding: '80px 16px 16px 16px',
+              borderBottom: '1px solid #e5e5e5',
+              minHeight: '72px',
+            }}
+          >
             <div
               style={{
                 width: '40px',
@@ -84,22 +90,43 @@ export function ChatSkeleton() {
               }}
             />
           </div>
-          {/* Navigation items placeholder */}
-          <div style={{ padding: '16px', flex: 1 }}>
-            {[0, 1, 2].map((i) => (
-              <div
-                key={i}
-                style={{
-                  height: '48px',
-                  marginBottom: '8px',
-                  background: 'linear-gradient(90deg, #f5f5f5 25%, #e5e5e5 50%, #f5f5f5 75%)',
-                  backgroundSize: '200% 100%',
-                  borderRadius: '8px',
-                  animation: 'skeleton-shimmer 1.5s ease-in-out infinite',
-                  animationDelay: `${(i * 0.1).toString()}s`,
-                }}
-              />
-            ))}
+          {/* Navigation items placeholder - matches sidebar section min-heights */}
+          <div style={{ padding: '16px', flex: 1, overflow: 'hidden' }}>
+            {/* DiscoverNav placeholder - 200px */}
+            <div
+              style={{
+                minHeight: '200px',
+                marginBottom: '16px',
+                background: 'linear-gradient(90deg, #f5f5f5 25%, #e5e5e5 50%, #f5f5f5 75%)',
+                backgroundSize: '200% 100%',
+                borderRadius: '8px',
+                animation: 'skeleton-shimmer 1.5s ease-in-out infinite',
+              }}
+            />
+            {/* ConversationHistory placeholder - 150px */}
+            <div
+              style={{
+                minHeight: '150px',
+                marginBottom: '16px',
+                background: 'linear-gradient(90deg, #f5f5f5 25%, #e5e5e5 50%, #f5f5f5 75%)',
+                backgroundSize: '200% 100%',
+                borderRadius: '8px',
+                animation: 'skeleton-shimmer 1.5s ease-in-out infinite',
+                animationDelay: '0.1s',
+              }}
+            />
+            {/* JournalHistory placeholder - 100px */}
+            <div
+              style={{
+                minHeight: '100px',
+                marginBottom: '16px',
+                background: 'linear-gradient(90deg, #f5f5f5 25%, #e5e5e5 50%, #f5f5f5 75%)',
+                backgroundSize: '200% 100%',
+                borderRadius: '8px',
+                animation: 'skeleton-shimmer 1.5s ease-in-out infinite',
+                animationDelay: '0.2s',
+              }}
+            />
           </div>
         </div>
 
