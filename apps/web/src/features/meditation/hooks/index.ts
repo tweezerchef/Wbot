@@ -10,8 +10,9 @@ export { useBinauralBeats } from './useBinauralBeats';
 export { useMeditationAudio } from './useMeditationAudio';
 export { useTTSGeneration } from './useTTSGeneration';
 
-// Library hook
+// Library hooks
 export { useMeditationLibrary } from './useMeditationLibrary';
+export { usePrerecordedMeditations } from './usePrerecordedMeditations';
 
 // Hook types
 export type { AmbientMixerSettings, UseAmbientMixerReturn } from './useAmbientMixer';
@@ -19,3 +20,7 @@ export type { BinauralFrequency, UseBinauralBeatsReturn } from './useBinauralBea
 export type { UseMeditationAudioOptions, UseMeditationAudioReturn } from './useMeditationAudio';
 export type { UseTTSGenerationOptions, UseTTSGenerationReturn } from './useTTSGeneration';
 export type { UseMeditationLibraryReturn } from './useMeditationLibrary';
+export type {
+  PrerecordedMeditationFilters,
+  UsePrerecordedMeditationsReturn,
+} from './usePrerecordedMeditations';

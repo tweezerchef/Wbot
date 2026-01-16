@@ -17,7 +17,6 @@
 
 import { createFileRoute } from '@tanstack/react-router';
 import { createServerFn } from '@tanstack/react-start';
-import { zodValidator } from '@tanstack/zod-adapter';
 import { z } from 'zod';
 
 import type { Message } from '@/lib/ai-client';
@@ -99,7 +98,12 @@ const getConversationData = createServerFn({ method: 'GET' }).handler(
 export const Route = createFileRoute('/_authed/chat')({
   // Validate search params for deep linking (e.g., ?conversationId=uuid)
   // Note: Deep linking is handled client-side via useSearch() hook
-  validateSearch: zodValidator(chatSearchSchema),
+  // Zod 4 supports Standard Schema, so we can use the schema directly
+  validateSearch: chatSearchSchema,
+
+  // Show skeleton immediately to prevent FOUC on initial load/refresh.
+  // pendingMs must be in the main route file (not lazy) as it's a critical option.
+  pendingMs: 0,
 
   /**
    * Loads conversation data before rendering ChatPage.

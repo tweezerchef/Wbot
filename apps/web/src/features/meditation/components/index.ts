@@ -38,6 +38,10 @@ export { MeditationLibrary, MeditationCard } from './MeditationLibrary';
 // VoiceSelectionConfirmation component
 export { VoiceSelectionConfirmation } from './VoiceSelectionConfirmation';
 
+// Pre-recorded meditation components
+export { PrerecordedMeditations } from './PrerecordedMeditations/PrerecordedMeditations';
+export { PrerecordedMeditationPlayer } from './PrerecordedMeditationPlayer/PrerecordedMeditationPlayer';
+
 // Component prop types
 export type { MeditationStreakBadgeProps } from './GuidedMeditation';
 export type { TimerMeditationProps } from './GuidedMeditation';

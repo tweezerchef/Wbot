@@ -1,0 +1,206 @@
+/* ============================================================================
+   Chat Sidebar Styles
+   ============================================================================
+   Navigation sidebar styles for the chat interface.
+   Mobile-first: slides in from left as overlay.
+   Desktop: part of layout, can be collapsed.
+   ============================================================================ */
+
+/* ----------------------------------------------------------------------------
+   Sidebar
+   ----------------------------------------------------------------------------
+   Navigation panel with action buttons.
+   Mobile: fixed overlay, slides in from left.
+   Desktop: part of flex layout, can be collapsed.
+   ---------------------------------------------------------------------------- */
+.sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: var(--sidebar-width);
+  height: 100dvh;
+  background: var(--gradient-sidebar);
+  border-right: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  z-index: 100;
+
+  /* Mobile: hidden by default, slide in */
+  transform: translateX(-100%);
+  transition:
+    transform var(--transition-normal),
+    width var(--transition-normal);
+}
+
+.sidebarOpen {
+  transform: translateX(0);
+}
+
+/* Desktop: part of layout, open by default to avoid layout shift */
+@media (min-width: 768px) {
+  .sidebar {
+    position: relative;
+    flex-shrink: 0;
+    transform: translateX(0);
+    /* Open by default on desktop - CSS controls initial state */
+    width: var(--sidebar-width);
+    overflow: hidden;
+  }
+
+  /*
+   * CRITICAL FOR CLS: Only collapse sidebar AFTER hydration.
+   * Without .sidebarHydrated, the sidebar stays at full width during SSR/initial paint.
+   * This prevents the 280px layout shift that was causing CLS 0.999.
+   *
+   * Sequence:
+   * 1. SSR: sidebar has width: 280px (no sidebarHydrated class)
+   * 2. Paint: user sees layout with sidebar open
+   * 3. Hydration: JS adds sidebarHydrated class
+   * 4. If user closes sidebar, width transitions to 0 (no shift, user initiated)
+   */
+  .sidebarClosed.sidebarHydrated {
+    width: 0;
+  }
+}
+
+/* ----------------------------------------------------------------------------
+   Sidebar Navigation
+   ----------------------------------------------------------------------------
+   Main navigation area with action buttons.
+   ---------------------------------------------------------------------------- */
+.sidebarNav {
+  flex: 1;
+  padding: var(--spacing-md);
+  overflow-y: auto;
+
+  /* Prevent layout shift from async content loading */
+  contain: layout style;
+}
+
+/* ----------------------------------------------------------------------------
+   Sidebar Profile
+   ----------------------------------------------------------------------------
+   User profile section at the top of the sidebar.
+   ---------------------------------------------------------------------------- */
+.sidebarProfile {
+  padding: var(--spacing-md);
+  padding-top: calc(var(--header-height) + var(--spacing-md));
+  border-bottom: 1px solid var(--border-color);
+
+  /* Prevent layout shift from async content loading */
+  contain: layout style;
+}
+
+@media (min-width: 768px) {
+  .sidebarProfile {
+    padding-top: calc(var(--spacing-3xl) + var(--spacing-md));
+  }
+}
+
+/* ----------------------------------------------------------------------------
+   Sidebar Section
+   ----------------------------------------------------------------------------
+   Grouped section within sidebar navigation.
+   ---------------------------------------------------------------------------- */
+.sidebarSection {
+  margin-top: var(--spacing-md);
+  padding-top: var(--spacing-md);
+  border-top: 1px solid var(--color-neutral-100);
+
+  /* Prevent layout shift from async content loading */
+  contain: layout style;
+}
+
+.sidebarSection:first-child {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
+}
+
+/* ----------------------------------------------------------------------------
+   Sidebar Footer
+   ----------------------------------------------------------------------------
+   Contains logout and other secondary actions.
+   ---------------------------------------------------------------------------- */
+.sidebarFooter {
+  padding: var(--spacing-md);
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+/* Theme toggle wrapper */
+.themeToggleWrapper {
+  display: flex;
+  justify-content: center;
+  padding-bottom: var(--spacing-xs);
+}
+
+/* ----------------------------------------------------------------------------
+   Sidebar Button
+   ----------------------------------------------------------------------------
+   Full-width button with icon and text label.
+   ---------------------------------------------------------------------------- */
+.sidebarButton {
+  width: 100%;
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-md);
+  color: var(--color-text-primary);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
+  text-align: left;
+  transition:
+    background-color var(--transition-fast),
+    transform var(--transition-fast);
+
+  /* Prevent text selection on rapid taps */
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.sidebarButton:hover {
+  background-color: var(--color-primary-light);
+}
+
+.sidebarButton:active {
+  transform: scale(0.98);
+}
+
+/* ----------------------------------------------------------------------------
+   Collapse Button (Desktop)
+   ----------------------------------------------------------------------------
+   Inside the sidebar, allows collapsing on desktop.
+   Hidden on mobile.
+   ---------------------------------------------------------------------------- */
+.collapseButton {
+  display: none; /* Hidden on mobile */
+}
+
+@media (min-width: 768px) {
+  .collapseButton {
+    display: flex;
+    width: 32px;
+    height: 32px;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-text-secondary);
+    border-radius: var(--radius-md);
+    position: absolute;
+    top: var(--spacing-md);
+    right: var(--spacing-md);
+    transition:
+      background-color var(--transition-fast),
+      color var(--transition-fast);
+  }
+
+  .collapseButton:hover {
+    background-color: var(--color-primary-light);
+    color: var(--color-primary);
+  }
+}

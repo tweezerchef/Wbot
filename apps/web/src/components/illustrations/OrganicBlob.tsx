@@ -10,7 +10,7 @@
  * - Gradient fill support
  */
 
-import type { CSSProperties } from 'react';
+import { useId, type CSSProperties } from 'react';
 
 /* ----------------------------------------------------------------------------
    Props Interface
@@ -63,8 +63,8 @@ export function OrganicBlob({
   className,
   style,
 }: OrganicBlobProps) {
-  // Generate unique ID for gradient
-  const gradientId = `blob-gradient-${Math.random().toString(36).slice(2, 11)}`;
+  // Generate stable unique ID for gradient (useId ensures SSR/client consistency)
+  const gradientId = useId();
 
   return (
     <svg
