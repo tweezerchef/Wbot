@@ -37,6 +37,9 @@
 .info {
   flex: 1;
   min-width: 0;
+
+  /* Prevent layout shift from content loading */
+  contain: layout style;
 }
 
 .name {
