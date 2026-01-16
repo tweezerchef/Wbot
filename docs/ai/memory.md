@@ -173,8 +173,8 @@ graph TD
 
 ## Related Documentation
 
-- [Embedding Generation](/docs/embeddings)
-- [Conversation Storage](/docs/conversations)
+- [Redis Cache Module](/REDIS_CACHE)
+- [Database Schema](/database/schema)
 
 ```
 

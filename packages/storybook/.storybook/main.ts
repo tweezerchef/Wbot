@@ -9,6 +9,12 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const webAppPath = resolve(__dirname, '../../../apps/web');
 
+interface RollupWarning {
+  code?: string;
+}
+
+type RollupWarn = (warning: RollupWarning) => void;
+
 const config: StorybookConfig = {
   stories: ['../stories/**/*.mdx', '../stories/**/*.stories.@(js|jsx|mjs|ts|tsx)'],
   addons: [
@@ -102,10 +108,22 @@ const config: StorybookConfig = {
     const existingOutput = config.build?.rollupOptions?.output;
     const baseOutput = Array.isArray(existingOutput) ? existingOutput[0] : existingOutput;
 
+    // Ignore "use client" directive warnings from dependencies during build.
+    const onwarn = (warning: RollupWarning, warn: RollupWarn) => {
+      if (warning.code === 'MODULE_LEVEL_DIRECTIVE') {
+        return;
+      }
+
+      warn(warning);
+    };
+
     config.build = {
       ...config.build,
+      // Storybook bundles are large; avoid noisy warnings in CI logs.
+      chunkSizeWarningLimit: 1000,
       rollupOptions: {
         ...config.build?.rollupOptions,
+        onwarn,
         output: {
           ...baseOutput,
           manualChunks,

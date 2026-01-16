@@ -152,9 +152,9 @@ Meditation data wrapped in `[ACTIVITY_START]` markers
 
 ## Related Documentation
 
-- [Voice Configuration](/docs/tts/voices)
-- [OpenAI TTS Integration](/docs/tts/openai-audio)
-- [User Preferences](/docs/user/preferences)
+- [Meditation Audio Setup](/meditation-audio-setup)
+- [Meditation Guidance Node](/ai/meditation)
+- [Guided Meditation Component](/web/meditation)
 
 ## Extensibility
 

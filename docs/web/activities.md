@@ -96,8 +96,8 @@ result = run_breathing_exercise(
 
 ## Related Documentation
 
-- [Wellness Activities](/docs/wellness/activities)
-- [User Interaction Framework](/docs/core/user-interaction)
+- [Guided Meditation Component](/web/meditation)
+- [AI Client Integration](/web/ai-client)
 
 ## Error Handling
 

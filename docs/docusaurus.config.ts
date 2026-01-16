@@ -17,7 +17,6 @@ const config: Config = {
   projectName: 'wbot',
 
   onBrokenLinks: 'warn',
-  onBrokenMarkdownLinks: 'warn',
 
   i18n: {
     defaultLocale: 'en',
@@ -45,6 +44,10 @@ const config: Config = {
   // Enable Mermaid diagrams
   markdown: {
     mermaid: true,
+    // Docusaurus v4 prefers markdown hooks for broken links.
+    hooks: {
+      onBrokenMarkdownLinks: 'warn',
+    },
   },
   themes: ['@docusaurus/theme-mermaid'],
 
