@@ -13,6 +13,10 @@
  * FOUC Prevention:
  * - pendingMs: 0 shows skeleton immediately on initial load
  * - ChatSkeleton uses inline styles to avoid CSS module FOUC
+ *
+ * CSS Loading:
+ * - Route-specific CSS loaded via head() for optimal performance
+ * - Activity CSS lazy-loaded via loadActivityCSS() when needed
  */
 
 import { createFileRoute } from '@tanstack/react-router';
@@ -23,6 +27,7 @@ import type { Message } from '@/lib/ai-client';
 import { getMostRecentConversation, loadMessagesWithCache } from '@/lib/conversations.server';
 import { conversationMessagesOptions } from '@/lib/queries';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
+import chatCSS from '@/styles/routes/chat.css?url';
 
 // ----------------------------------------------------------------------------
 // Loader Data Type
@@ -95,6 +100,11 @@ const getConversationData = createServerFn({ method: 'GET' })
 // Note: getConversationById server function moved to @/lib/server-functions/conversations
 // to satisfy react-refresh/only-export-components rule.
 export const Route = createFileRoute('/_authed/chat')({
+  // Load route-specific CSS via <link> in <head>
+  head: () => ({
+    links: [{ rel: 'stylesheet', href: chatCSS }],
+  }),
+
   // Validate search params for deep linking (e.g., ?conversationId=uuid)
   // Note: Deep linking is handled client-side via useSearch() hook
   // Zod 4 supports Standard Schema, so we can use the schema directly

@@ -1,0 +1,15 @@
+/**
+ * Shared CSS Bundle
+ *
+ * Contains styles for components shared across all routes:
+ * - Error boundaries and fallbacks
+ * - Not found pages
+ *
+ * These are typically critical styles that should be available
+ * for error handling. Can be loaded in __root.tsx.
+ */
+
+/* Feedback components (error states) */
+@import '../../components/feedback/DefaultCatchBoundary/DefaultCatchBoundary.module.css';
+@import '../../components/feedback/NotFound/NotFound.module.css';
+@import '../../components/feedback/ErrorFallback/ErrorFallback.module.css';

@@ -1,0 +1,33 @@
+/**
+ * Chat Route CSS Bundle
+ *
+ * Contains styles for the main chat interface.
+ * Only includes core chat components - NO activity components.
+ * Activity CSS is lazy-loaded when an activity is triggered.
+ *
+ * Load via route head(): import chatCSS from '@/styles/routes/chat.css?url';
+ */
+
+/* Chat page layout and core UI */
+@import '../../features/chat/components/ChatPage/ChatPage.module.css';
+@import '../../features/chat/components/ChatSidebar/ChatSidebar.module.css';
+@import '../../features/chat/components/MessageBubble/MessageBubble.module.css';
+@import '../../features/chat/components/ChatEmptyState/ChatEmptyState.module.css';
+@import '../../features/chat/components/ConversationHistory/ConversationHistory.module.css';
+
+/* Sidebar components */
+@import '../../features/user/components/SidebarProfile/SidebarProfile.module.css';
+@import '../../features/navigation/components/DiscoverNav/DiscoverNav.module.css';
+@import '../../features/settings/components/ThemeToggle/ThemeToggle.module.css';
+
+/* Gamification widgets shown in sidebar */
+@import '../../features/gamification/components/Badge/Badge.module.css';
+@import '../../features/gamification/components/ProgressWidget/ProgressWidget.module.css';
+@import '../../features/gamification/components/StreakDisplay/StreakDisplay.module.css';
+@import '../../features/gamification/components/WeeklyGoals/WeeklyGoals.module.css';
+
+/* Shared overlays */
+@import '../../components/overlays/ActivityOverlay/ActivityOverlay.module.css';
+
+/* Shared UI components */
+@import '../../components/ui/ActivityCard/ActivityCard.module.css';

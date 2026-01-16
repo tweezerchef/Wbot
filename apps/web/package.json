@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "generate:classnames": "tsx scripts/generate-css-classnames.ts",
     "dev": "vite",
     "build": "vite build",
     "start": "node .output/server/index.mjs",

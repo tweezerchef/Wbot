@@ -1,0 +1,15 @@
+/**
+ * Landing Route CSS Bundle
+ *
+ * Contains styles for the landing/login page.
+ *
+ * Load via route head(): import landingCSS from '@/styles/routes/landing.css?url';
+ */
+
+/* Landing page */
+@import '../../features/auth/components/LandingPage/LandingPage.module.css';
+@import '../../features/auth/components/SignupPage/SignupPage.module.css';
+
+/* Illustrations used on landing page */
+@import '../../components/illustrations/FloatingShapes.module.css';
+@import '../../components/illustrations/WelcomeIllustration.module.css';
