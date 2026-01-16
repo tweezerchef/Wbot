@@ -38,8 +38,8 @@ export function ChatSkeleton() {
             flex-direction: column;
             width: 280px;
             flex-shrink: 0;
-            background: linear-gradient(180deg, #f8f9fb 0%, #f0f2f5 100%);
-            border-right: 1px solid #e5e5e5;
+            background: var(--gradient-sidebar);
+            border-right: 1px solid var(--color-neutral-200);
           }
           .skeleton-container {
             flex-direction: row !important;
@@ -55,7 +55,7 @@ export function ChatSkeleton() {
           width: '100%',
           display: 'flex',
           flexDirection: 'column',
-          background: 'linear-gradient(135deg, #e8f4f3 0%, #f0edf5 100%)', // --gradient-calm
+          background: 'var(--gradient-calm)',
         }}
       >
         {/* Sidebar placeholder - shown on desktop to match ChatPage layout */}
@@ -64,7 +64,7 @@ export function ChatSkeleton() {
           <div
             style={{
               padding: '80px 16px 16px 16px',
-              borderBottom: '1px solid #e5e5e5',
+              borderBottom: '1px solid var(--color-neutral-200)',
               minHeight: '72px',
             }}
           >
@@ -73,7 +73,8 @@ export function ChatSkeleton() {
                 width: '40px',
                 height: '40px',
                 borderRadius: '50%',
-                background: 'linear-gradient(90deg, #e5e5e5 25%, #d4d4d4 50%, #e5e5e5 75%)',
+                background:
+                  'linear-gradient(90deg, var(--color-neutral-200) 25%, var(--color-neutral-300) 50%, var(--color-neutral-200) 75%)',
                 backgroundSize: '200% 100%',
                 animation: 'skeleton-shimmer 1.5s ease-in-out infinite',
                 marginBottom: '8px',
@@ -83,7 +84,8 @@ export function ChatSkeleton() {
               style={{
                 height: '14px',
                 width: '120px',
-                background: 'linear-gradient(90deg, #f5f5f5 25%, #e5e5e5 50%, #f5f5f5 75%)',
+                background:
+                  'linear-gradient(90deg, var(--color-neutral-100) 25%, var(--color-neutral-200) 50%, var(--color-neutral-100) 75%)',
                 backgroundSize: '200% 100%',
                 borderRadius: '4px',
                 animation: 'skeleton-shimmer 1.5s ease-in-out infinite',
@@ -97,7 +99,8 @@ export function ChatSkeleton() {
               style={{
                 minHeight: '200px',
                 marginBottom: '16px',
-                background: 'linear-gradient(90deg, #f5f5f5 25%, #e5e5e5 50%, #f5f5f5 75%)',
+                background:
+                  'linear-gradient(90deg, var(--color-neutral-100) 25%, var(--color-neutral-200) 50%, var(--color-neutral-100) 75%)',
                 backgroundSize: '200% 100%',
                 borderRadius: '8px',
                 animation: 'skeleton-shimmer 1.5s ease-in-out infinite',
@@ -108,7 +111,8 @@ export function ChatSkeleton() {
               style={{
                 minHeight: '150px',
                 marginBottom: '16px',
-                background: 'linear-gradient(90deg, #f5f5f5 25%, #e5e5e5 50%, #f5f5f5 75%)',
+                background:
+                  'linear-gradient(90deg, var(--color-neutral-100) 25%, var(--color-neutral-200) 50%, var(--color-neutral-100) 75%)',
                 backgroundSize: '200% 100%',
                 borderRadius: '8px',
                 animation: 'skeleton-shimmer 1.5s ease-in-out infinite',
@@ -120,7 +124,8 @@ export function ChatSkeleton() {
               style={{
                 minHeight: '100px',
                 marginBottom: '16px',
-                background: 'linear-gradient(90deg, #f5f5f5 25%, #e5e5e5 50%, #f5f5f5 75%)',
+                background:
+                  'linear-gradient(90deg, var(--color-neutral-100) 25%, var(--color-neutral-200) 50%, var(--color-neutral-100) 75%)',
                 backgroundSize: '200% 100%',
                 borderRadius: '8px',
                 animation: 'skeleton-shimmer 1.5s ease-in-out infinite',
@@ -147,8 +152,8 @@ export function ChatSkeleton() {
               alignItems: 'center',
               justifyContent: 'center',
               position: 'relative',
-              backgroundColor: '#ffffff',
-              borderBottom: '1px solid #e5e5e5',
+              backgroundColor: 'var(--color-background)',
+              borderBottom: '1px solid var(--color-neutral-200)',
               flexShrink: 0,
             }}
           >
@@ -159,7 +164,8 @@ export function ChatSkeleton() {
                 left: '16px',
                 width: '44px',
                 height: '44px',
-                background: 'linear-gradient(90deg, #f5f5f5 25%, #e5e5e5 50%, #f5f5f5 75%)',
+                background:
+                  'linear-gradient(90deg, var(--color-neutral-100) 25%, var(--color-neutral-200) 50%, var(--color-neutral-100) 75%)',
                 backgroundSize: '200% 100%',
                 borderRadius: '8px',
                 animation: 'skeleton-shimmer 1.5s ease-in-out infinite',
@@ -171,7 +177,8 @@ export function ChatSkeleton() {
               style={{
                 height: '24px',
                 width: '60px',
-                background: 'linear-gradient(90deg, #e5e5e5 25%, #d4d4d4 50%, #e5e5e5 75%)',
+                background:
+                  'linear-gradient(90deg, var(--color-neutral-200) 25%, var(--color-neutral-300) 50%, var(--color-neutral-200) 75%)',
                 backgroundSize: '200% 100%',
                 borderRadius: '6px',
                 animation: 'skeleton-shimmer 1.5s ease-in-out infinite',
@@ -214,7 +221,7 @@ export function ChatSkeleton() {
                 style={{
                   fontSize: '24px', // Matches --font-size-2xl (1.5rem = 24px)
                   fontWeight: 600,
-                  color: '#262626', // var(--color-neutral-800) fallback
+                  color: 'var(--color-neutral-800)',
                   margin: '0 0 8px 0', // Matches --spacing-sm
                   lineHeight: 1.25,
                 }}
@@ -225,7 +232,7 @@ export function ChatSkeleton() {
               <p
                 style={{
                   fontSize: '16px',
-                  color: '#737373', // var(--color-neutral-500) fallback
+                  color: 'var(--color-neutral-500)',
                   margin: 0,
                   lineHeight: 1.8, // Matches --line-height-relaxed
                 }}
@@ -252,7 +259,7 @@ export function ChatSkeleton() {
                     padding: '16px',
                     backgroundColor: 'rgba(255, 255, 255, 0.8)',
                     borderRadius: '12px',
-                    border: '1px solid #e5e5e5',
+                    border: '1px solid var(--color-neutral-200)',
                     display: 'flex',
                     flexDirection: 'column',
                     alignItems: 'center',
@@ -265,7 +272,8 @@ export function ChatSkeleton() {
                       width: '40px',
                       height: '40px',
                       borderRadius: '8px',
-                      background: 'linear-gradient(90deg, #e5e5e5 25%, #d4d4d4 50%, #e5e5e5 75%)',
+                      background:
+                        'linear-gradient(90deg, var(--color-neutral-200) 25%, var(--color-neutral-300) 50%, var(--color-neutral-200) 75%)',
                       backgroundSize: '200% 100%',
                       animation: 'skeleton-shimmer 1.5s ease-in-out infinite',
                       animationDelay: `${(0.5 + i * 0.1).toString()}s`,
@@ -276,7 +284,8 @@ export function ChatSkeleton() {
                     style={{
                       height: '14px',
                       width: '60px',
-                      background: 'linear-gradient(90deg, #f5f5f5 25%, #e5e5e5 50%, #f5f5f5 75%)',
+                      background:
+                        'linear-gradient(90deg, var(--color-neutral-100) 25%, var(--color-neutral-200) 50%, var(--color-neutral-100) 75%)',
                       backgroundSize: '200% 100%',
                       borderRadius: '4px',
                       animation: 'skeleton-shimmer 1.5s ease-in-out infinite',
@@ -288,7 +297,8 @@ export function ChatSkeleton() {
                     style={{
                       height: '10px',
                       width: '80px',
-                      background: 'linear-gradient(90deg, #f5f5f5 25%, #e5e5e5 50%, #f5f5f5 75%)',
+                      background:
+                        'linear-gradient(90deg, var(--color-neutral-100) 25%, var(--color-neutral-200) 50%, var(--color-neutral-100) 75%)',
                       backgroundSize: '200% 100%',
                       borderRadius: '4px',
                       animation: 'skeleton-shimmer 1.5s ease-in-out infinite',
@@ -306,8 +316,8 @@ export function ChatSkeleton() {
               display: 'flex',
               gap: '8px',
               padding: '16px',
-              backgroundColor: '#ffffff',
-              borderTop: '1px solid #e5e5e5',
+              backgroundColor: 'var(--color-background)',
+              borderTop: '1px solid var(--color-neutral-200)',
               flexShrink: 0,
               paddingBottom: 'max(16px, env(safe-area-inset-bottom))',
             }}
@@ -317,9 +327,10 @@ export function ChatSkeleton() {
               style={{
                 flex: 1,
                 height: '44px',
-                background: 'linear-gradient(90deg, #fafafa 25%, #f0f0f0 50%, #fafafa 75%)',
+                background:
+                  'linear-gradient(90deg, var(--color-neutral-50) 25%, var(--color-neutral-100) 50%, var(--color-neutral-50) 75%)',
                 backgroundSize: '200% 100%',
-                border: '1px solid #e5e5e5',
+                border: '1px solid var(--color-neutral-200)',
                 borderRadius: '9999px',
                 animation: 'skeleton-shimmer 1.5s ease-in-out infinite',
                 animationDelay: '0.8s',
@@ -332,7 +343,7 @@ export function ChatSkeleton() {
                 width: '44px',
                 height: '44px',
                 minWidth: '44px',
-                backgroundColor: '#2d7a78', // Updated to accessible primary
+                backgroundColor: 'var(--color-primary)',
                 borderRadius: '50%',
                 opacity: 0.6,
                 animation: 'skeleton-pulse 2s ease-in-out infinite',

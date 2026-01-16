@@ -3,7 +3,8 @@
  *
  * These tests verify:
  * - getMostRecentConversation server function
- * - loadMessagesWithCache with cache-first strategy
+ * - loadMessagesWithCache with TTL-based cache-first strategy
+ * - Immediate return on cache hit (no DB validation)
  * - Cache population after database reads
  * - Fallback to Supabase when cache misses
  */
@@ -16,13 +17,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { Message } from '../ai-client';
 import { getMostRecentConversation, loadMessagesWithCache } from '../conversations.server';
-import { cacheMessages, getCachedMessages, invalidateCache } from '../redis';
+import { cacheMessages, getCachedMessages } from '../redis';
 
 // Mock redis module before importing conversations.server
 vi.mock('../redis', () => ({
   getCachedMessages: vi.fn(),
   cacheMessages: vi.fn(),
-  invalidateCache: vi.fn(),
 }));
 
 // Mock Supabase client type
@@ -117,7 +117,7 @@ describe('conversations.server', () => {
   });
 
   describe('loadMessagesWithCache', () => {
-    it('returns cached messages when cache is fresh', async () => {
+    it('returns cached messages immediately without DB query', async () => {
       const cachedTimestamp = new Date('2025-01-10T12:00:00Z');
       const cachedMessages: Message[] = [
         {
@@ -129,93 +129,13 @@ describe('conversations.server', () => {
       ];
       vi.mocked(getCachedMessages).mockResolvedValue(cachedMessages);
 
-      // Mock freshness check - returns same timestamp as cached (cache is fresh)
-      mockBuilder.maybeSingle.mockResolvedValue({
-        data: { created_at: cachedTimestamp.toISOString() },
-        error: null,
-      });
-
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const result = await loadMessagesWithCache('conv-123', mockClient as any);
 
       expect(getCachedMessages).toHaveBeenCalledWith('conv-123');
-      // Freshness check query is made
-      expect(mockClient.from).toHaveBeenCalledWith('messages');
-      expect(mockBuilder.select).toHaveBeenCalledWith('created_at');
-      // But full message load is not made (only 1 from() call)
-      expect(mockClient.from).toHaveBeenCalledTimes(1);
+      // No database query should be made on cache hit
+      expect(mockClient.from).not.toHaveBeenCalled();
       expect(result).toEqual(cachedMessages);
-    });
-
-    it('invalidates cache and reloads when cache is stale', async () => {
-      const cachedTimestamp = new Date('2025-01-10T12:00:00Z');
-      const newerTimestamp = new Date('2025-01-10T14:00:00Z'); // 2 hours later
-      const cachedMessages: Message[] = [
-        {
-          id: 'msg-1',
-          role: 'user',
-          content: 'Old cached message',
-          createdAt: cachedTimestamp,
-        },
-      ];
-      vi.mocked(getCachedMessages).mockResolvedValue(cachedMessages);
-      vi.mocked(invalidateCache).mockResolvedValue();
-
-      // Track call order - first call is freshness check, second is message load
-      let callCount = 0;
-      mockClient.from.mockImplementation(() => {
-        callCount++;
-        if (callCount === 1) {
-          // First call: freshness check - returns newer timestamp (cache is stale)
-          return {
-            select: vi.fn().mockReturnValue({
-              eq: vi.fn().mockReturnValue({
-                order: vi.fn().mockReturnValue({
-                  limit: vi.fn().mockReturnValue({
-                    maybeSingle: vi.fn().mockResolvedValue({
-                      data: { created_at: newerTimestamp.toISOString() },
-                      error: null,
-                    }),
-                  }),
-                }),
-              }),
-            }),
-          };
-        } else {
-          // Second call: full message load
-          return {
-            select: vi.fn().mockReturnValue({
-              eq: vi.fn().mockReturnValue({
-                order: vi.fn().mockResolvedValue({
-                  data: [
-                    {
-                      id: 'msg-1',
-                      role: 'user',
-                      content: 'Old cached message',
-                      created_at: cachedTimestamp.toISOString(),
-                    },
-                    {
-                      id: 'msg-2',
-                      role: 'assistant',
-                      content: 'New message',
-                      created_at: newerTimestamp.toISOString(),
-                    },
-                  ],
-                  error: null,
-                }),
-              }),
-            }),
-          };
-        }
-      });
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const result = await loadMessagesWithCache('conv-123', mockClient as any);
-
-      expect(invalidateCache).toHaveBeenCalledWith('conv-123');
-      expect(mockClient.from).toHaveBeenCalledTimes(2);
-      expect(result).toHaveLength(2);
-      expect(result[1].content).toBe('New message');
     });
 
     it('falls back to Supabase on cache miss', async () => {
@@ -334,7 +254,7 @@ describe('conversations.server', () => {
   });
 
   describe('cache-first strategy', () => {
-    it('skips full message load when cache is fresh', async () => {
+    it('returns immediately on cache hit without any DB query', async () => {
       const cachedTimestamp = new Date('2025-01-10T12:00:00Z');
       const cachedMessages: Message[] = [
         { id: 'msg-1', role: 'user', content: 'Cached', createdAt: cachedTimestamp },
@@ -342,19 +262,12 @@ describe('conversations.server', () => {
       ];
       vi.mocked(getCachedMessages).mockResolvedValue(cachedMessages);
 
-      // Mock freshness check - returns same timestamp (cache is fresh)
-      mockBuilder.maybeSingle.mockResolvedValue({
-        data: { created_at: cachedTimestamp.toISOString() },
-        error: null,
-      });
-
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const result = await loadMessagesWithCache('conv-123', mockClient as any);
 
       expect(result).toHaveLength(2);
-      // Only freshness check query is made, not full message load
-      expect(mockClient.from).toHaveBeenCalledTimes(1);
-      expect(mockBuilder.select).toHaveBeenCalledWith('created_at');
+      // TTL-based caching: no DB query on cache hit
+      expect(mockClient.from).not.toHaveBeenCalled();
     });
 
     it('queries database when cache returns null', async () => {
