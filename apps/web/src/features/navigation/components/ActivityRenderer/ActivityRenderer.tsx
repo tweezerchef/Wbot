@@ -4,19 +4,97 @@
  * Renders the appropriate component based on DirectComponent selection from sidebar.
  * Components render directly - backend integration for session tracking will be added
  * in a future iteration.
+ *
+ * Performance: All activity components are lazy-loaded to reduce initial bundle size.
+ * This keeps the chat page light until an activity is actually selected.
  */
+
+import { lazy, Suspense } from 'react';
 
 import type { DirectComponent } from '../../types';
 
-import {
-  ImmersiveBreathing,
-  WimHofExercise,
-  BREATHING_TECHNIQUES,
-  type WimHofTechnique,
-} from '@/features/breathing';
-import { BadgeGrid, StreakDisplay, WeeklyGoals, type BadgeData } from '@/features/gamification';
-import { TimerMeditation, MeditationLibrary } from '@/features/meditation';
-import { WellnessProfile, MoodCheck } from '@/features/wellness';
+// Types only - no runtime code (tree-shaken away)
+import type { WimHofTechnique } from '@/features/breathing/types';
+import { BREATHING_TECHNIQUES } from '@/features/breathing/types';
+import type { BadgeData } from '@/features/gamification/components/Badge/Badge';
+
+// Constants - just data, no component imports
+
+// Loading fallback for lazy components
+const ActivityLoadingFallback = () => (
+  <div
+    style={{
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      height: '100%',
+      padding: '2rem',
+    }}
+  >
+    <div style={{ textAlign: 'center' }}>
+      <div
+        style={{
+          width: 40,
+          height: 40,
+          border: '3px solid #e5e5e5',
+          borderTopColor: '#3b82f6',
+          borderRadius: '50%',
+          animation: 'spin 1s linear infinite',
+          margin: '0 auto 1rem',
+        }}
+      />
+      <p style={{ color: '#6b7280', margin: 0 }}>Loading activity...</p>
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+    </div>
+  </div>
+);
+
+// Lazy-loaded activity components - only loaded when selected
+const ImmersiveBreathing = lazy(() =>
+  import('@/features/breathing/components/ImmersiveBreathing/ImmersiveBreathing').then((m) => ({
+    default: m.ImmersiveBreathing,
+  }))
+);
+const WimHofExercise = lazy(() =>
+  import('@/features/breathing/components/WimHofExercise/WimHofExercise').then((m) => ({
+    default: m.WimHofExercise,
+  }))
+);
+const TimerMeditation = lazy(() =>
+  import('@/features/meditation/components/GuidedMeditation/TimerMeditation').then((m) => ({
+    default: m.TimerMeditation,
+  }))
+);
+const MeditationLibrary = lazy(() =>
+  import('@/features/meditation/components/MeditationLibrary/MeditationLibrary').then((m) => ({
+    default: m.MeditationLibrary,
+  }))
+);
+const WellnessProfile = lazy(() =>
+  import('@/features/wellness/components/WellnessProfile/WellnessProfile').then((m) => ({
+    default: m.WellnessProfile,
+  }))
+);
+const MoodCheck = lazy(() =>
+  import('@/features/wellness/components/MoodCheck/MoodCheck').then((m) => ({
+    default: m.MoodCheck,
+  }))
+);
+const BadgeGrid = lazy(() =>
+  import('@/features/gamification/components/Badge/BadgeGrid').then((m) => ({
+    default: m.BadgeGrid,
+  }))
+);
+const StreakDisplay = lazy(() =>
+  import('@/features/gamification/components/StreakDisplay/StreakDisplay').then((m) => ({
+    default: m.StreakDisplay,
+  }))
+);
+const WeeklyGoals = lazy(() =>
+  import('@/features/gamification/components/WeeklyGoals/WeeklyGoals').then((m) => ({
+    default: m.WeeklyGoals,
+  }))
+);
 
 /* ----------------------------------------------------------------------------
    Props Interface
@@ -86,10 +164,22 @@ const PLACEHOLDER_BADGES: BadgeData[] = [
    ---------------------------------------------------------------------------- */
 
 /**
- * Renders the component directly without any wrapper.
- * This ensures the same experience as when triggered by AI.
+ * Renders the component with lazy loading and Suspense.
+ * All activity components are loaded on-demand for performance.
  */
 export function ActivityRenderer({ component, onClose }: ActivityRendererProps) {
+  return (
+    <Suspense fallback={<ActivityLoadingFallback />}>
+      <ActivityContent component={component} onClose={onClose} />
+    </Suspense>
+  );
+}
+
+/**
+ * Internal component that renders based on type.
+ * Wrapped by Suspense in ActivityRenderer.
+ */
+function ActivityContent({ component, onClose }: ActivityRendererProps) {
   switch (component.type) {
     case 'breathing':
       return <BreathingRenderer variant={component.variant} onClose={onClose} />;
