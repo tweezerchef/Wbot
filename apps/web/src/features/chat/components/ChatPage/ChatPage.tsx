@@ -41,6 +41,23 @@ import {
   NewChatIcon,
   LogoutIcon,
 } from '@/components/ui/icons';
+import type { BreathingTechnique, BreathingStats } from '@/features/breathing/types';
+import { CATEGORY_INFO, type JournalEntry } from '@/features/journaling/types';
+import type { DirectComponent } from '@/features/navigation/types';
+import { ThemeToggle } from '@/features/settings';
+import {
+  createAIClient,
+  isBreathingConfirmation,
+  isJournalingConfirmation,
+  isVoiceSelection,
+  type Message,
+  type InterruptPayload,
+} from '@/lib/ai-client';
+import { createConversation, loadMessages, touchConversation } from '@/lib/conversations';
+import { parseActivityContent } from '@/lib/parseActivity';
+import { conversationKeys } from '@/lib/queries';
+import { supabase } from '@/lib/supabase';
+
 // Lazy load activity components to reduce initial bundle size
 // These are only loaded when the user triggers an activity
 const ImmersiveBreathing = lazy(() =>
@@ -93,25 +110,27 @@ const JournalHistory = lazy(() =>
     default: m.JournalHistory,
   }))
 );
-// Non-lazy imports for types and constants
-import type { BreathingTechnique, BreathingStats } from '@/features/breathing';
-import { ProgressWidget } from '@/features/gamification';
-import { CATEGORY_INFO, type JournalEntry } from '@/features/journaling';
-import { DiscoverNav, ActivityRenderer, type DirectComponent } from '@/features/navigation';
-import { ThemeToggle } from '@/features/settings';
-import { SidebarProfile } from '@/features/user';
-import {
-  createAIClient,
-  isBreathingConfirmation,
-  isJournalingConfirmation,
-  isVoiceSelection,
-  type Message,
-  type InterruptPayload,
-} from '@/lib/ai-client';
-import { createConversation, loadMessages, touchConversation } from '@/lib/conversations';
-import { parseActivityContent } from '@/lib/parseActivity';
-import { conversationKeys } from '@/lib/queries';
-import { supabase } from '@/lib/supabase';
+// Lazy-loaded sidebar components (only loaded when sidebar is visible)
+const ProgressWidget = lazy(() =>
+  import('@/features/gamification/components/ProgressWidget/ProgressWidget').then((m) => ({
+    default: m.ProgressWidget,
+  }))
+);
+const DiscoverNav = lazy(() =>
+  import('@/features/navigation/components/DiscoverNav/DiscoverNav').then((m) => ({
+    default: m.DiscoverNav,
+  }))
+);
+const ActivityRenderer = lazy(() =>
+  import('@/features/navigation/components/ActivityRenderer/ActivityRenderer').then((m) => ({
+    default: m.ActivityRenderer,
+  }))
+);
+const SidebarProfile = lazy(() =>
+  import('@/features/user/components/SidebarProfile/SidebarProfile').then((m) => ({
+    default: m.SidebarProfile,
+  }))
+);
 
 /* ----------------------------------------------------------------------------
    Route API for accessing loader data
@@ -231,15 +250,33 @@ export function ChatPage() {
     setConversationId(loaderData.conversationId);
   }, [loaderData.messages, loaderData.conversationId]);
 
-  // Sidebar state - SSR-safe initialization
-  // On server: false (matches critical CSS), on client: true for desktop
-  // This prevents CLS by computing correct initial state without needing useLayoutEffect
-  const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
-    if (typeof window === 'undefined') {
-      return false;
-    } // SSR: closed
-    return window.innerWidth >= 768; // Client: open on desktop
-  });
+  // Hydration tracking - prevents CLS by deferring width collapse until after paint
+  // The CSS .sidebarHydrated class is required for width:0 to take effect on desktop
+  const [isHydrated, setIsHydrated] = useState(false);
+
+  // Sidebar state - starts OPEN to match CSS default (prevents 280px layout shift)
+  // CSS sets sidebar width: 280px on desktop by default.
+  // Only after hydration (isHydrated=true) can the sidebar collapse via .sidebarClosed.sidebarHydrated
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+
+  /* --------------------------------------------------------------------------
+     Hydration Effect - Enable sidebar collapse and set mobile initial state
+     --------------------------------------------------------------------------
+     CRITICAL FOR CLS: This effect runs after the first paint, ensuring:
+     1. The page renders with sidebar open (matching CSS default)
+     2. Only AFTER paint do we enable the collapse behavior (via isHydrated)
+     3. On mobile, we close the sidebar (but width doesn't shift since it's overlay)
+     -------------------------------------------------------------------------- */
+  useEffect(() => {
+    // Enable sidebar collapse behavior (CSS: .sidebarClosed.sidebarHydrated)
+    setIsHydrated(true);
+
+    // On mobile, close the sidebar after hydration
+    // This is safe because mobile uses position:fixed (overlay), not flex width
+    if (window.innerWidth < 768) {
+      setIsSidebarOpen(false);
+    }
+  }, []);
 
   // Interrupt data for HITL (Human-in-the-Loop) confirmation dialogs
   // When the AI suggests an activity, it pauses for user confirmation
@@ -1039,7 +1076,7 @@ export function ChatPage() {
 
       {/* Sidebar navigation */}
       <aside
-        className={`${styles.sidebar} ${isSidebarOpen ? styles.sidebarOpen : styles.sidebarClosed}`}
+        className={`${styles.sidebar} ${isSidebarOpen ? styles.sidebarOpen : styles.sidebarClosed} ${isHydrated ? styles.sidebarHydrated : ''}`}
       >
         {/* Collapse button - desktop only */}
         <button
@@ -1054,7 +1091,9 @@ export function ChatPage() {
 
         {/* User Profile Section */}
         <div className={styles.sidebarProfile}>
-          <SidebarProfile email={loaderData.userEmail} streakDays={0} />
+          <Suspense fallback={<div style={{ height: 48 }} />}>
+            <SidebarProfile email={loaderData.userEmail} streakDays={0} />
+          </Suspense>
         </div>
 
         {/* Navigation buttons */}
@@ -1066,24 +1105,26 @@ export function ChatPage() {
 
           {/* Discover Section */}
           <div className={styles.sidebarSection}>
-            <DiscoverNav
-              onItemClick={(item) => {
-                // Handle activity navigation - send as message
-                if (item === 'breathing') {
-                  setInputValue('Guide me through a breathing exercise');
-                } else if (item === 'meditation') {
-                  setInputValue('I would like to meditate');
-                } else if (item === 'journal') {
-                  setInputValue('Help me with journaling');
-                }
-                // Close sidebar on mobile
-                if (typeof window !== 'undefined' && window.innerWidth < 768) {
-                  setIsSidebarOpen(false);
-                }
-                inputRef.current?.focus();
-              }}
-              onTestComponent={handleDirectComponent}
-            />
+            <Suspense fallback={<div style={{ height: 200 }} />}>
+              <DiscoverNav
+                onItemClick={(item) => {
+                  // Handle activity navigation - send as message
+                  if (item === 'breathing') {
+                    setInputValue('Guide me through a breathing exercise');
+                  } else if (item === 'meditation') {
+                    setInputValue('I would like to meditate');
+                  } else if (item === 'journal') {
+                    setInputValue('Help me with journaling');
+                  }
+                  // Close sidebar on mobile
+                  if (typeof window !== 'undefined' && window.innerWidth < 768) {
+                    setIsSidebarOpen(false);
+                  }
+                  inputRef.current?.focus();
+                }}
+                onTestComponent={handleDirectComponent}
+              />
+            </Suspense>
           </div>
 
           {/* Conversation History */}
@@ -1112,7 +1153,9 @@ export function ChatPage() {
 
           {/* Progress Widget */}
           <div className={styles.sidebarSection}>
-            <ProgressWidget streakDays={0} weeklyGoalCompleted={0} weeklyGoalTarget={5} />
+            <Suspense fallback={<div style={{ height: 80 }} />}>
+              <ProgressWidget streakDays={0} weeklyGoalCompleted={0} weeklyGoalTarget={5} />
+            </Suspense>
           </div>
         </nav>
 
@@ -1361,7 +1404,9 @@ export function ChatPage() {
           onClose={handleDirectActivityClose}
           activityType={directActivity.type}
         >
-          <ActivityRenderer component={directActivity} onClose={handleDirectActivityClose} />
+          <Suspense fallback={<ActivityLoadingSkeleton />}>
+            <ActivityRenderer component={directActivity} onClose={handleDirectActivityClose} />
+          </Suspense>
         </ActivityOverlay>
       )}
 
