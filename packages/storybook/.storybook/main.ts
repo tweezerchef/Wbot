@@ -9,11 +9,19 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const webAppPath = resolve(__dirname, '../../../apps/web');
 
-interface RollupWarning {
+interface RollupLogLike {
   code?: string;
+  message: string;
 }
 
-type RollupWarn = (warning: RollupWarning) => void;
+type RollupWarningLike = RollupLogLike | string | (() => string | RollupLogLike);
+
+type RollupDefaultHandler = (warning: RollupWarningLike) => void;
+
+type RollupWarningHandler = (
+  warning: RollupWarningLike,
+  defaultHandler: RollupDefaultHandler
+) => void;
 
 const config: StorybookConfig = {
   stories: ['../stories/**/*.mdx', '../stories/**/*.stories.@(js|jsx|mjs|ts|tsx)'],
@@ -109,12 +117,16 @@ const config: StorybookConfig = {
     const baseOutput = Array.isArray(existingOutput) ? existingOutput[0] : existingOutput;
 
     // Ignore "use client" directive warnings from dependencies during build.
-    const onwarn = (warning: RollupWarning, warn: RollupWarn) => {
-      if (warning.code === 'MODULE_LEVEL_DIRECTIVE') {
+    const onwarn: RollupWarningHandler = (warning, defaultHandler) => {
+      if (
+        typeof warning !== 'string' &&
+        typeof warning !== 'function' &&
+        warning.code === 'MODULE_LEVEL_DIRECTIVE'
+      ) {
         return;
       }
 
-      warn(warning);
+      defaultHandler(warning);
     };
 
     config.build = {
