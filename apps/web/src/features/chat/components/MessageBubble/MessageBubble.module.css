@@ -1,0 +1,188 @@
+/* ============================================================================
+   Message Bubble Styles
+   ============================================================================
+   Styles for individual chat message bubbles including:
+   - Message row alignment
+   - Bubble styling for different roles (user, assistant, system)
+   - Activity bubble styling
+   - Completed activity summary
+   - Streaming cursor animation
+   ============================================================================ */
+
+/* ----------------------------------------------------------------------------
+   Message Row
+   ----------------------------------------------------------------------------
+   Container for each message, handles alignment.
+   ---------------------------------------------------------------------------- */
+.messageRow {
+  /* Default: left-aligned (assistant messages) */
+  display: flex;
+  justify-content: flex-start;
+}
+
+.messageRowUser {
+  /* User messages: right-aligned */
+  justify-content: flex-end;
+}
+
+/* ----------------------------------------------------------------------------
+   Message Bubble
+   ----------------------------------------------------------------------------
+   The actual message content container.
+   Different styles for user/assistant/system messages.
+   ---------------------------------------------------------------------------- */
+.bubble {
+  /* Limit width for readability */
+  max-width: 80%;
+
+  /* Padding inside bubble */
+  padding: var(--spacing-sm) var(--spacing-md);
+
+  /* Rounded corners - 18px as per design spec */
+  border-radius: 18px;
+
+  /* Default (assistant) styling - uses CSS variable for dark mode support */
+  background-color: var(--color-neutral-100);
+  color: var(--color-text-primary);
+
+  /* Subtle shadow */
+  box-shadow: var(--shadow-sm);
+
+  /* Larger font for chat messages */
+  font-size: var(--font-size-lg);
+}
+
+/* User message styling - primary gradient, right side */
+.bubbleUser {
+  background: var(--color-primary-gradient);
+  color: var(--color-text-inverse);
+
+  /* Less rounded bottom-right corner */
+  border-bottom-right-radius: var(--radius-sm);
+}
+
+/* Assistant message styling - neutral, left side */
+.bubbleAssistant {
+  /* Less rounded bottom-left corner */
+  border-bottom-left-radius: var(--radius-sm);
+}
+
+/* System message styling - centered, muted */
+.bubbleSystem {
+  background-color: var(--color-warning-light);
+  color: var(--color-text-primary);
+  text-align: center;
+
+  /* Full width for system messages */
+  max-width: 100%;
+}
+
+/* Streaming message - subtle indicator */
+.bubbleStreaming {
+  /* Slight opacity to indicate in-progress */
+  opacity: 0.95;
+}
+
+/* Activity bubble - contains interactive components like breathing exercises */
+.bubbleActivity {
+  /* Wider to accommodate activity UI */
+  max-width: 100%;
+  width: 100%;
+
+  /* More padding for interactive content */
+  padding: var(--spacing-md);
+
+  /* Subtle gradient background for wellness feel */
+  background: linear-gradient(
+    135deg,
+    var(--color-surface) 0%,
+    var(--color-background-secondary) 100%
+  );
+
+  /* Slightly larger border radius for prominent cards */
+  border-radius: var(--radius-xl);
+
+  /* Enhanced shadow for elevated appearance */
+  box-shadow: var(--shadow-md);
+
+  /* Ensure content doesn't overflow */
+  overflow: hidden;
+}
+
+/* Desktop: constrain activity width for better layout */
+@media (min-width: 768px) {
+  .bubbleActivity {
+    max-width: 420px;
+  }
+}
+
+/* Message text content */
+.messageContent {
+  /* Reset margins */
+  margin: 0;
+
+  /* Readable line height */
+  line-height: var(--line-height-normal);
+
+  /* Preserve whitespace and wrap long words */
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* Blinking cursor for streaming messages */
+.cursor {
+  animation: blink 1s infinite;
+  margin-left: 2px;
+}
+
+@keyframes blink {
+  0%,
+  50% {
+    opacity: 1;
+  }
+  51%,
+  100% {
+    opacity: 0;
+  }
+}
+
+/* ----------------------------------------------------------------------------
+   Completed Activity Summary
+   ----------------------------------------------------------------------------
+   Displays historical activities as non-interactive completion summaries.
+   ---------------------------------------------------------------------------- */
+.completedActivity {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-xs) 0;
+}
+
+.completedIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background-color: var(--color-success-light, rgba(34, 197, 94, 0.1));
+  color: var(--color-success, #22c55e);
+  flex-shrink: 0;
+}
+
+.completedInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.completedTitle {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+}
+
+.completedDetail {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}

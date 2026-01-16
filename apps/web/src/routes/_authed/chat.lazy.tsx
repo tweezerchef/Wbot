@@ -11,8 +11,8 @@ import { ChatSkeleton } from '@/components/skeletons';
 import { ChatPage } from '@/features/chat';
 
 export const Route = createLazyFileRoute('/_authed/chat')({
-  // Show skeleton immediately to prevent FOUC on initial load/refresh.
-  pendingMs: 0,
+  // pendingComponent is allowed in lazy routes for code splitting.
+  // pendingMs is defined in the main chat.tsx file.
   pendingComponent: ChatSkeleton,
   component: ChatPage,
 });

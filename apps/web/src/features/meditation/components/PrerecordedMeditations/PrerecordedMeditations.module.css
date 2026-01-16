@@ -1,0 +1,178 @@
+/* ============================================================================
+   Pre-recorded Meditations Component Styles
+   ============================================================================ */
+
+.container {
+  margin-top: var(--spacing-sm);
+}
+
+/* ----------------------------------------------------------------------------
+   Toggle Button
+   ---------------------------------------------------------------------------- */
+.toggleButton {
+  width: 100%;
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-md);
+  color: var(--color-text-primary);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
+  text-align: left;
+  transition: background-color var(--transition-fast);
+  cursor: pointer;
+  background: transparent;
+  border: none;
+}
+
+.toggleButton:hover {
+  background-color: var(--color-primary-light);
+}
+
+.toggleButton:active {
+  transform: scale(0.98);
+}
+
+/* Chevron rotation when expanded */
+.toggleButton svg:last-child {
+  margin-left: auto;
+  transition: transform var(--transition-fast);
+}
+
+.toggleButton.expanded svg:last-child {
+  transform: rotate(180deg);
+}
+
+/* ----------------------------------------------------------------------------
+   Panel
+   ---------------------------------------------------------------------------- */
+.panel {
+  margin-top: var(--spacing-xs);
+  padding: var(--spacing-sm);
+  background-color: var(--color-background-alt);
+  border-radius: var(--radius-md);
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+/* ----------------------------------------------------------------------------
+   Filter Controls
+   ---------------------------------------------------------------------------- */
+.filters {
+  display: flex;
+  gap: var(--spacing-xs);
+  margin-bottom: var(--spacing-sm);
+}
+
+.filterSelect {
+  flex: 1;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  font-size: var(--font-size-xs);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  background-color: var(--color-surface);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  transition: border-color var(--transition-fast);
+}
+
+.filterSelect:hover {
+  border-color: var(--color-primary);
+}
+
+.filterSelect:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px var(--color-primary-light);
+}
+
+/* ----------------------------------------------------------------------------
+   Track List
+   ---------------------------------------------------------------------------- */
+.list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+}
+
+/* ----------------------------------------------------------------------------
+   Track Item
+   ---------------------------------------------------------------------------- */
+.trackItem {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: var(--spacing-sm) var(--spacing-md);
+  text-align: left;
+  border-radius: var(--radius-md);
+  transition: background-color var(--transition-fast);
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  color: var(--color-text-primary);
+}
+
+.trackItem:hover {
+  background-color: var(--color-surface);
+}
+
+/* Track header with duration and type */
+.trackHeader {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+/* Duration badge */
+.durationBadge {
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  color: white;
+  font-weight: var(--font-weight-medium);
+}
+
+.trackType {
+  font-size: 10px;
+  color: var(--color-text-muted);
+}
+
+/* Track name */
+.trackName {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
+}
+
+/* Track description */
+.trackDescription {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* ----------------------------------------------------------------------------
+   States
+   ---------------------------------------------------------------------------- */
+.emptyState {
+  padding: var(--spacing-md);
+  text-align: center;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}

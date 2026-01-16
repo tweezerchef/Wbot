@@ -13,6 +13,7 @@
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { devtools } from '@tanstack/devtools-vite';
 import { tanstackStart } from '@tanstack/react-start/plugin/vite';
 import react from '@vitejs/plugin-react';
 import { nitro } from 'nitro/vite';
@@ -42,6 +43,8 @@ export default defineConfig({
     // TanStack Start plugin - handles routing, SSR, server functions
     // Must come before React plugin
     tanstackStart(),
+    //devTools
+    devtools(),
 
     // Nitro plugin - enables production server deployment
     nitro(),

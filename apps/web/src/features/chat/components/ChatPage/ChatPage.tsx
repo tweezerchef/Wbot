@@ -23,28 +23,25 @@
 
 import { useQueryClient } from '@tanstack/react-query';
 import { getRouteApi, useNavigate } from '@tanstack/react-router';
+import type { MeditationTrack } from '@wbot/shared';
 import React, { useState, useRef, useEffect, useCallback, useMemo, lazy, Suspense } from 'react';
+import { ErrorBoundary } from 'react-error-boundary';
 import { z } from 'zod';
 
+import { useHITLResume, type UseHITLResumeOptions } from '../../hooks/useHITLResume';
 import { ChatEmptyState } from '../ChatEmptyState';
-import { ConversationHistory } from '../ConversationHistory';
+import { ChatSidebar } from '../ChatSidebar';
+import { MessageBubble } from '../MessageBubble';
 
 import styles from './ChatPage.module.css';
 
+import { ErrorFallback } from '@/components/feedback/ErrorFallback/ErrorFallback';
 import { ActivityOverlay } from '@/components/overlays';
 import { ActivityLoadingSkeleton } from '@/components/skeletons';
-import {
-  MenuIcon,
-  CloseIcon,
-  ChevronLeftIcon,
-  ChevronRightIcon,
-  NewChatIcon,
-  LogoutIcon,
-} from '@/components/ui/icons';
+import { MenuIcon, CloseIcon, ChevronRightIcon, SendIcon } from '@/components/ui/icons';
 import type { BreathingTechnique, BreathingStats } from '@/features/breathing/types';
 import { CATEGORY_INFO, type JournalEntry } from '@/features/journaling/types';
 import type { DirectComponent } from '@/features/navigation/types';
-import { ThemeToggle } from '@/features/settings';
 import {
   createAIClient,
   isBreathingConfirmation,
@@ -53,8 +50,9 @@ import {
   type Message,
   type InterruptPayload,
 } from '@/lib/ai-client';
+import { isMobileViewport } from '@/lib/constants/breakpoints';
 import { createConversation, loadMessages, touchConversation } from '@/lib/conversations';
-import { parseActivityContent } from '@/lib/parseActivity';
+import { useSupabaseSession } from '@/lib/hooks';
 import { conversationKeys } from '@/lib/queries';
 import { supabase } from '@/lib/supabase';
 
@@ -70,66 +68,34 @@ const ImmersiveBreathingConfirmation = lazy(() =>
     (m) => ({ default: m.ImmersiveBreathingConfirmation })
   )
 );
-const WimHofExercise = lazy(() =>
-  import('@/features/breathing/components/WimHofExercise/WimHofExercise').then((m) => ({
-    default: m.WimHofExercise,
-  }))
-);
 const BreathingConfirmation = lazy(() =>
   import('@/features/breathing/components/BreathingConfirmation/BreathingConfirmation').then(
     (m) => ({ default: m.BreathingConfirmation })
   )
-);
-const AIGeneratedMeditation = lazy(() =>
-  import('@/features/meditation/components/GuidedMeditation/AIGeneratedMeditation').then((m) => ({
-    default: m.AIGeneratedMeditation,
-  }))
-);
-const GuidedMeditation = lazy(() =>
-  import('@/features/meditation/components/GuidedMeditation/GuidedMeditation').then((m) => ({
-    default: m.GuidedMeditation,
-  }))
 );
 const VoiceSelectionConfirmation = lazy(() =>
   import('@/features/meditation/components/VoiceSelectionConfirmation/VoiceSelectionConfirmation').then(
     (m) => ({ default: m.VoiceSelectionConfirmation })
   )
 );
-const JournalingExercise = lazy(() =>
-  import('@/features/journaling/components/JournalingExercise/JournalingExercise').then((m) => ({
-    default: m.JournalingExercise,
-  }))
-);
 const JournalingConfirmation = lazy(() =>
   import('@/features/journaling/components/JournalingConfirmation/JournalingConfirmation').then(
     (m) => ({ default: m.JournalingConfirmation })
   )
 );
-const JournalHistory = lazy(() =>
-  import('@/features/journaling/components/JournalHistory/JournalHistory').then((m) => ({
-    default: m.JournalHistory,
-  }))
-);
-// Lazy-loaded sidebar components (only loaded when sidebar is visible)
-const ProgressWidget = lazy(() =>
-  import('@/features/gamification/components/ProgressWidget/ProgressWidget').then((m) => ({
-    default: m.ProgressWidget,
-  }))
-);
-const DiscoverNav = lazy(() =>
-  import('@/features/navigation/components/DiscoverNav/DiscoverNav').then((m) => ({
-    default: m.DiscoverNav,
-  }))
-);
+// Lazy-load direct activity renderer for sidebar navigation
 const ActivityRenderer = lazy(() =>
   import('@/features/navigation/components/ActivityRenderer/ActivityRenderer').then((m) => ({
     default: m.ActivityRenderer,
   }))
 );
-const SidebarProfile = lazy(() =>
-  import('@/features/user/components/SidebarProfile/SidebarProfile').then((m) => ({
-    default: m.SidebarProfile,
-  }))
+// Lazy-load pre-recorded meditation player
+const PrerecordedMeditationPlayer = lazy(() =>
+  import('@/features/meditation/components/PrerecordedMeditationPlayer/PrerecordedMeditationPlayer').then(
+    (m) => ({
+      default: m.PrerecordedMeditationPlayer,
+    })
+  )
 );
 
 /* ----------------------------------------------------------------------------
@@ -191,6 +157,9 @@ export function ChatPage() {
 
   // Navigation for redirects (e.g., after logout)
   const navigate = useNavigate();
+
+  // Supabase session - provides reactive access to auth state
+  const { session, accessToken } = useSupabaseSession();
 
   // Message state - initialized from loader data
   const [messages, setMessages] = useState<Message[]>(loaderData.messages);
@@ -273,7 +242,7 @@ export function ChatPage() {
 
     // On mobile, close the sidebar after hydration
     // This is safe because mobile uses position:fixed (overlay), not flex width
-    if (window.innerWidth < 768) {
+    if (isMobileViewport()) {
       setIsSidebarOpen(false);
     }
   }, []);
@@ -315,11 +284,54 @@ export function ChatPage() {
   // Selected journal entry for viewing
   const [selectedJournalEntry, setSelectedJournalEntry] = useState<JournalEntry | null>(null);
 
+  // Selected pre-recorded meditation track for playback
+  const [selectedPrerecordedTrack, setSelectedPrerecordedTrack] = useState<MeditationTrack | null>(
+    null
+  );
+
   // Reference to the message container for auto-scrolling
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Reference to the input field for focus management
   const inputRef = useRef<HTMLInputElement>(null);
+
+  /* --------------------------------------------------------------------------
+     HITL Resume Hook - handles all interrupt confirmations
+     -------------------------------------------------------------------------- */
+  const hitlResumeOptions: UseHITLResumeOptions = {
+    conversationId,
+    onSuccess: (message: Message) => {
+      setMessages((prev) => [...prev, message]);
+    },
+    onError: (error: string) => {
+      const errorMessage: Message = {
+        id: `error-${String(Date.now())}`,
+        role: 'system',
+        content: error,
+        createdAt: new Date(),
+      };
+      setMessages((prev) => [...prev, errorMessage]);
+    },
+    onStreamingUpdate: (content: string) => {
+      setStreamingContent(content);
+    },
+    onResumeStart: () => {
+      setInterruptData(null);
+      setIsLoading(true);
+      setStreamingContent('');
+    },
+    onResumeEnd: () => {
+      setIsLoading(false);
+      inputRef.current?.focus();
+    },
+    touchConversation: touchConversationForUser,
+  };
+
+  const {
+    resume: hitlResume,
+    isResuming: _isResuming,
+    streamingContent: _resumeStreamingContent,
+  } = useHITLResume(hitlResumeOptions);
 
   /* --------------------------------------------------------------------------
      Auto-scroll to bottom when new messages arrive
@@ -360,12 +372,8 @@ export function ChatPage() {
     setStreamingContent('');
 
     try {
-      // Get the current session from Supabase
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      if (!session) {
+      // Check session from hook (reactive, always current)
+      if (!session || !accessToken) {
         // User is not authenticated, show error
         const errorMessage: Message = {
           id: `error-${String(Date.now())}`,
@@ -379,7 +387,7 @@ export function ChatPage() {
       }
 
       // Use the Supabase access token for LangGraph authentication
-      const authToken = session.access_token;
+      const authToken = accessToken;
 
       // Get or create conversation ID (lazy creation on first message)
       let currentConversationId = conversationId;
@@ -477,7 +485,7 @@ export function ChatPage() {
             }
 
             // Don't refocus input - user should interact with the confirmation
-            return; // Exit the loop, handleBreathingConfirm will resume
+            return; // Exit the loop, hitlResume will continue
           }
         }
       }
@@ -510,255 +518,6 @@ export function ChatPage() {
   };
 
   /* --------------------------------------------------------------------------
-     Handle Breathing Exercise Confirmation (HITL resume)
-     -------------------------------------------------------------------------- */
-  const handleBreathingConfirm = useCallback(
-    async (decision: 'start' | 'change_technique' | 'not_now', techniqueId?: string) => {
-      // Clear the interrupt UI
-      setInterruptData(null);
-      setIsLoading(true);
-      setStreamingContent('');
-
-      try {
-        // Get session for auth
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
-
-        if (!session || !conversationId) {
-          console.error('No session or conversation ID');
-          setIsLoading(false);
-          return;
-        }
-
-        // Resume the graph with user's decision
-        const client = createAIClient(session.access_token);
-        let fullResponse = '';
-
-        for await (const event of client.resumeInterrupt(
-          { decision, technique_id: techniqueId },
-          conversationId
-        )) {
-          switch (event.type) {
-            case 'token':
-              fullResponse = event.content;
-              setStreamingContent(fullResponse);
-              break;
-
-            case 'done': {
-              // Add the activity message to the list
-              const assistantMessage: Message = {
-                id: `assistant-${String(Date.now())}`,
-                role: 'assistant',
-                content: fullResponse,
-                createdAt: new Date(),
-              };
-              setMessages((prev) => [...prev, assistantMessage]);
-              setStreamingContent('');
-
-              // Touch conversation for ordering
-              void touchConversationForUser(conversationId, session.user.id);
-              break;
-            }
-
-            case 'error': {
-              console.error('Resume stream error:', event.error);
-              const errorMessage: Message = {
-                id: `error-${String(Date.now())}`,
-                role: 'system',
-                content: `Sorry, something went wrong: ${event.error}`,
-                createdAt: new Date(),
-              };
-              setMessages((prev) => [...prev, errorMessage]);
-              setStreamingContent('');
-              break;
-            }
-          }
-        }
-      } catch (error) {
-        console.error('Failed to resume graph:', error);
-        const errorMessage: Message = {
-          id: `error-${String(Date.now())}`,
-          role: 'system',
-          content: "Sorry, I couldn't continue. Please try again.",
-          createdAt: new Date(),
-        };
-        setMessages((prev) => [...prev, errorMessage]);
-      } finally {
-        setIsLoading(false);
-        inputRef.current?.focus();
-      }
-    },
-    [conversationId, touchConversationForUser]
-  );
-
-  /* --------------------------------------------------------------------------
-     Handle Voice Selection Confirmation (HITL resume for meditation)
-     -------------------------------------------------------------------------- */
-  const handleVoiceSelectionConfirm = useCallback(
-    async (decision: 'confirm' | 'cancel', voiceId?: string) => {
-      // Clear the interrupt UI
-      setInterruptData(null);
-      setIsLoading(true);
-      setStreamingContent('');
-
-      try {
-        // Get session for auth
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
-
-        if (!session || !conversationId) {
-          console.error('No session or conversation ID');
-          setIsLoading(false);
-          return;
-        }
-
-        // Resume the graph with user's decision
-        const client = createAIClient(session.access_token);
-        let fullResponse = '';
-
-        for await (const event of client.resumeInterrupt(
-          { decision, voice_id: voiceId },
-          conversationId
-        )) {
-          switch (event.type) {
-            case 'token':
-              fullResponse = event.content;
-              setStreamingContent(fullResponse);
-              break;
-
-            case 'done': {
-              // Add the activity message to the list
-              const assistantMessage: Message = {
-                id: `assistant-${String(Date.now())}`,
-                role: 'assistant',
-                content: fullResponse,
-                createdAt: new Date(),
-              };
-              setMessages((prev) => [...prev, assistantMessage]);
-              setStreamingContent('');
-
-              // Touch conversation for ordering
-              void touchConversationForUser(conversationId, session.user.id);
-              break;
-            }
-
-            case 'error': {
-              console.error('Resume stream error:', event.error);
-              const errorMessage: Message = {
-                id: `error-${String(Date.now())}`,
-                role: 'system',
-                content: `Sorry, something went wrong: ${event.error}`,
-                createdAt: new Date(),
-              };
-              setMessages((prev) => [...prev, errorMessage]);
-              setStreamingContent('');
-              break;
-            }
-          }
-        }
-      } catch (error) {
-        console.error('Failed to resume graph:', error);
-        const errorMessage: Message = {
-          id: `error-${String(Date.now())}`,
-          role: 'system',
-          content: "Sorry, I couldn't continue. Please try again.",
-          createdAt: new Date(),
-        };
-        setMessages((prev) => [...prev, errorMessage]);
-      } finally {
-        setIsLoading(false);
-        inputRef.current?.focus();
-      }
-    },
-    [conversationId, touchConversationForUser]
-  );
-
-  /* --------------------------------------------------------------------------
-     Handle Journaling Prompt Confirmation (HITL resume)
-     -------------------------------------------------------------------------- */
-  const handleJournalingConfirm = useCallback(
-    async (decision: 'start' | 'change_prompt' | 'not_now', promptId?: string) => {
-      // Clear the interrupt UI
-      setInterruptData(null);
-      setIsLoading(true);
-      setStreamingContent('');
-
-      try {
-        // Get session for auth
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
-
-        if (!session || !conversationId) {
-          console.error('No session or conversation ID');
-          setIsLoading(false);
-          return;
-        }
-
-        // Resume the graph with user's decision
-        const client = createAIClient(session.access_token);
-        let fullResponse = '';
-
-        for await (const event of client.resumeInterrupt(
-          { decision, prompt_id: promptId },
-          conversationId
-        )) {
-          switch (event.type) {
-            case 'token':
-              fullResponse = event.content;
-              setStreamingContent(fullResponse);
-              break;
-
-            case 'done': {
-              // Add the activity message to the list
-              const assistantMessage: Message = {
-                id: `assistant-${String(Date.now())}`,
-                role: 'assistant',
-                content: fullResponse,
-                createdAt: new Date(),
-              };
-              setMessages((prev) => [...prev, assistantMessage]);
-              setStreamingContent('');
-
-              // Touch conversation for ordering
-              void touchConversationForUser(conversationId, session.user.id);
-              break;
-            }
-
-            case 'error': {
-              console.error('Resume stream error:', event.error);
-              const errorMessage: Message = {
-                id: `error-${String(Date.now())}`,
-                role: 'system',
-                content: `Sorry, something went wrong: ${event.error}`,
-                createdAt: new Date(),
-              };
-              setMessages((prev) => [...prev, errorMessage]);
-              setStreamingContent('');
-              break;
-            }
-          }
-        }
-      } catch (error) {
-        console.error('Failed to resume graph:', error);
-        const errorMessage: Message = {
-          id: `error-${String(Date.now())}`,
-          role: 'system',
-          content: "Sorry, I couldn't continue. Please try again.",
-          createdAt: new Date(),
-        };
-        setMessages((prev) => [...prev, errorMessage]);
-      } finally {
-        setIsLoading(false);
-        inputRef.current?.focus();
-      }
-    },
-    [conversationId, touchConversationForUser]
-  );
-
-  /* --------------------------------------------------------------------------
      Immersive Breathing Overlay Handlers
      -------------------------------------------------------------------------- */
 
@@ -779,17 +538,13 @@ export function ChatPage() {
       setIsLoading(true);
 
       try {
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
-
-        if (!session || !conversationId) {
+        if (!session || !accessToken || !conversationId) {
           console.error('No session or conversation ID');
           setIsLoading(false);
           return;
         }
 
-        const client = createAIClient(session.access_token);
+        const client = createAIClient(accessToken);
 
         // Resume with 'start' decision and the selected technique
         // Note: We don't need to capture the response content since we don't add
@@ -829,7 +584,7 @@ export function ChatPage() {
         },
       });
     },
-    [activeActivity, conversationId, touchConversationForUser]
+    [activeActivity, conversationId, touchConversationForUser, session, accessToken]
   );
 
   /**
@@ -841,17 +596,13 @@ export function ChatPage() {
     setIsLoading(true);
 
     try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      if (!session || !conversationId) {
+      if (!session || !accessToken || !conversationId) {
         console.error('No session or conversation ID');
         setIsLoading(false);
         return;
       }
 
-      const client = createAIClient(session.access_token);
+      const client = createAIClient(accessToken);
       let fullResponse = '';
 
       for await (const event of client.resumeInterrupt({ decision: 'not_now' }, conversationId)) {
@@ -887,7 +638,7 @@ export function ChatPage() {
       setIsLoading(false);
       inputRef.current?.focus();
     }
-  }, [conversationId, touchConversationForUser]);
+  }, [conversationId, touchConversationForUser, session, accessToken]);
 
   /**
    * Handle breathing exercise completion.
@@ -920,7 +671,7 @@ export function ChatPage() {
   const handleDirectComponent = useCallback((component: DirectComponent) => {
     setDirectActivity(component);
     // Close sidebar on mobile
-    if (typeof window !== 'undefined' && window.innerWidth < 768) {
+    if (isMobileViewport()) {
       setIsSidebarOpen(false);
     }
   }, []);
@@ -952,6 +703,29 @@ export function ChatPage() {
   }, []);
 
   /* --------------------------------------------------------------------------
+     Pre-recorded Meditation Handlers
+     -------------------------------------------------------------------------- */
+
+  /**
+   * Handle selecting a pre-recorded meditation track from the sidebar.
+   */
+  const handleSelectPrerecordedMeditation = useCallback((track: MeditationTrack) => {
+    setSelectedPrerecordedTrack(track);
+    // Close sidebar on mobile
+    if (isMobileViewport()) {
+      setIsSidebarOpen(false);
+    }
+  }, []);
+
+  /**
+   * Handle closing the pre-recorded meditation player.
+   */
+  const handleClosePrerecordedMeditation = useCallback(() => {
+    setSelectedPrerecordedTrack(null);
+    inputRef.current?.focus();
+  }, []);
+
+  /* --------------------------------------------------------------------------
      Sidebar Handlers
      -------------------------------------------------------------------------- */
 
@@ -975,10 +749,6 @@ export function ChatPage() {
    */
   const handleNewConversation = async () => {
     try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
       if (!session) {
         return;
       }
@@ -993,7 +763,7 @@ export function ChatPage() {
       setInputValue('');
 
       // Close sidebar on mobile (but keep open on desktop)
-      if (typeof window !== 'undefined' && window.innerWidth < 768) {
+      if (isMobileViewport()) {
         setIsSidebarOpen(false);
       }
 
@@ -1026,7 +796,7 @@ export function ChatPage() {
       setInputValue('');
 
       // Close sidebar on mobile
-      if (typeof window !== 'undefined' && window.innerWidth < 768) {
+      if (isMobileViewport()) {
         setIsSidebarOpen(false);
       }
 
@@ -1075,101 +845,38 @@ export function ChatPage() {
       )}
 
       {/* Sidebar navigation */}
-      <aside
-        className={`${styles.sidebar} ${isSidebarOpen ? styles.sidebarOpen : styles.sidebarClosed} ${isHydrated ? styles.sidebarHydrated : ''}`}
-      >
-        {/* Collapse button - desktop only */}
-        <button
-          className={styles.collapseButton}
-          onClick={() => {
+      <ChatSidebar
+        isOpen={isSidebarOpen}
+        onClose={() => {
+          setIsSidebarOpen(false);
+        }}
+        isHydrated={isHydrated}
+        userEmail={loaderData.userEmail}
+        userId={loaderData.userId}
+        currentConversationId={conversationId}
+        onNewConversation={handleNewConversation}
+        onSelectConversation={handleConversationSelection}
+        onLogout={handleLogout}
+        onDirectComponent={handleDirectComponent}
+        onSelectJournalEntry={handleSelectJournalEntry}
+        onSelectPrerecordedMeditation={handleSelectPrerecordedMeditation}
+        onActivityRequest={(type) => {
+          // Handle activity navigation - send as message
+          if (type === 'breathing') {
+            setInputValue('Guide me through a breathing exercise');
+          } else if (type === 'meditation') {
+            setInputValue('I would like to meditate');
+          } else {
+            // type === 'journal' is the only other option
+            setInputValue('Help me with journaling');
+          }
+          // Close sidebar on mobile
+          if (isMobileViewport()) {
             setIsSidebarOpen(false);
-          }}
-          aria-label="Collapse sidebar"
-        >
-          <ChevronLeftIcon />
-        </button>
-
-        {/* User Profile Section */}
-        <div className={styles.sidebarProfile}>
-          <Suspense fallback={<div style={{ height: 48 }} />}>
-            <SidebarProfile email={loaderData.userEmail} streakDays={0} />
-          </Suspense>
-        </div>
-
-        {/* Navigation buttons */}
-        <nav className={styles.sidebarNav}>
-          <button className={styles.sidebarButton} onClick={() => void handleNewConversation()}>
-            <NewChatIcon />
-            <span>New Conversation</span>
-          </button>
-
-          {/* Discover Section */}
-          <div className={styles.sidebarSection}>
-            <Suspense fallback={<div style={{ height: 200 }} />}>
-              <DiscoverNav
-                onItemClick={(item) => {
-                  // Handle activity navigation - send as message
-                  if (item === 'breathing') {
-                    setInputValue('Guide me through a breathing exercise');
-                  } else if (item === 'meditation') {
-                    setInputValue('I would like to meditate');
-                  } else if (item === 'journal') {
-                    setInputValue('Help me with journaling');
-                  }
-                  // Close sidebar on mobile
-                  if (typeof window !== 'undefined' && window.innerWidth < 768) {
-                    setIsSidebarOpen(false);
-                  }
-                  inputRef.current?.focus();
-                }}
-                onTestComponent={handleDirectComponent}
-              />
-            </Suspense>
-          </div>
-
-          {/* Conversation History */}
-          <div className={styles.sidebarSection}>
-            <ConversationHistory
-              userId={loaderData.userId}
-              currentConversationId={conversationId}
-              onSelectConversation={handleConversationSelection}
-              onCloseSidebar={() => {
-                setIsSidebarOpen(false);
-              }}
-            />
-          </div>
-
-          {/* Journal Entries */}
-          <div className={styles.sidebarSection}>
-            <Suspense fallback={<ActivityLoadingSkeleton />}>
-              <JournalHistory
-                onSelectEntry={handleSelectJournalEntry}
-                onCloseSidebar={() => {
-                  setIsSidebarOpen(false);
-                }}
-              />
-            </Suspense>
-          </div>
-
-          {/* Progress Widget */}
-          <div className={styles.sidebarSection}>
-            <Suspense fallback={<div style={{ height: 80 }} />}>
-              <ProgressWidget streakDays={0} weeklyGoalCompleted={0} weeklyGoalTarget={5} />
-            </Suspense>
-          </div>
-        </nav>
-
-        {/* Footer with theme toggle and logout */}
-        <div className={styles.sidebarFooter}>
-          <div className={styles.themeToggleWrapper}>
-            <ThemeToggle />
-          </div>
-          <button className={styles.sidebarButton} onClick={() => void handleLogout()}>
-            <LogoutIcon />
-            <span>Logout</span>
-          </button>
-        </div>
-      </aside>
+          }
+          inputRef.current?.focus();
+        }}
+      />
 
       {/* Main chat area */}
       <div className={styles.chatMain}>
@@ -1250,16 +957,18 @@ export function ChatPage() {
               <div
                 className={`${styles.bubble} ${styles.bubbleAssistant} ${styles.bubbleActivity}`}
               >
-                <Suspense fallback={<ActivityLoadingSkeleton />}>
-                  <BreathingConfirmation
-                    proposedTechnique={interruptData.proposed_technique}
-                    message={interruptData.message}
-                    availableTechniques={interruptData.available_techniques}
-                    onConfirm={(decision, techniqueId) => {
-                      void handleBreathingConfirm(decision, techniqueId);
-                    }}
-                  />
-                </Suspense>
+                <ErrorBoundary FallbackComponent={ErrorFallback}>
+                  <Suspense fallback={<ActivityLoadingSkeleton />}>
+                    <BreathingConfirmation
+                      proposedTechnique={interruptData.proposed_technique}
+                      message={interruptData.message}
+                      availableTechniques={interruptData.available_techniques}
+                      onConfirm={(decision, techniqueId) => {
+                        void hitlResume({ decision, technique_id: techniqueId });
+                      }}
+                    />
+                  </Suspense>
+                </ErrorBoundary>
               </div>
             </div>
           )}
@@ -1270,18 +979,20 @@ export function ChatPage() {
               <div
                 className={`${styles.bubble} ${styles.bubbleAssistant} ${styles.bubbleActivity}`}
               >
-                <Suspense fallback={<ActivityLoadingSkeleton />}>
-                  <VoiceSelectionConfirmation
-                    message={interruptData.message}
-                    availableVoices={interruptData.available_voices}
-                    recommendedVoice={interruptData.recommended_voice}
-                    meditationPreview={interruptData.meditation_preview}
-                    durationMinutes={interruptData.duration_minutes}
-                    onConfirm={(decision, voiceId) => {
-                      void handleVoiceSelectionConfirm(decision, voiceId);
-                    }}
-                  />
-                </Suspense>
+                <ErrorBoundary FallbackComponent={ErrorFallback}>
+                  <Suspense fallback={<ActivityLoadingSkeleton />}>
+                    <VoiceSelectionConfirmation
+                      message={interruptData.message}
+                      availableVoices={interruptData.available_voices}
+                      recommendedVoice={interruptData.recommended_voice}
+                      meditationPreview={interruptData.meditation_preview}
+                      durationMinutes={interruptData.duration_minutes}
+                      onConfirm={(decision, voiceId) => {
+                        void hitlResume({ decision, voice_id: voiceId });
+                      }}
+                    />
+                  </Suspense>
+                </ErrorBoundary>
               </div>
             </div>
           )}
@@ -1292,19 +1003,21 @@ export function ChatPage() {
               <div
                 className={`${styles.bubble} ${styles.bubbleAssistant} ${styles.bubbleActivity}`}
               >
-                <Suspense fallback={<ActivityLoadingSkeleton />}>
-                  <JournalingConfirmation
-                    proposedPrompt={interruptData.proposed_prompt}
-                    message={interruptData.message}
-                    availablePrompts={interruptData.available_prompts}
-                    onConfirm={(prompt) => {
-                      void handleJournalingConfirm('start', prompt.id);
-                    }}
-                    onDecline={() => {
-                      void handleJournalingConfirm('not_now');
-                    }}
-                  />
-                </Suspense>
+                <ErrorBoundary FallbackComponent={ErrorFallback}>
+                  <Suspense fallback={<ActivityLoadingSkeleton />}>
+                    <JournalingConfirmation
+                      proposedPrompt={interruptData.proposed_prompt}
+                      message={interruptData.message}
+                      availablePrompts={interruptData.available_prompts}
+                      onConfirm={(prompt) => {
+                        void hitlResume({ decision: 'start', prompt_id: prompt.id });
+                      }}
+                      onDecline={() => {
+                        void hitlResume({ decision: 'not_now' });
+                      }}
+                    />
+                  </Suspense>
+                </ErrorBoundary>
               </div>
             </div>
           )}
@@ -1347,20 +1060,7 @@ export function ChatPage() {
             disabled={!inputValue.trim() || isLoading || !!interruptData}
             aria-label="Send message"
           >
-            {/* Simple arrow icon */}
-            <svg
-              width="24"
-              height="24"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <line x1="22" y1="2" x2="11" y2="13" />
-              <polygon points="22 2 15 22 11 13 2 9 22 2" />
-            </svg>
+            <SendIcon />
           </button>
         </div>
       </div>
@@ -1406,6 +1106,23 @@ export function ChatPage() {
         >
           <Suspense fallback={<ActivityLoadingSkeleton />}>
             <ActivityRenderer component={directActivity} onClose={handleDirectActivityClose} />
+          </Suspense>
+        </ActivityOverlay>
+      )}
+
+      {/* Pre-recorded Meditation Player Overlay */}
+      {selectedPrerecordedTrack && (
+        <ActivityOverlay
+          isOpen={true}
+          onClose={handleClosePrerecordedMeditation}
+          activityType="meditation"
+        >
+          <Suspense fallback={<ActivityLoadingSkeleton />}>
+            <PrerecordedMeditationPlayer
+              track={selectedPrerecordedTrack}
+              onClose={handleClosePrerecordedMeditation}
+              onComplete={handleClosePrerecordedMeditation}
+            />
           </Suspense>
         </ActivityOverlay>
       )}
@@ -1471,179 +1188,6 @@ export function ChatPage() {
             </div>
           );
         })()}
-    </div>
-  );
-}
-
-/* ----------------------------------------------------------------------------
-   Message Bubble Component
-   ---------------------------------------------------------------------------- */
-
-interface MessageBubbleProps {
-  message: Message;
-  isStreaming?: boolean;
-}
-
-/**
- * Renders a single message bubble.
- *
- * Styles differ based on role:
- * - user: Right-aligned, primary color background
- * - assistant: Left-aligned, neutral background
- * - system: Centered, muted styling
- *
- * For assistant messages, parses content for embedded activities
- * (breathing exercises) and renders interactive components inline.
- */
-function MessageBubble({ message, isStreaming = false }: MessageBubbleProps) {
-  // Parse message content for embedded activities (only for assistant messages)
-  const parsedContent = useMemo(() => {
-    if (message.role !== 'assistant') {
-      return null;
-    }
-    return parseActivityContent(message.content);
-  }, [message.content, message.role]);
-
-  // Determine CSS classes based on role
-  const bubbleClass = [
-    styles.bubble,
-    message.role === 'user' && styles.bubbleUser,
-    message.role === 'assistant' && styles.bubbleAssistant,
-    message.role === 'system' && styles.bubbleSystem,
-    isStreaming && styles.bubbleStreaming,
-  ]
-    .filter(Boolean)
-    .join(' ');
-
-  // Handle exercise completion
-  const handleExerciseComplete = useCallback(() => {
-    // TODO: Notify the AI that the exercise completed for follow-up message
-  }, []);
-
-  // Render Wim Hof exercise inline if detected
-  if (parsedContent?.hasActivity && parsedContent.activity?.activity === 'breathing_wim_hof') {
-    const activity = parsedContent.activity;
-
-    return (
-      <div className={styles.messageRow}>
-        <div className={`${styles.bubble} ${styles.bubbleAssistant} ${styles.bubbleActivity}`}>
-          <Suspense fallback={<ActivityLoadingSkeleton />}>
-            <WimHofExercise
-              technique={activity.technique}
-              introduction={activity.introduction}
-              isFirstTime={activity.is_first_time}
-              onComplete={handleExerciseComplete}
-            />
-          </Suspense>
-        </div>
-      </div>
-    );
-  }
-
-  // Render continuous breathing exercise as completed summary (historical)
-  // During live HITL, activity messages are NOT added to messages state,
-  // so any activity messages here are from history (previous sessions/reloads).
-  // We render them as static summaries rather than interactive components.
-  if (parsedContent?.hasActivity && parsedContent.activity?.activity === 'breathing') {
-    const activity = parsedContent.activity;
-    const timingPattern = activity.technique.durations.join('-');
-
-    return (
-      <div className={styles.messageRow}>
-        <div className={`${styles.bubble} ${styles.bubbleAssistant}`}>
-          <div className={styles.completedActivity}>
-            <div className={styles.completedIcon}>
-              <svg
-                width="20"
-                height="20"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-              >
-                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-                <polyline points="22 4 12 14.01 9 11.01" />
-              </svg>
-            </div>
-            <div className={styles.completedInfo}>
-              <span className={styles.completedTitle}>Breathing Exercise</span>
-              <span className={styles.completedDetail}>
-                {activity.technique.name} ({timingPattern})
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Render guided meditation inline if detected
-  if (parsedContent?.hasActivity && parsedContent.activity?.activity === 'meditation') {
-    const activity = parsedContent.activity;
-
-    return (
-      <div className={styles.messageRow}>
-        <div className={`${styles.bubble} ${styles.bubbleAssistant} ${styles.bubbleActivity}`}>
-          <Suspense fallback={<ActivityLoadingSkeleton />}>
-            <GuidedMeditation
-              track={activity.track}
-              introduction={activity.introduction}
-              onComplete={handleExerciseComplete}
-            />
-          </Suspense>
-        </div>
-      </div>
-    );
-  }
-
-  // Render AI-generated meditation inline if detected
-  if (
-    parsedContent?.hasActivity &&
-    parsedContent.activity?.activity === 'meditation_ai_generated'
-  ) {
-    const activity = parsedContent.activity;
-
-    return (
-      <div className={styles.messageRow}>
-        <div className={`${styles.bubble} ${styles.bubbleAssistant} ${styles.bubbleActivity}`}>
-          <Suspense fallback={<ActivityLoadingSkeleton />}>
-            <AIGeneratedMeditation activityData={activity} onComplete={handleExerciseComplete} />
-          </Suspense>
-        </div>
-      </div>
-    );
-  }
-
-  // Render journaling exercise inline if detected
-  if (parsedContent?.hasActivity && parsedContent.activity?.activity === 'journaling') {
-    const activity = parsedContent.activity;
-
-    return (
-      <div className={styles.messageRow}>
-        <div className={`${styles.bubble} ${styles.bubbleAssistant} ${styles.bubbleActivity}`}>
-          <Suspense fallback={<ActivityLoadingSkeleton />}>
-            <JournalingExercise
-              prompt={activity.prompt}
-              introduction={activity.introduction}
-              enableSharing={activity.enable_sharing}
-              onComplete={handleExerciseComplete}
-            />
-          </Suspense>
-        </div>
-      </div>
-    );
-  }
-
-  // Standard text message rendering
-  return (
-    <div className={`${styles.messageRow} ${message.role === 'user' ? styles.messageRowUser : ''}`}>
-      <div className={bubbleClass}>
-        {/* Message content */}
-        <p className={styles.messageContent}>{message.content}</p>
-
-        {/* Streaming cursor */}
-        {isStreaming && <span className={styles.cursor}>|</span>}
-      </div>
     </div>
   );
 }

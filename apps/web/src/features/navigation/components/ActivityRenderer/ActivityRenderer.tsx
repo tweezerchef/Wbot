@@ -11,9 +11,9 @@
 
 import { lazy, Suspense } from 'react';
 
+// Types only - no runtime code (tree-shaken away)
 import type { DirectComponent } from '../../types';
 
-// Types only - no runtime code (tree-shaken away)
 import type { WimHofTechnique } from '@/features/breathing/types';
 import { BREATHING_TECHNIQUES } from '@/features/breathing/types';
 import type { BadgeData } from '@/features/gamification/components/Badge/Badge';

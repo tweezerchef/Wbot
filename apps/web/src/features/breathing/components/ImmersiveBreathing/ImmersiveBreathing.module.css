@@ -20,13 +20,18 @@
    ============================================================================ */
 
 .intro {
+  position: relative; /* Create stacking context */
+  z-index: 1; /* Stack above background (z-index: 0) */
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start; /* Changed from center to prevent clipping */
   flex: 1;
   min-height: 0;
+  overflow-y: auto; /* Allow scrolling when content exceeds height */
   padding: var(--spacing-xl);
+  padding-top: var(--spacing-2xl); /* Extra top padding for visual balance */
+  gap: var(--spacing-lg); /* Consistent spacing between children */
   text-align: center;
   color: white;
 }
@@ -34,7 +39,7 @@
 .introTitle {
   font-size: var(--font-size-2xl);
   font-weight: var(--font-weight-semibold);
-  margin-bottom: var(--spacing-md);
+  /* margin handled by parent gap */
 }
 
 .introMessage {
@@ -42,7 +47,7 @@
   line-height: var(--line-height-relaxed);
   max-width: 400px;
   opacity: 0.85;
-  margin-bottom: var(--spacing-xl);
+  /* margin handled by parent gap */
 }
 
 .techniqueInfo {
@@ -50,7 +55,7 @@
   flex-direction: column;
   align-items: center;
   gap: var(--spacing-xs);
-  margin-bottom: var(--spacing-2xl);
+  /* margin handled by parent gap */
   padding: var(--spacing-lg);
   background: var(--glass-background);
   border: 1px solid var(--glass-border);

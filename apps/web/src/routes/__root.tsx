@@ -20,8 +20,11 @@
 // ============================================================================
 
 /// <reference types="vite/client" />
+import { TanStackDevtools } from '@tanstack/react-devtools';
 import { QueryClientProvider, QueryErrorResetBoundary } from '@tanstack/react-query';
+import { ReactQueryDevtoolsPanel } from '@tanstack/react-query-devtools';
 import { HeadContent, Scripts, createRootRouteWithContext } from '@tanstack/react-router';
+import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools';
 import * as React from 'react';
 import { ErrorBoundary, type FallbackProps } from 'react-error-boundary';
 
@@ -362,12 +365,6 @@ function RootDocument({ children }: { children: React.ReactNode }) {
                 border-top: 1px solid var(--border-color);
                 background: var(--color-background);
               }
-
-              /* Loading skeleton pulse animation */
-              @keyframes skeleton-pulse {
-                0%, 100% { opacity: 1; }
-                50% { opacity: 0.5; }
-              }
             `,
           }}
         />
@@ -414,6 +411,20 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 
         {/* TanStack Start scripts for client-side hydration */}
         <Scripts />
+        <TanStackDevtools
+          plugins={[
+            {
+              name: 'TanStack Query',
+              render: <ReactQueryDevtoolsPanel />,
+              defaultOpen: true,
+            },
+            {
+              name: 'TanStack Router',
+              render: <TanStackRouterDevtoolsPanel />,
+              defaultOpen: false,
+            },
+          ]}
+        />
       </body>
     </html>
   );
