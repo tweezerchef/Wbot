@@ -19,21 +19,28 @@ interface ThemeProviderProps {
 }
 
 export function ThemeProvider({ children, defaultTheme = 'system' }: ThemeProviderProps) {
-  const [theme, setThemeState] = useState<Theme>(() => {
-    // Check localStorage on initial load
-    if (typeof window !== 'undefined') {
-      const stored = localStorage.getItem(STORAGE_KEY) as Theme | null;
-      if (stored && ['light', 'dark', 'system'].includes(stored)) {
-        return stored;
-      }
-    }
-    return defaultTheme;
-  });
-
+  // Always start with defaultTheme to match SSR - avoids hydration mismatch
+  const [theme, setThemeState] = useState<Theme>(defaultTheme);
   const [resolvedTheme, setResolvedTheme] = useState<'light' | 'dark'>('light');
+  const [mounted, setMounted] = useState(false);
+
+  // Read localStorage after mount to avoid hydration mismatch
+  // Server always renders with defaultTheme, client updates after hydration
+  useEffect(() => {
+    const stored = localStorage.getItem(STORAGE_KEY) as Theme | null;
+    if (stored && ['light', 'dark', 'system'].includes(stored)) {
+      setThemeState(stored);
+    }
+    setMounted(true);
+  }, []);
 
   // Update theme on document and resolve system theme
   useEffect(() => {
+    // Skip during SSR
+    if (typeof window === 'undefined') {
+      return;
+    }
+
     const root = document.documentElement;
 
     const updateTheme = () => {
@@ -73,7 +80,7 @@ export function ThemeProvider({ children, defaultTheme = 'system' }: ThemeProvid
   };
 
   return (
-    <ThemeContext.Provider value={{ theme, setTheme, resolvedTheme }}>
+    <ThemeContext.Provider value={{ theme, setTheme, resolvedTheme, mounted }}>
       {children}
     </ThemeContext.Provider>
   );

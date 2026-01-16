@@ -32,7 +32,7 @@ const AuthedChatRoute = AuthedChatRouteImport.update({
   id: '/chat',
   path: '/chat',
   getParentRoute: () => AuthedRoute,
-} as any)
+} as any).lazy(() => import('./routes/_authed/chat.lazy').then((d) => d.Route))
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute

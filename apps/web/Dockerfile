@@ -12,6 +12,14 @@ RUN corepack enable && corepack prepare pnpm@9.15.1 --activate
 
 WORKDIR /app
 
+# Build-time env (client-side Vite vars)
+ARG VITE_SUPABASE_URL
+ARG VITE_SUPABASE_ANON_KEY
+ARG VITE_LANGGRAPH_API_URL
+ENV VITE_SUPABASE_URL=$VITE_SUPABASE_URL \
+    VITE_SUPABASE_ANON_KEY=$VITE_SUPABASE_ANON_KEY \
+    VITE_LANGGRAPH_API_URL=$VITE_LANGGRAPH_API_URL
+
 # Copy workspace configuration
 COPY pnpm-workspace.yaml package.json pnpm-lock.yaml ./
 
@@ -19,8 +27,9 @@ COPY pnpm-workspace.yaml package.json pnpm-lock.yaml ./
 COPY packages/ ./packages/
 COPY apps/web/ ./apps/web/
 
-# Install dependencies
-RUN pnpm install --frozen-lockfile
+# Install dependencies (cache pnpm store between builds)
+RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
+    pnpm install --frozen-lockfile
 
 # Build the application
 WORKDIR /app/apps/web
@@ -34,6 +43,15 @@ WORKDIR /app
 # Copy the Nitro output (self-contained production server)
 # Nitro bundles everything needed for the server
 COPY --from=builder /app/apps/web/.output /app/.output
+
+# Install production dependencies for Nitro server output
+WORKDIR /app/.output/server
+RUN corepack enable && corepack prepare pnpm@9.15.1 --activate
+RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
+    pnpm install --prod --no-lockfile
+
+# Reset workdir to app root for runtime consistency
+WORKDIR /app
 
 # Set environment variables
 ENV NODE_ENV=production \

@@ -82,6 +82,7 @@
 
   /* Enable scrolling */
   overflow-y: auto;
+  scrollbar-gutter: stable; /* Reserve space for scrollbar to prevent CLS */
 
   /* Padding around messages */
   padding: var(--spacing-md);
@@ -462,13 +463,23 @@
     position: relative;
     flex-shrink: 0;
     transform: translateX(0);
-    /* Open by default on desktop - no JS needed for initial state */
+    /* Open by default on desktop - CSS controls initial state */
     width: var(--sidebar-width);
     overflow: hidden;
   }
 
-  /* Only collapse when explicitly closed by user */
-  .sidebarClosed {
+  /*
+   * CRITICAL FOR CLS: Only collapse sidebar AFTER hydration.
+   * Without .sidebarHydrated, the sidebar stays at full width during SSR/initial paint.
+   * This prevents the 280px layout shift that was causing CLS 0.999.
+   *
+   * Sequence:
+   * 1. SSR: sidebar has width: 280px (no sidebarHydrated class)
+   * 2. Paint: user sees layout with sidebar open
+   * 3. Hydration: JS adds sidebarHydrated class
+   * 4. If user closes sidebar, width transitions to 0 (no shift, user initiated)
+   */
+  .sidebarClosed.sidebarHydrated {
     width: 0;
   }
 }
@@ -482,6 +493,9 @@
   flex: 1;
   padding: var(--spacing-md);
   overflow-y: auto;
+
+  /* Prevent layout shift from async content loading */
+  contain: layout style;
 }
 
 /* ----------------------------------------------------------------------------
@@ -493,6 +507,9 @@
   padding: var(--spacing-md);
   padding-top: calc(var(--header-height) + var(--spacing-md));
   border-bottom: 1px solid var(--border-color);
+
+  /* Prevent layout shift from async content loading */
+  contain: layout style;
 }
 
 @media (min-width: 768px) {
@@ -510,6 +527,9 @@
   margin-top: var(--spacing-md);
   padding-top: var(--spacing-md);
   border-top: 1px solid var(--color-neutral-100);
+
+  /* Prevent layout shift from async content loading */
+  contain: layout style;
 }
 
 .sidebarSection:first-child {
@@ -687,6 +707,7 @@
   flex-direction: column;
   flex: 1;
   min-width: 0; /* Prevent flex item from overflowing */
+  contain: layout; /* Isolate layout recalculations to reduce CLS */
 }
 
 /* ----------------------------------------------------------------------------

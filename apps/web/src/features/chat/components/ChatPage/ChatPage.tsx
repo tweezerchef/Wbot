@@ -21,8 +21,10 @@
    - Conversation history loaded on mount
    ============================================================================ */
 
+import { useQueryClient } from '@tanstack/react-query';
 import { getRouteApi, useNavigate } from '@tanstack/react-router';
-import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo, lazy, Suspense } from 'react';
+import { z } from 'zod';
 
 import { ChatEmptyState } from '../ChatEmptyState';
 import { ConversationHistory } from '../ConversationHistory';
@@ -30,6 +32,7 @@ import { ConversationHistory } from '../ConversationHistory';
 import styles from './ChatPage.module.css';
 
 import { ActivityOverlay } from '@/components/overlays';
+import { ActivityLoadingSkeleton } from '@/components/skeletons';
 import {
   MenuIcon,
   CloseIcon,
@@ -38,29 +41,10 @@ import {
   NewChatIcon,
   LogoutIcon,
 } from '@/components/ui/icons';
-import {
-  BreathingConfirmation,
-  WimHofExercise,
-  ImmersiveBreathing,
-  ImmersiveBreathingConfirmation,
-} from '@/features/breathing';
-import type { BreathingTechnique, BreathingStats } from '@/features/breathing';
-import { ProgressWidget } from '@/features/gamification';
-import {
-  JournalingExercise,
-  JournalingConfirmation,
-  JournalHistory,
-  CATEGORY_INFO,
-  type JournalEntry,
-} from '@/features/journaling';
-import {
-  AIGeneratedMeditation,
-  GuidedMeditation,
-  VoiceSelectionConfirmation,
-} from '@/features/meditation';
-import { DiscoverNav, ActivityRenderer, type DirectComponent } from '@/features/navigation';
+import type { BreathingTechnique, BreathingStats } from '@/features/breathing/types';
+import { CATEGORY_INFO, type JournalEntry } from '@/features/journaling/types';
+import type { DirectComponent } from '@/features/navigation/types';
 import { ThemeToggle } from '@/features/settings';
-import { SidebarProfile } from '@/features/user';
 import {
   createAIClient,
   isBreathingConfirmation,
@@ -71,13 +55,112 @@ import {
 } from '@/lib/ai-client';
 import { createConversation, loadMessages, touchConversation } from '@/lib/conversations';
 import { parseActivityContent } from '@/lib/parseActivity';
+import { conversationKeys } from '@/lib/queries';
 import { supabase } from '@/lib/supabase';
+
+// Lazy load activity components to reduce initial bundle size
+// These are only loaded when the user triggers an activity
+const ImmersiveBreathing = lazy(() =>
+  import('@/features/breathing/components/ImmersiveBreathing/ImmersiveBreathing').then((m) => ({
+    default: m.ImmersiveBreathing,
+  }))
+);
+const ImmersiveBreathingConfirmation = lazy(() =>
+  import('@/features/breathing/components/ImmersiveBreathing/ImmersiveBreathingConfirmation').then(
+    (m) => ({ default: m.ImmersiveBreathingConfirmation })
+  )
+);
+const WimHofExercise = lazy(() =>
+  import('@/features/breathing/components/WimHofExercise/WimHofExercise').then((m) => ({
+    default: m.WimHofExercise,
+  }))
+);
+const BreathingConfirmation = lazy(() =>
+  import('@/features/breathing/components/BreathingConfirmation/BreathingConfirmation').then(
+    (m) => ({ default: m.BreathingConfirmation })
+  )
+);
+const AIGeneratedMeditation = lazy(() =>
+  import('@/features/meditation/components/GuidedMeditation/AIGeneratedMeditation').then((m) => ({
+    default: m.AIGeneratedMeditation,
+  }))
+);
+const GuidedMeditation = lazy(() =>
+  import('@/features/meditation/components/GuidedMeditation/GuidedMeditation').then((m) => ({
+    default: m.GuidedMeditation,
+  }))
+);
+const VoiceSelectionConfirmation = lazy(() =>
+  import('@/features/meditation/components/VoiceSelectionConfirmation/VoiceSelectionConfirmation').then(
+    (m) => ({ default: m.VoiceSelectionConfirmation })
+  )
+);
+const JournalingExercise = lazy(() =>
+  import('@/features/journaling/components/JournalingExercise/JournalingExercise').then((m) => ({
+    default: m.JournalingExercise,
+  }))
+);
+const JournalingConfirmation = lazy(() =>
+  import('@/features/journaling/components/JournalingConfirmation/JournalingConfirmation').then(
+    (m) => ({ default: m.JournalingConfirmation })
+  )
+);
+const JournalHistory = lazy(() =>
+  import('@/features/journaling/components/JournalHistory/JournalHistory').then((m) => ({
+    default: m.JournalHistory,
+  }))
+);
+// Lazy-loaded sidebar components (only loaded when sidebar is visible)
+const ProgressWidget = lazy(() =>
+  import('@/features/gamification/components/ProgressWidget/ProgressWidget').then((m) => ({
+    default: m.ProgressWidget,
+  }))
+);
+const DiscoverNav = lazy(() =>
+  import('@/features/navigation/components/DiscoverNav/DiscoverNav').then((m) => ({
+    default: m.DiscoverNav,
+  }))
+);
+const ActivityRenderer = lazy(() =>
+  import('@/features/navigation/components/ActivityRenderer/ActivityRenderer').then((m) => ({
+    default: m.ActivityRenderer,
+  }))
+);
+const SidebarProfile = lazy(() =>
+  import('@/features/user/components/SidebarProfile/SidebarProfile').then((m) => ({
+    default: m.SidebarProfile,
+  }))
+);
 
 /* ----------------------------------------------------------------------------
    Route API for accessing loader data
    ---------------------------------------------------------------------------- */
 // Note: Route ID is '/_authed/chat' (pathless layout + route name)
 const routeApi = getRouteApi('/_authed/chat');
+
+/* ----------------------------------------------------------------------------
+   Loader Data Validation
+   ---------------------------------------------------------------------------- */
+const chatLoaderDataSchema = z.object({
+  conversationId: z.uuid().nullable(),
+  messages: z.array(
+    z.object({
+      id: z.string(),
+      role: z.enum(['user', 'assistant', 'system']),
+      content: z.string(),
+      createdAt: z.coerce.date(),
+    })
+  ),
+  userEmail: z.email().optional(),
+  userId: z.uuid().optional(),
+});
+
+type ChatLoaderData = z.infer<typeof chatLoaderDataSchema>;
+
+const emptyLoaderData: ChatLoaderData = {
+  conversationId: null,
+  messages: [],
+};
 
 /* ----------------------------------------------------------------------------
    Chat Page Component
@@ -95,7 +178,16 @@ const routeApi = getRouteApi('/_authed/chat');
  */
 export function ChatPage() {
   // Get initial data from route loader (most recent conversation)
-  const loaderData = routeApi.useLoaderData();
+  // Memoize to prevent new object references on every render (would cause infinite loop)
+  const rawLoaderData = routeApi.useLoaderData();
+  const loaderData = useMemo(() => {
+    const result = chatLoaderDataSchema.safeParse(rawLoaderData);
+    if (!result.success) {
+      console.error('Invalid chat loader data:', result.error);
+      return emptyLoaderData;
+    }
+    return result.data;
+  }, [rawLoaderData]);
 
   // Navigation for redirects (e.g., after logout)
   const navigate = useNavigate();
@@ -115,6 +207,37 @@ export function ChatPage() {
   // Current conversation ID - initialized from loader data
   const [conversationId, setConversationId] = useState<string | null>(loaderData.conversationId);
 
+  // Query client for cache invalidation after direct Supabase operations
+  const queryClient = useQueryClient();
+
+  // Keep conversation list/detail cache in sync with manual updates
+  const invalidateConversationCache = useCallback(
+    (userId: string, conversationId?: string) => {
+      void queryClient.invalidateQueries({ queryKey: conversationKeys.list(userId) });
+      if (conversationId) {
+        void queryClient.invalidateQueries({ queryKey: conversationKeys.detail(conversationId) });
+      }
+    },
+    [queryClient]
+  );
+
+  const createConversationForUser = useCallback(
+    async (userId: string) => {
+      const newConversationId = await createConversation(userId);
+      invalidateConversationCache(userId, newConversationId);
+      return newConversationId;
+    },
+    [invalidateConversationCache]
+  );
+
+  const touchConversationForUser = useCallback(
+    async (currentConversationId: string, userId: string) => {
+      await touchConversation(currentConversationId);
+      invalidateConversationCache(userId, currentConversationId);
+    },
+    [invalidateConversationCache]
+  );
+
   /* --------------------------------------------------------------------------
      Sync state with loader data when route is revisited
      --------------------------------------------------------------------------
@@ -127,13 +250,30 @@ export function ChatPage() {
     setConversationId(loaderData.conversationId);
   }, [loaderData.messages, loaderData.conversationId]);
 
-  // Sidebar state - open by default (matches desktop CSS)
-  // On mobile, we close it after hydration via useEffect
+  // Hydration tracking - prevents CLS by deferring width collapse until after paint
+  // The CSS .sidebarHydrated class is required for width:0 to take effect on desktop
+  const [isHydrated, setIsHydrated] = useState(false);
+
+  // Sidebar state - starts OPEN to match CSS default (prevents 280px layout shift)
+  // CSS sets sidebar width: 280px on desktop by default.
+  // Only after hydration (isHydrated=true) can the sidebar collapse via .sidebarClosed.sidebarHydrated
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
-  // Close sidebar on mobile after hydration (768px breakpoint matches CSS)
+  /* --------------------------------------------------------------------------
+     Hydration Effect - Enable sidebar collapse and set mobile initial state
+     --------------------------------------------------------------------------
+     CRITICAL FOR CLS: This effect runs after the first paint, ensuring:
+     1. The page renders with sidebar open (matching CSS default)
+     2. Only AFTER paint do we enable the collapse behavior (via isHydrated)
+     3. On mobile, we close the sidebar (but width doesn't shift since it's overlay)
+     -------------------------------------------------------------------------- */
   useEffect(() => {
-    if (typeof window !== 'undefined' && window.innerWidth < 768) {
+    // Enable sidebar collapse behavior (CSS: .sidebarClosed.sidebarHydrated)
+    setIsHydrated(true);
+
+    // On mobile, close the sidebar after hydration
+    // This is safe because mobile uses position:fixed (overlay), not flex width
+    if (window.innerWidth < 768) {
       setIsSidebarOpen(false);
     }
   }, []);
@@ -244,7 +384,8 @@ export function ChatPage() {
       // Get or create conversation ID (lazy creation on first message)
       let currentConversationId = conversationId;
       if (!currentConversationId) {
-        currentConversationId = await createConversation(session.user.id);
+        const newConversationId = await createConversationForUser(session.user.id);
+        currentConversationId = newConversationId;
         setConversationId(currentConversationId);
       }
 
@@ -275,7 +416,7 @@ export function ChatPage() {
 
             // Update conversation timestamp for "most recent" ordering
             if (currentConversationId) {
-              void touchConversation(currentConversationId);
+              void touchConversationForUser(currentConversationId, session.user.id);
             }
             break;
           }
@@ -416,7 +557,7 @@ export function ChatPage() {
               setStreamingContent('');
 
               // Touch conversation for ordering
-              void touchConversation(conversationId);
+              void touchConversationForUser(conversationId, session.user.id);
               break;
             }
 
@@ -448,7 +589,7 @@ export function ChatPage() {
         inputRef.current?.focus();
       }
     },
-    [conversationId]
+    [conversationId, touchConversationForUser]
   );
 
   /* --------------------------------------------------------------------------
@@ -499,7 +640,7 @@ export function ChatPage() {
               setStreamingContent('');
 
               // Touch conversation for ordering
-              void touchConversation(conversationId);
+              void touchConversationForUser(conversationId, session.user.id);
               break;
             }
 
@@ -531,7 +672,7 @@ export function ChatPage() {
         inputRef.current?.focus();
       }
     },
-    [conversationId]
+    [conversationId, touchConversationForUser]
   );
 
   /* --------------------------------------------------------------------------
@@ -582,7 +723,7 @@ export function ChatPage() {
               setStreamingContent('');
 
               // Touch conversation for ordering
-              void touchConversation(conversationId);
+              void touchConversationForUser(conversationId, session.user.id);
               break;
             }
 
@@ -614,7 +755,7 @@ export function ChatPage() {
         inputRef.current?.focus();
       }
     },
-    [conversationId]
+    [conversationId, touchConversationForUser]
   );
 
   /* --------------------------------------------------------------------------
@@ -662,7 +803,7 @@ export function ChatPage() {
               // During live HITL, we skip adding the activity message to local state
               // because the user sees the activity in the ImmersiveBreathing overlay.
               // The message is persisted via the backend and will appear when loading history.
-              void touchConversation(conversationId);
+              void touchConversationForUser(conversationId, session.user.id);
               break;
             }
 
@@ -688,7 +829,7 @@ export function ChatPage() {
         },
       });
     },
-    [activeActivity, conversationId]
+    [activeActivity, conversationId, touchConversationForUser]
   );
 
   /**
@@ -729,7 +870,7 @@ export function ChatPage() {
             };
             setMessages((prev) => [...prev, assistantMessage]);
             setStreamingContent('');
-            void touchConversation(conversationId);
+            void touchConversationForUser(conversationId, session.user.id);
             break;
           }
 
@@ -746,7 +887,7 @@ export function ChatPage() {
       setIsLoading(false);
       inputRef.current?.focus();
     }
-  }, [conversationId]);
+  }, [conversationId, touchConversationForUser]);
 
   /**
    * Handle breathing exercise completion.
@@ -842,9 +983,9 @@ export function ChatPage() {
         return;
       }
 
-      // Create a new conversation in the database
-      const newId = await createConversation(session.user.id);
-      setConversationId(newId);
+      // Create a new conversation in the database using mutation
+      const newConversationId = await createConversationForUser(session.user.id);
+      setConversationId(newConversationId);
 
       // Clear local state
       setMessages([]);
@@ -897,6 +1038,11 @@ export function ChatPage() {
     }
   };
 
+  // Typed wrapper keeps JSX callback inference safe.
+  const handleConversationSelection = (selectedConversationId: string) => {
+    void handleSelectConversation(selectedConversationId);
+  };
+
   /* --------------------------------------------------------------------------
      Escape Key Handler - closes sidebar
      -------------------------------------------------------------------------- */
@@ -930,7 +1076,7 @@ export function ChatPage() {
 
       {/* Sidebar navigation */}
       <aside
-        className={`${styles.sidebar} ${isSidebarOpen ? styles.sidebarOpen : styles.sidebarClosed}`}
+        className={`${styles.sidebar} ${isSidebarOpen ? styles.sidebarOpen : styles.sidebarClosed} ${isHydrated ? styles.sidebarHydrated : ''}`}
       >
         {/* Collapse button - desktop only */}
         <button
@@ -945,7 +1091,9 @@ export function ChatPage() {
 
         {/* User Profile Section */}
         <div className={styles.sidebarProfile}>
-          <SidebarProfile email={loaderData.userEmail} streakDays={0} />
+          <Suspense fallback={<div style={{ height: 48 }} />}>
+            <SidebarProfile email={loaderData.userEmail} streakDays={0} />
+          </Suspense>
         </div>
 
         {/* Navigation buttons */}
@@ -957,31 +1105,34 @@ export function ChatPage() {
 
           {/* Discover Section */}
           <div className={styles.sidebarSection}>
-            <DiscoverNav
-              onItemClick={(item) => {
-                // Handle activity navigation - send as message
-                if (item === 'breathing') {
-                  setInputValue('Guide me through a breathing exercise');
-                } else if (item === 'meditation') {
-                  setInputValue('I would like to meditate');
-                } else if (item === 'journal') {
-                  setInputValue('Help me with journaling');
-                }
-                // Close sidebar on mobile
-                if (typeof window !== 'undefined' && window.innerWidth < 768) {
-                  setIsSidebarOpen(false);
-                }
-                inputRef.current?.focus();
-              }}
-              onTestComponent={handleDirectComponent}
-            />
+            <Suspense fallback={<div style={{ height: 200 }} />}>
+              <DiscoverNav
+                onItemClick={(item) => {
+                  // Handle activity navigation - send as message
+                  if (item === 'breathing') {
+                    setInputValue('Guide me through a breathing exercise');
+                  } else if (item === 'meditation') {
+                    setInputValue('I would like to meditate');
+                  } else if (item === 'journal') {
+                    setInputValue('Help me with journaling');
+                  }
+                  // Close sidebar on mobile
+                  if (typeof window !== 'undefined' && window.innerWidth < 768) {
+                    setIsSidebarOpen(false);
+                  }
+                  inputRef.current?.focus();
+                }}
+                onTestComponent={handleDirectComponent}
+              />
+            </Suspense>
           </div>
 
           {/* Conversation History */}
           <div className={styles.sidebarSection}>
             <ConversationHistory
+              userId={loaderData.userId}
               currentConversationId={conversationId}
-              onSelectConversation={(id) => void handleSelectConversation(id)}
+              onSelectConversation={handleConversationSelection}
               onCloseSidebar={() => {
                 setIsSidebarOpen(false);
               }}
@@ -990,17 +1141,21 @@ export function ChatPage() {
 
           {/* Journal Entries */}
           <div className={styles.sidebarSection}>
-            <JournalHistory
-              onSelectEntry={handleSelectJournalEntry}
-              onCloseSidebar={() => {
-                setIsSidebarOpen(false);
-              }}
-            />
+            <Suspense fallback={<ActivityLoadingSkeleton />}>
+              <JournalHistory
+                onSelectEntry={handleSelectJournalEntry}
+                onCloseSidebar={() => {
+                  setIsSidebarOpen(false);
+                }}
+              />
+            </Suspense>
           </div>
 
           {/* Progress Widget */}
           <div className={styles.sidebarSection}>
-            <ProgressWidget streakDays={0} weeklyGoalCompleted={0} weeklyGoalTarget={5} />
+            <Suspense fallback={<div style={{ height: 80 }} />}>
+              <ProgressWidget streakDays={0} weeklyGoalCompleted={0} weeklyGoalTarget={5} />
+            </Suspense>
           </div>
         </nav>
 
@@ -1095,14 +1250,16 @@ export function ChatPage() {
               <div
                 className={`${styles.bubble} ${styles.bubbleAssistant} ${styles.bubbleActivity}`}
               >
-                <BreathingConfirmation
-                  proposedTechnique={interruptData.proposed_technique}
-                  message={interruptData.message}
-                  availableTechniques={interruptData.available_techniques}
-                  onConfirm={(decision, techniqueId) => {
-                    void handleBreathingConfirm(decision, techniqueId);
-                  }}
-                />
+                <Suspense fallback={<ActivityLoadingSkeleton />}>
+                  <BreathingConfirmation
+                    proposedTechnique={interruptData.proposed_technique}
+                    message={interruptData.message}
+                    availableTechniques={interruptData.available_techniques}
+                    onConfirm={(decision, techniqueId) => {
+                      void handleBreathingConfirm(decision, techniqueId);
+                    }}
+                  />
+                </Suspense>
               </div>
             </div>
           )}
@@ -1113,16 +1270,18 @@ export function ChatPage() {
               <div
                 className={`${styles.bubble} ${styles.bubbleAssistant} ${styles.bubbleActivity}`}
               >
-                <VoiceSelectionConfirmation
-                  message={interruptData.message}
-                  availableVoices={interruptData.available_voices}
-                  recommendedVoice={interruptData.recommended_voice}
-                  meditationPreview={interruptData.meditation_preview}
-                  durationMinutes={interruptData.duration_minutes}
-                  onConfirm={(decision, voiceId) => {
-                    void handleVoiceSelectionConfirm(decision, voiceId);
-                  }}
-                />
+                <Suspense fallback={<ActivityLoadingSkeleton />}>
+                  <VoiceSelectionConfirmation
+                    message={interruptData.message}
+                    availableVoices={interruptData.available_voices}
+                    recommendedVoice={interruptData.recommended_voice}
+                    meditationPreview={interruptData.meditation_preview}
+                    durationMinutes={interruptData.duration_minutes}
+                    onConfirm={(decision, voiceId) => {
+                      void handleVoiceSelectionConfirm(decision, voiceId);
+                    }}
+                  />
+                </Suspense>
               </div>
             </div>
           )}
@@ -1133,17 +1292,19 @@ export function ChatPage() {
               <div
                 className={`${styles.bubble} ${styles.bubbleAssistant} ${styles.bubbleActivity}`}
               >
-                <JournalingConfirmation
-                  proposedPrompt={interruptData.proposed_prompt}
-                  message={interruptData.message}
-                  availablePrompts={interruptData.available_prompts}
-                  onConfirm={(prompt) => {
-                    void handleJournalingConfirm('start', prompt.id);
-                  }}
-                  onDecline={() => {
-                    void handleJournalingConfirm('not_now');
-                  }}
-                />
+                <Suspense fallback={<ActivityLoadingSkeleton />}>
+                  <JournalingConfirmation
+                    proposedPrompt={interruptData.proposed_prompt}
+                    message={interruptData.message}
+                    availablePrompts={interruptData.available_prompts}
+                    onConfirm={(prompt) => {
+                      void handleJournalingConfirm('start', prompt.id);
+                    }}
+                    onDecline={() => {
+                      void handleJournalingConfirm('not_now');
+                    }}
+                  />
+                </Suspense>
               </div>
             </div>
           )}
@@ -1211,27 +1372,29 @@ export function ChatPage() {
         onClose={handleActivityClose}
         activityType="breathing"
       >
-        {activeActivity?.phase === 'confirming' && (
-          <ImmersiveBreathingConfirmation
-            proposedTechnique={activeActivity.data.proposedTechnique}
-            message={activeActivity.data.message}
-            availableTechniques={activeActivity.data.availableTechniques}
-            onConfirm={(technique) => {
-              void handleImmersiveBreathingConfirm(technique);
-            }}
-            onDecline={() => {
-              void handleImmersiveBreathingDecline();
-            }}
-          />
-        )}
-        {activeActivity?.phase === 'active' && (
-          <ImmersiveBreathing
-            technique={activeActivity.data.technique}
-            introduction={activeActivity.data.introduction}
-            onComplete={handleImmersiveBreathingComplete}
-            onExit={handleActivityClose}
-          />
-        )}
+        <Suspense fallback={<ActivityLoadingSkeleton />}>
+          {activeActivity?.phase === 'confirming' && (
+            <ImmersiveBreathingConfirmation
+              proposedTechnique={activeActivity.data.proposedTechnique}
+              message={activeActivity.data.message}
+              availableTechniques={activeActivity.data.availableTechniques}
+              onConfirm={(technique) => {
+                void handleImmersiveBreathingConfirm(technique);
+              }}
+              onDecline={() => {
+                void handleImmersiveBreathingDecline();
+              }}
+            />
+          )}
+          {activeActivity?.phase === 'active' && (
+            <ImmersiveBreathing
+              technique={activeActivity.data.technique}
+              introduction={activeActivity.data.introduction}
+              onComplete={handleImmersiveBreathingComplete}
+              onExit={handleActivityClose}
+            />
+          )}
+        </Suspense>
       </ActivityOverlay>
 
       {/* Direct Activity Overlay - for sidebar navigation */}
@@ -1241,7 +1404,9 @@ export function ChatPage() {
           onClose={handleDirectActivityClose}
           activityType={directActivity.type}
         >
-          <ActivityRenderer component={directActivity} onClose={handleDirectActivityClose} />
+          <Suspense fallback={<ActivityLoadingSkeleton />}>
+            <ActivityRenderer component={directActivity} onClose={handleDirectActivityClose} />
+          </Suspense>
         </ActivityOverlay>
       )}
 
@@ -1265,6 +1430,9 @@ export function ChatPage() {
               <div
                 className={styles.journalViewer}
                 onClick={(e) => {
+                  e.stopPropagation();
+                }}
+                onKeyDown={(e) => {
                   e.stopPropagation();
                 }}
                 role="document"
@@ -1359,12 +1527,14 @@ function MessageBubble({ message, isStreaming = false }: MessageBubbleProps) {
     return (
       <div className={styles.messageRow}>
         <div className={`${styles.bubble} ${styles.bubbleAssistant} ${styles.bubbleActivity}`}>
-          <WimHofExercise
-            technique={activity.technique}
-            introduction={activity.introduction}
-            isFirstTime={activity.is_first_time}
-            onComplete={handleExerciseComplete}
-          />
+          <Suspense fallback={<ActivityLoadingSkeleton />}>
+            <WimHofExercise
+              technique={activity.technique}
+              introduction={activity.introduction}
+              isFirstTime={activity.is_first_time}
+              onComplete={handleExerciseComplete}
+            />
+          </Suspense>
         </div>
       </div>
     );
@@ -1414,11 +1584,13 @@ function MessageBubble({ message, isStreaming = false }: MessageBubbleProps) {
     return (
       <div className={styles.messageRow}>
         <div className={`${styles.bubble} ${styles.bubbleAssistant} ${styles.bubbleActivity}`}>
-          <GuidedMeditation
-            track={activity.track}
-            introduction={activity.introduction}
-            onComplete={handleExerciseComplete}
-          />
+          <Suspense fallback={<ActivityLoadingSkeleton />}>
+            <GuidedMeditation
+              track={activity.track}
+              introduction={activity.introduction}
+              onComplete={handleExerciseComplete}
+            />
+          </Suspense>
         </div>
       </div>
     );
@@ -1434,7 +1606,9 @@ function MessageBubble({ message, isStreaming = false }: MessageBubbleProps) {
     return (
       <div className={styles.messageRow}>
         <div className={`${styles.bubble} ${styles.bubbleAssistant} ${styles.bubbleActivity}`}>
-          <AIGeneratedMeditation activityData={activity} onComplete={handleExerciseComplete} />
+          <Suspense fallback={<ActivityLoadingSkeleton />}>
+            <AIGeneratedMeditation activityData={activity} onComplete={handleExerciseComplete} />
+          </Suspense>
         </div>
       </div>
     );
@@ -1447,12 +1621,14 @@ function MessageBubble({ message, isStreaming = false }: MessageBubbleProps) {
     return (
       <div className={styles.messageRow}>
         <div className={`${styles.bubble} ${styles.bubbleAssistant} ${styles.bubbleActivity}`}>
-          <JournalingExercise
-            prompt={activity.prompt}
-            introduction={activity.introduction}
-            enableSharing={activity.enable_sharing}
-            onComplete={handleExerciseComplete}
-          />
+          <Suspense fallback={<ActivityLoadingSkeleton />}>
+            <JournalingExercise
+              prompt={activity.prompt}
+              introduction={activity.introduction}
+              enableSharing={activity.enable_sharing}
+              onComplete={handleExerciseComplete}
+            />
+          </Suspense>
         </div>
       </div>
     );

@@ -16,6 +16,8 @@ export interface ThemeContextValue {
   theme: Theme;
   setTheme: (theme: Theme) => void;
   resolvedTheme: 'light' | 'dark';
+  /** Whether the component has mounted (for SSR hydration safety) */
+  mounted: boolean;
 }
 
 /* ----------------------------------------------------------------------------

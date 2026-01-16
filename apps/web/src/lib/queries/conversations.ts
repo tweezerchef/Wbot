@@ -7,80 +7,159 @@
  * - useQuery() for client-only data
  * - queryClient.ensureQueryData() in loaders for prefetching
  * - queryClient.prefetchQuery() for streaming non-critical data
- *
- * Note: Currently these are placeholder implementations. The app uses SSE
- * streaming for real-time messages which doesn't fit the Query model.
- * These patterns are set up for future use with conversation list caching.
  */
 
 import { queryOptions } from '@tanstack/react-query';
+import type { Tables } from '@wbot/shared';
 
 import { conversationKeys } from './conversationKeys';
 
+import { createClient } from '@/lib/supabase/client';
+
+// ----------------------------------------------------------------------------
+// Types
+// ----------------------------------------------------------------------------
+
+/** Conversation row from database */
+export type ConversationRow = Tables<'conversations'>;
+
+/** Message row from database */
+export type MessageRow = Tables<'messages'>;
+
+/** Conversation with preview data from the RPC function */
+export interface ConversationWithPreview {
+  id: string;
+  title: string;
+  created_at: string;
+  updated_at: string;
+  last_message_at: string;
+  last_message_content: string;
+  last_message_role: string;
+  message_count: number;
+}
+
+// ----------------------------------------------------------------------------
+// Query Options
+// ----------------------------------------------------------------------------
+
 /**
- * Query options for fetching a user's conversation list.
+ * Query options for fetching a user's conversation list with message previews.
  *
- * Usage in loader:
+ * Uses the `get_conversations_with_preview` RPC function for efficient
+ * fetching of conversations with their last message.
+ *
+ * @param userId - The user's ID
+ * @param options - Optional pagination options
+ *
+ * @example
+ * // In a route loader
  * await queryClient.ensureQueryData(conversationListOptions(userId))
  *
- * Usage in component:
- * const { data } = useSuspenseQuery(conversationListOptions(userId))
+ * @example
+ * // In a component
+ * const { data } = useQuery(conversationListOptions(userId))
  */
-export const conversationListOptions = (userId: string) =>
-  queryOptions({
+export function conversationListOptions(
+  userId: string,
+  options?: { limit?: number; offset?: number }
+) {
+  return queryOptions({
     queryKey: conversationKeys.list(userId),
-    queryFn: () => {
-      // TODO: Implement actual fetch when Query is used for conversation lists
-      // This would call a server function to get conversations
-      // For now, return empty array as placeholder
-      return [] as {
-        id: string;
-        title: string;
-        updatedAt: string;
-      }[];
+    queryFn: async (): Promise<ConversationWithPreview[]> => {
+      const supabase = createClient();
+
+      const { data, error } = await supabase.rpc('get_conversations_with_preview', {
+        p_user_id: userId,
+        p_limit: options?.limit ?? 50,
+        p_offset: options?.offset ?? 0,
+      });
+
+      if (error) {
+        throw new Error(`Failed to fetch conversations: ${error.message}`);
+      }
+
+      return data;
     },
-    // Keep data fresh for 5 minutes
+    // Conversation list changes infrequently, keep fresh for 5 minutes
     staleTime: 5 * 60 * 1000,
   });
+}
+
+/**
+ * Query options for fetching a single conversation's details.
+ *
+ * @param conversationId - The conversation's ID
+ *
+ * @example
+ * const { data } = useQuery(conversationDetailOptions(conversationId))
+ */
+export function conversationDetailOptions(conversationId: string) {
+  return queryOptions({
+    queryKey: conversationKeys.detail(conversationId),
+    queryFn: async (): Promise<ConversationRow | null> => {
+      const supabase = createClient();
+
+      const { data, error } = await supabase
+        .from('conversations')
+        .select('*')
+        .eq('id', conversationId)
+        .single();
+
+      if (error) {
+        // PGRST116 = Row not found, which is expected for new/deleted conversations
+        if (error.code === 'PGRST116') {
+          return null;
+        }
+        throw new Error(`Failed to fetch conversation: ${error.message}`);
+      }
+
+      return data;
+    },
+    // Conversation details change infrequently
+    staleTime: 5 * 60 * 1000,
+  });
+}
 
 /**
  * Query options for fetching messages in a conversation.
  *
- * Note: Currently the app uses SSE streaming for messages,
- * so this Query-based approach isn't used. This is here as a
- * pattern reference for future use.
+ * Note: The app currently uses SSE streaming for real-time messages during
+ * active conversations. This query option is useful for:
+ * - Initial message load
+ * - Loading messages when switching between conversations
+ * - Prefetching message history
+ *
+ * @param conversationId - The conversation's ID
+ * @param options - Optional pagination options
+ *
+ * @example
+ * const { data } = useQuery(conversationMessagesOptions(conversationId))
  */
-export const conversationMessagesOptions = (conversationId: string) =>
-  queryOptions({
+export function conversationMessagesOptions(conversationId: string, options?: { limit?: number }) {
+  return queryOptions({
     queryKey: conversationKeys.messages(conversationId),
-    queryFn: () => {
-      // TODO: Implement if/when messages are fetched via Query
-      // For now, return empty array as placeholder
-      return [] as {
-        id: string;
-        role: 'user' | 'assistant' | 'system';
-        content: string;
-        createdAt: string;
-      }[];
-    },
-    // Keep data fresh for 1 minute
-    staleTime: 60 * 1000,
-  });
+    queryFn: async (): Promise<MessageRow[]> => {
+      const supabase = createClient();
 
-/**
- * Query options for fetching a single conversation's details.
- */
-export const conversationDetailOptions = (conversationId: string) =>
-  queryOptions({
-    queryKey: conversationKeys.detail(conversationId),
-    queryFn: () => {
-      // TODO: Implement actual fetch
-      return null as {
-        id: string;
-        title: string;
-        createdAt: string;
-        updatedAt: string;
-      } | null;
+      let query = supabase
+        .from('messages')
+        .select('*')
+        .eq('conversation_id', conversationId)
+        .order('created_at', { ascending: true });
+
+      if (options?.limit) {
+        query = query.limit(options.limit);
+      }
+
+      const { data, error } = await query;
+
+      if (error) {
+        throw new Error(`Failed to fetch messages: ${error.message}`);
+      }
+
+      return data;
     },
-    staleTime: 5 * 60 * 1000,
+    // Messages can change during active conversations, shorter stale time
+    staleTime: 30 * 1000,
   });
+}

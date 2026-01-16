@@ -20,15 +20,85 @@
 // ============================================================================
 
 /// <reference types="vite/client" />
-import { QueryClientProvider } from '@tanstack/react-query';
+import { QueryClientProvider, QueryErrorResetBoundary } from '@tanstack/react-query';
 import { HeadContent, Scripts, createRootRouteWithContext } from '@tanstack/react-router';
 import * as React from 'react';
+import { ErrorBoundary, type FallbackProps } from 'react-error-boundary';
 
 import { ThemeProvider } from '../features/settings';
 import type { RouterContext } from '../types';
 
 // Import global styles - applies CSS reset and variables
 import '../styles/globals.css';
+
+// ----------------------------------------------------------------------------
+// Query Error Fallback Component
+// ----------------------------------------------------------------------------
+
+/**
+ * Error fallback for TanStack Query errors.
+ *
+ * Displays when a query fails and allows the user to retry.
+ * Integrates with QueryErrorResetBoundary to reset failed queries on retry.
+ */
+function QueryErrorFallback({ error, resetErrorBoundary }: FallbackProps) {
+  return (
+    <div
+      role="alert"
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: '100dvh',
+        padding: 'var(--spacing-lg)',
+        textAlign: 'center',
+        backgroundColor: 'var(--color-background)',
+        color: 'var(--color-text-primary)',
+      }}
+    >
+      <h2
+        style={{
+          fontSize: 'var(--font-size-xl)',
+          fontWeight: 'var(--font-weight-semibold)',
+          marginBottom: 'var(--spacing-md)',
+        }}
+      >
+        Something went wrong
+      </h2>
+      <p
+        style={{
+          color: 'var(--color-text-secondary)',
+          marginBottom: 'var(--spacing-lg)',
+          maxWidth: '400px',
+        }}
+      >
+        {error instanceof Error ? error.message : 'An unexpected error occurred'}
+      </p>
+      <button
+        onClick={resetErrorBoundary}
+        style={{
+          backgroundColor: 'var(--color-primary)',
+          color: 'var(--color-text-inverse)',
+          padding: 'var(--spacing-sm) var(--spacing-lg)',
+          borderRadius: 'var(--radius-md)',
+          fontSize: 'var(--font-size-base)',
+          fontWeight: 'var(--font-weight-medium)',
+          cursor: 'pointer',
+          transition: 'background-color var(--transition-fast)',
+        }}
+        onMouseOver={(e) => {
+          e.currentTarget.style.backgroundColor = 'var(--color-primary-hover)';
+        }}
+        onMouseOut={(e) => {
+          e.currentTarget.style.backgroundColor = 'var(--color-primary)';
+        }}
+      >
+        Try Again
+      </button>
+    </div>
+  );
+}
 
 // ----------------------------------------------------------------------------
 // Root Route Definition
@@ -222,11 +292,6 @@ function RootDocument({ children }: { children: React.ReactNode }) {
                 background-color: var(--color-background);
               }
 
-              /* === Smooth Loading Transition === */
-              /* Content is visible immediately with critical CSS above */
-              /* This class just provides a smooth transition when full CSS loads */
-              body.loaded { transition: none; }
-
               /* === Button Reset === */
               button { cursor: pointer; border: none; background: none; padding: 0; font: inherit; }
               button:disabled { cursor: not-allowed; opacity: 0.5; }
@@ -253,52 +318,102 @@ function RootDocument({ children }: { children: React.ReactNode }) {
                   overflow: hidden;
                 }
               }
+
+              /* === ChatPage Critical Layout === */
+              /*
+               * Essential chat layout styles inlined to prevent layout shift.
+               * These match the CSS module classes in ChatPage.module.css.
+               */
+              [class*="_container_"][class*="_chatPage_"],
+              [class*="_chatPage_"] {
+                display: flex;
+                height: 100dvh;
+                overflow: hidden;
+                background: linear-gradient(135deg, #e8f4f3 0%, #f0edf5 100%);
+              }
+
+              [class*="_chatMain_"] {
+                display: flex;
+                flex-direction: column;
+                flex: 1;
+                min-width: 0;
+              }
+
+              [class*="_header_"][class*="_chatPage_"] {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                height: 64px;
+                padding: 0 var(--spacing-md);
+                border-bottom: 1px solid var(--border-color);
+                background: var(--color-background);
+              }
+
+              [class*="_messages_"] {
+                flex: 1;
+                overflow-y: auto;
+                padding: var(--spacing-md);
+              }
+
+              [class*="_inputArea_"] {
+                display: flex;
+                gap: var(--spacing-sm);
+                padding: var(--spacing-md);
+                border-top: 1px solid var(--border-color);
+                background: var(--color-background);
+              }
+
+              /* Loading skeleton pulse animation */
+              @keyframes skeleton-pulse {
+                0%, 100% { opacity: 1; }
+                50% { opacity: 0.5; }
+              }
             `,
           }}
         />
       </head>
       <body>
         {/* QueryClientProvider enables TanStack Query throughout the app */}
-        {}
         <QueryClientProvider client={queryClient}>
-          {/* ThemeProvider manages light/dark/system theme preferences */}
-          <ThemeProvider>
-            {/*
-              The app container fills the entire viewport.
-              This is important for mobile full-screen experience.
-              Using dvh (dynamic viewport height) to account for mobile browser chrome.
+          {/*
+            QueryErrorResetBoundary + ErrorBoundary provides graceful error handling
+            for TanStack Query errors. When a query fails, users see a friendly
+            error message with a retry button that resets failed queries.
+          */}
+          <QueryErrorResetBoundary>
+            {({ reset }) => (
+              <ErrorBoundary onReset={reset} FallbackComponent={QueryErrorFallback}>
+                {/* ThemeProvider manages light/dark/system theme preferences */}
+                <ThemeProvider>
+                  {/*
+                    The app container fills the entire viewport.
+                    This is important for mobile full-screen experience.
+                    Using dvh (dynamic viewport height) to account for mobile browser chrome.
 
-              Critical layout styles are inlined to prevent layout shift while
-              CSS module chunks load asynchronously.
-            */}
-            <div
-              id="app"
-              style={{
-                minHeight: '100dvh',
-                display: 'flex',
-                flexDirection: 'column',
-                backgroundColor: 'var(--color-background)',
-                color: 'var(--color-text-primary)',
-              }}
-            >
-              {/* Child routes render here (landing or chat) */}
-              {children}
-            </div>
-          </ThemeProvider>
+                    Critical layout styles are inlined to prevent layout shift while
+                    CSS module chunks load asynchronously.
+                  */}
+                  <div
+                    id="app"
+                    style={{
+                      minHeight: '100dvh',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      backgroundColor: 'var(--color-background)',
+                      color: 'var(--color-text-primary)',
+                    }}
+                  >
+                    {/* Child routes render here (landing or chat) */}
+                    {children}
+                  </div>
+                </ThemeProvider>
+              </ErrorBoundary>
+            )}
+          </QueryErrorResetBoundary>
         </QueryClientProvider>
 
         {/* TanStack Start scripts for client-side hydration */}
         <Scripts />
-
-        {/*
-          Mark body as loaded after hydration.
-          The 'loaded' class can be used for CSS transitions if needed.
-        */}
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `document.body.classList.add('loaded');`,
-          }}
-        />
       </body>
     </html>
   );

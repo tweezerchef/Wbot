@@ -29,7 +29,8 @@ const MESSAGES_TTL_SECONDS = 24 * 60 * 60;
  * Returns null if Redis is not configured or unavailable.
  */
 async function getRedisClient(): Promise<RedisClientType | null> {
-  const redisUrl = process.env.REDIS_URI ?? process.env.REDIS_URL;
+  const rawRedisUrl = process.env.REDIS_URI ?? process.env.REDIS_URL;
+  const redisUrl = normalizeRedisUrl(rawRedisUrl);
 
   if (!redisUrl) {
     // Redis not configured - gracefully skip caching
@@ -80,6 +81,26 @@ async function getRedisClient(): Promise<RedisClientType | null> {
   })();
 
   return connectionPromise;
+}
+
+function normalizeRedisUrl(value: string | undefined): string | null {
+  if (!value) {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  if (trimmed.length === 0) {
+    return null;
+  }
+
+  if (
+    (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+    (trimmed.startsWith("'") && trimmed.endsWith("'"))
+  ) {
+    return trimmed.slice(1, -1);
+  }
+
+  return trimmed;
 }
 
 /**

@@ -15,6 +15,7 @@
  */
 
 export { ActivityCardSkeleton } from './ActivityCardSkeleton';
+export { ActivityLoadingSkeleton } from './ActivityLoadingSkeleton';
 export { ChatSkeleton } from './ChatSkeleton';
 export { DefaultSkeleton } from './DefaultSkeleton';
 export { SidebarSkeleton } from './SidebarSkeleton';
