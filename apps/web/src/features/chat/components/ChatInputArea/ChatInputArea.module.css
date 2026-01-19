@@ -1,0 +1,90 @@
+/**
+ * ChatInputArea Styles
+ *
+ * Input field and send button, fixed at bottom.
+ */
+
+.inputArea {
+  /* Fixed at bottom, doesn't scroll */
+  flex-shrink: 0;
+
+  /* Layout */
+  display: flex;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-md);
+
+  /* Visual styling */
+  background-color: var(--color-surface);
+  border-top: 1px solid var(--border-color);
+
+  /* Safe area padding for devices with notches/home indicators */
+  padding-bottom: max(var(--spacing-md), env(safe-area-inset-bottom));
+}
+
+/* Text input field */
+.input {
+  /* Grow to fill available space */
+  flex: 1;
+
+  /* Sizing */
+  padding: var(--spacing-sm) var(--spacing-md);
+  min-height: 44px; /* Minimum touch target size */
+
+  /* Typography */
+  font-size: var(--font-size-base);
+  color: var(--color-text-primary);
+
+  /* Border styling */
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-full);
+  background-color: var(--color-background);
+
+  /* Focus state */
+  outline: none;
+  transition: border-color var(--transition-fast);
+}
+
+.input:focus {
+  border-color: var(--color-primary);
+}
+
+.input:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.input::placeholder {
+  color: var(--color-text-muted);
+}
+
+/* Send button */
+.sendButton {
+  /* Fixed size, circular */
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+
+  /* Center the icon */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  /* Styling */
+  background-color: var(--color-primary);
+  color: var(--color-text-inverse);
+  border-radius: 50%;
+
+  /* Transition for hover/disabled states */
+  transition:
+    background-color var(--transition-fast),
+    opacity var(--transition-fast);
+}
+
+.sendButton:hover:not(:disabled) {
+  background-color: var(--color-primary-hover);
+}
+
+.sendButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

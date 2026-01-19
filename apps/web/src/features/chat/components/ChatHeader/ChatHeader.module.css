@@ -1,0 +1,96 @@
+/**
+ * ChatHeader Styles
+ *
+ * Header bar with logo and sidebar controls.
+ */
+
+.header {
+  /* Fixed height */
+  height: var(--header-height);
+
+  /* Center content, with relative positioning for absolute buttons */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+
+  /* Visual separation from messages */
+  background-color: var(--color-surface);
+  border-bottom: 1px solid var(--border-color);
+
+  /* Prevent shrinking */
+  flex-shrink: 0;
+}
+
+.logo {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-primary);
+
+  /* Reset default margins */
+  margin: 0;
+}
+
+/* ----------------------------------------------------------------------------
+   Menu Button (Mobile)
+   ---------------------------------------------------------------------------- */
+.menuButton {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-secondary);
+  border-radius: var(--radius-md);
+  position: absolute;
+  left: var(--spacing-md);
+  transition:
+    background-color var(--transition-fast),
+    color var(--transition-fast);
+
+  /* Prevent text selection on rapid taps */
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.menuButton:hover {
+  background-color: var(--color-primary-light);
+  color: var(--color-primary);
+}
+
+/* Hide on desktop - use expand button instead */
+@media (min-width: 768px) {
+  .menuButton {
+    display: none;
+  }
+}
+
+/* ----------------------------------------------------------------------------
+   Expand Button (Desktop)
+   ---------------------------------------------------------------------------- */
+.expandButton {
+  display: none; /* Hidden on mobile */
+}
+
+@media (min-width: 768px) {
+  .expandButton {
+    display: flex;
+    width: 40px;
+    height: 40px;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-text-secondary);
+    border-radius: var(--radius-md);
+    position: absolute;
+    left: var(--spacing-md);
+    transition:
+      background-color var(--transition-fast),
+      color var(--transition-fast);
+  }
+
+  .expandButton:hover {
+    background-color: var(--color-primary-light);
+    color: var(--color-primary);
+  }
+}

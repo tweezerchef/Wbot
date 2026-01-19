@@ -1,0 +1,66 @@
+/**
+ * InterruptPrompt Styles
+ *
+ * Container for HITL confirmation prompts in the chat.
+ */
+
+.messageRow {
+  /* Default: left-aligned (assistant messages) */
+  display: flex;
+  justify-content: flex-start;
+}
+
+.bubble {
+  /* Limit width for readability */
+  max-width: 80%;
+
+  /* Padding inside bubble */
+  padding: var(--spacing-sm) var(--spacing-md);
+
+  /* Rounded corners - 18px as per design spec */
+  border-radius: 18px;
+
+  /* Default (assistant) styling - uses CSS variable for dark mode support */
+  background-color: var(--color-neutral-100);
+  color: var(--color-text-primary);
+
+  /* Subtle shadow */
+  box-shadow: var(--shadow-sm);
+
+  /* Larger font for chat messages */
+  font-size: var(--font-size-lg);
+
+  /* Less rounded bottom-left corner (assistant message) */
+  border-bottom-left-radius: var(--radius-sm);
+
+  /* Activity bubble - contains interactive components */
+  /* Wider to accommodate activity UI */
+  max-width: 100%;
+  width: 100%;
+
+  /* More padding for interactive content */
+  padding: var(--spacing-md);
+
+  /* Subtle gradient background for wellness feel */
+  background: linear-gradient(
+    135deg,
+    var(--color-surface) 0%,
+    var(--color-background-secondary) 100%
+  );
+
+  /* Slightly larger border radius for prominent cards */
+  border-radius: var(--radius-xl);
+
+  /* Enhanced shadow for elevated appearance */
+  box-shadow: var(--shadow-md);
+
+  /* Ensure content doesn't overflow */
+  overflow: hidden;
+}
+
+/* Desktop: constrain activity width for better layout */
+@media (min-width: 768px) {
+  .bubble {
+    max-width: 420px;
+  }
+}
