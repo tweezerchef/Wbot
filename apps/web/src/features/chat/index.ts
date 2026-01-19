@@ -6,3 +6,9 @@
  */
 export { ChatEmptyState, ChatPage, ConversationHistory } from './components';
 export { useConversationMessages } from './hooks';
+export {
+  chatLoaderDataSchema,
+  emptyLoaderData,
+  type ActivityState,
+  type ChatLoaderData,
+} from './types';

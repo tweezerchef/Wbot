@@ -23,39 +23,52 @@
 
 import { useQueryClient } from '@tanstack/react-query';
 import { getRouteApi, useNavigate } from '@tanstack/react-router';
-import type { MeditationTrack } from '@wbot/shared';
-import React, {
+import {
   useState,
   useRef,
   useEffect,
   useCallback,
   useMemo,
-  lazy,
   Suspense,
   startTransition,
 } from 'react';
-import { ErrorBoundary } from 'react-error-boundary';
-import { z } from 'zod';
 
+import {
+  useActivityOverlays,
+  type UseActivityOverlaysReturn,
+} from '../../hooks/useActivityOverlays';
+import { useChatInput } from '../../hooks/useChatInput';
 import { useHITLResume, type UseHITLResumeOptions } from '../../hooks/useHITLResume';
+import { useJournalViewer } from '../../hooks/useJournalViewer';
+import { useSidebarState } from '../../hooks/useSidebarState';
+import {
+  chatLoaderDataSchema,
+  emptyLoaderData,
+  type ActivityState,
+  type ChatLoaderData,
+} from '../../types';
 import { ChatEmptyState } from '../ChatEmptyState';
+import { ChatHeader } from '../ChatHeader';
+import { ChatInputArea } from '../ChatInputArea';
 import { ChatSidebar } from '../ChatSidebar';
+import { InterruptPrompt } from '../InterruptPrompt';
+import { JournalEntryViewer } from '../JournalEntryViewer';
 import { MessageBubble } from '../MessageBubble';
 
 import styles from './ChatPage.module.css';
+import {
+  ImmersiveBreathing,
+  ImmersiveBreathingConfirmation,
+  ActivityRenderer,
+  PrerecordedMeditationPlayer,
+} from './lazyComponents';
 
-import { ErrorFallback } from '@/components/feedback/ErrorFallback/ErrorFallback';
 import { ActivityOverlay } from '@/components/overlays';
 import { ActivityLoadingSkeleton } from '@/components/skeletons';
-import { MenuIcon, CloseIcon, ChevronRightIcon, SendIcon } from '@/components/ui/icons';
-import type { BreathingTechnique, BreathingStats } from '@/features/breathing/types';
-import { CATEGORY_INFO, type JournalEntry } from '@/features/journaling/types';
-import type { DirectComponent } from '@/features/navigation/types';
+import type { BreathingTechnique, BreathingStats } from '@/features/breathing';
 import {
   createAIClient,
   isBreathingConfirmation,
-  isJournalingConfirmation,
-  isVoiceSelection,
   type Message,
   type InterruptPayload,
 } from '@/lib/ai-client';
@@ -65,48 +78,6 @@ import { useSupabaseSession } from '@/lib/hooks';
 import { conversationKeys } from '@/lib/queries';
 import { supabase } from '@/lib/supabase';
 
-// Lazy load activity components to reduce initial bundle size
-// These are only loaded when the user triggers an activity
-const ImmersiveBreathing = lazy(() =>
-  import('@/features/breathing/components/ImmersiveBreathing/ImmersiveBreathing').then((m) => ({
-    default: m.ImmersiveBreathing,
-  }))
-);
-const ImmersiveBreathingConfirmation = lazy(() =>
-  import('@/features/breathing/components/ImmersiveBreathing/ImmersiveBreathingConfirmation').then(
-    (m) => ({ default: m.ImmersiveBreathingConfirmation })
-  )
-);
-const BreathingConfirmation = lazy(() =>
-  import('@/features/breathing/components/BreathingConfirmation/BreathingConfirmation').then(
-    (m) => ({ default: m.BreathingConfirmation })
-  )
-);
-const VoiceSelectionConfirmation = lazy(() =>
-  import('@/features/meditation/components/VoiceSelectionConfirmation/VoiceSelectionConfirmation').then(
-    (m) => ({ default: m.VoiceSelectionConfirmation })
-  )
-);
-const JournalingConfirmation = lazy(() =>
-  import('@/features/journaling/components/JournalingConfirmation/JournalingConfirmation').then(
-    (m) => ({ default: m.JournalingConfirmation })
-  )
-);
-// Lazy-load direct activity renderer for sidebar navigation
-const ActivityRenderer = lazy(() =>
-  import('@/features/navigation/components/ActivityRenderer/ActivityRenderer').then((m) => ({
-    default: m.ActivityRenderer,
-  }))
-);
-// Lazy-load pre-recorded meditation player
-const PrerecordedMeditationPlayer = lazy(() =>
-  import('@/features/meditation/components/PrerecordedMeditationPlayer/PrerecordedMeditationPlayer').then(
-    (m) => ({
-      default: m.PrerecordedMeditationPlayer,
-    })
-  )
-);
-
 /* ----------------------------------------------------------------------------
    Route API for accessing loader data
    ---------------------------------------------------------------------------- */
@@ -114,28 +85,22 @@ const PrerecordedMeditationPlayer = lazy(() =>
 const routeApi = getRouteApi('/_authed/chat');
 
 /* ----------------------------------------------------------------------------
-   Loader Data Validation
+   Type Guards for Activity State
    ---------------------------------------------------------------------------- */
-const chatLoaderDataSchema = z.object({
-  conversationId: z.uuid().nullable(),
-  messages: z.array(
-    z.object({
-      id: z.string(),
-      role: z.enum(['user', 'assistant', 'system']),
-      content: z.string(),
-      createdAt: z.coerce.date(),
-    })
-  ),
-  userEmail: z.email().optional(),
-  userId: z.uuid().optional(),
-});
 
-type ChatLoaderData = z.infer<typeof chatLoaderDataSchema>;
+/** Type guard for confirming phase activity state */
+function isConfirmingActivity(
+  activity: ActivityState
+): activity is Extract<ActivityState, { phase: 'confirming' }> {
+  return activity !== null && activity.phase === 'confirming';
+}
 
-const emptyLoaderData: ChatLoaderData = {
-  conversationId: null,
-  messages: [],
-};
+/** Type guard for active phase activity state */
+function isActiveActivity(
+  activity: ActivityState
+): activity is Extract<ActivityState, { phase: 'active' }> {
+  return activity !== null && activity.phase === 'active';
+}
 
 /* ----------------------------------------------------------------------------
    Chat Page Component
@@ -155,7 +120,7 @@ export function ChatPage() {
   // Get initial data from route loader (most recent conversation)
   // Memoize to prevent new object references on every render (would cause infinite loop)
   const rawLoaderData = routeApi.useLoaderData();
-  const loaderData = useMemo(() => {
+  const loaderData = useMemo<ChatLoaderData>(() => {
     const result = chatLoaderDataSchema.safeParse(rawLoaderData);
     if (!result.success) {
       console.error('Invalid chat loader data:', result.error);
@@ -179,21 +144,56 @@ export function ChatPage() {
   // Whether we're currently waiting for/receiving AI response
   const [isLoading, setIsLoading] = useState(false);
 
-  // Input field value
-  const [inputValue, setInputValue] = useState('');
-
   // Current conversation ID - initialized from loader data
   const [conversationId, setConversationId] = useState<string | null>(loaderData.conversationId);
+
+  // Interrupt data for HITL (Human-in-the-Loop) confirmation dialogs
+  const [interruptData, setInterruptData] = useState<InterruptPayload | null>(null);
 
   // Query client for cache invalidation after direct Supabase operations
   const queryClient = useQueryClient();
 
-  // Keep conversation list/detail cache in sync with manual updates
+  // Reference to the message container for auto-scrolling
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  /* --------------------------------------------------------------------------
+     Custom Hooks
+     -------------------------------------------------------------------------- */
+
+  // Sidebar state management
+  const { isSidebarOpen, isHydrated, openSidebar, closeSidebar, toggleSidebar } = useSidebarState();
+
+  // Chat input state management
+  const { inputValue, inputRef, setInputValue, clearInput, focusInput } = useChatInput();
+
+  // Journal viewer state management
+  const { selectedJournalEntry, handleSelectJournalEntry, handleCloseJournalEntry } =
+    useJournalViewer();
+
+  // Activity overlays state management
+  const {
+    activeActivity,
+    directActivity,
+    selectedPrerecordedTrack,
+    setActiveActivity,
+    handleActivityClose,
+    handleDirectComponent,
+    handleDirectActivityClose,
+    handleSelectPrerecordedMeditation,
+    handleClosePrerecordedMeditation,
+  }: UseActivityOverlaysReturn = useActivityOverlays({
+    onActivityClose: focusInput,
+    onCloseSidebar: closeSidebar,
+  });
+
+  /* --------------------------------------------------------------------------
+     Cache Invalidation Helpers
+     -------------------------------------------------------------------------- */
   const invalidateConversationCache = useCallback(
-    (userId: string, conversationId?: string) => {
+    (userId: string, convId?: string) => {
       void queryClient.invalidateQueries({ queryKey: conversationKeys.list(userId) });
-      if (conversationId) {
-        void queryClient.invalidateQueries({ queryKey: conversationKeys.detail(conversationId) });
+      if (convId) {
+        void queryClient.invalidateQueries({ queryKey: conversationKeys.detail(convId) });
       }
     },
     [queryClient]
@@ -218,13 +218,6 @@ export function ChatPage() {
 
   /* --------------------------------------------------------------------------
      Sync state with loader data when route is revisited
-     --------------------------------------------------------------------------
-     TanStack Router pattern: loader re-runs on navigation, but useState only
-     uses initial value on first render. This effect syncs state when loader
-     data changes (e.g., navigating away and back to the chat page).
-
-     Using startTransition marks these updates as non-urgent, allowing the
-     browser to prioritize layout stability over state updates (reduces CLS).
      -------------------------------------------------------------------------- */
   useEffect(() => {
     startTransition(() => {
@@ -232,82 +225,6 @@ export function ChatPage() {
       setConversationId(loaderData.conversationId);
     });
   }, [loaderData.messages, loaderData.conversationId]);
-
-  // Hydration tracking - prevents CLS by deferring width collapse until after paint
-  // The CSS .sidebarHydrated class is required for width:0 to take effect on desktop
-  const [isHydrated, setIsHydrated] = useState(false);
-
-  // Sidebar state - starts OPEN to match CSS default (prevents 280px layout shift)
-  // CSS sets sidebar width: 280px on desktop by default.
-  // Only after hydration (isHydrated=true) can the sidebar collapse via .sidebarClosed.sidebarHydrated
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-
-  /* --------------------------------------------------------------------------
-     Hydration Effect - Enable sidebar collapse and set mobile initial state
-     --------------------------------------------------------------------------
-     CRITICAL FOR CLS: This effect runs after the first paint, ensuring:
-     1. The page renders with sidebar open (matching CSS default)
-     2. Only AFTER paint do we enable the collapse behavior (via isHydrated)
-     3. On mobile, we close the sidebar (but width doesn't shift since it's overlay)
-     -------------------------------------------------------------------------- */
-  useEffect(() => {
-    // Enable sidebar collapse behavior (CSS: .sidebarClosed.sidebarHydrated)
-    setIsHydrated(true);
-
-    // On mobile, close the sidebar after hydration
-    // This is safe because mobile uses position:fixed (overlay), not flex width
-    if (isMobileViewport()) {
-      setIsSidebarOpen(false);
-    }
-  }, []);
-
-  // Interrupt data for HITL (Human-in-the-Loop) confirmation dialogs
-  // When the AI suggests an activity, it pauses for user confirmation
-  // InterruptPayload is a union type supporting multiple confirmation types:
-  // - breathing_confirmation: for breathing exercises
-  // - voice_selection: for AI-generated meditation voice selection
-  const [interruptData, setInterruptData] = useState<InterruptPayload | null>(null);
-
-  // Active activity state for immersive overlay
-  // Phases: confirming -> active -> completing -> null
-  type ActivityState =
-    | {
-        phase: 'confirming';
-        type: 'breathing';
-        data: {
-          proposedTechnique: BreathingTechnique;
-          message: string;
-          availableTechniques: BreathingTechnique[];
-        };
-      }
-    | {
-        phase: 'active';
-        type: 'breathing';
-        data: {
-          technique: BreathingTechnique;
-          introduction?: string;
-        };
-      }
-    | null;
-
-  const [activeActivity, setActiveActivity] = useState<ActivityState>(null);
-
-  // Direct activity state - for sidebar navigation (will integrate with backend)
-  const [directActivity, setDirectActivity] = useState<DirectComponent | null>(null);
-
-  // Selected journal entry for viewing
-  const [selectedJournalEntry, setSelectedJournalEntry] = useState<JournalEntry | null>(null);
-
-  // Selected pre-recorded meditation track for playback
-  const [selectedPrerecordedTrack, setSelectedPrerecordedTrack] = useState<MeditationTrack | null>(
-    null
-  );
-
-  // Reference to the message container for auto-scrolling
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-
-  // Reference to the input field for focus management
-  const inputRef = useRef<HTMLInputElement>(null);
 
   /* --------------------------------------------------------------------------
      HITL Resume Hook - handles all interrupt confirmations
@@ -336,16 +253,12 @@ export function ChatPage() {
     },
     onResumeEnd: () => {
       setIsLoading(false);
-      inputRef.current?.focus();
+      focusInput();
     },
     touchConversation: touchConversationForUser,
   };
 
-  const {
-    resume: hitlResume,
-    isResuming: _isResuming,
-    streamingContent: _resumeStreamingContent,
-  } = useHITLResume(hitlResumeOptions);
+  const { resume: hitlResume } = useHITLResume(hitlResumeOptions);
 
   /* --------------------------------------------------------------------------
      Auto-scroll to bottom when new messages arrive
@@ -354,7 +267,6 @@ export function ChatPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, []);
 
-  // Scroll when messages change or streaming content updates
   useEffect(() => {
     scrollToBottom();
   }, [messages, streamingContent, scrollToBottom]);
@@ -363,16 +275,13 @@ export function ChatPage() {
      Send Message Handler
      -------------------------------------------------------------------------- */
   const handleSendMessage = async () => {
-    // Don't send empty messages
     const messageText = inputValue.trim();
     if (!messageText || isLoading) {
       return;
     }
 
-    // Clear input immediately for better UX
-    setInputValue('');
+    clearInput();
 
-    // Add user message to the list
     const userMessage: Message = {
       id: `user-${String(Date.now())}`,
       role: 'user',
@@ -381,14 +290,11 @@ export function ChatPage() {
     };
     setMessages((prev) => [...prev, userMessage]);
 
-    // Start loading state
     setIsLoading(true);
     setStreamingContent('');
 
     try {
-      // Check session from hook (reactive, always current)
       if (!session || !accessToken) {
-        // User is not authenticated, show error
         const errorMessage: Message = {
           id: `error-${String(Date.now())}`,
           role: 'system',
@@ -400,33 +306,26 @@ export function ChatPage() {
         return;
       }
 
-      // Use the Supabase access token for LangGraph authentication
       const authToken = accessToken;
-
-      // Get or create conversation ID (lazy creation on first message)
       let currentConversationId = conversationId;
+
       if (!currentConversationId) {
         const newConversationId = await createConversationForUser(session.user.id);
         currentConversationId = newConversationId;
         setConversationId(currentConversationId);
       }
 
-      // Create AI client and stream the response
       const client = createAIClient(authToken);
       let fullResponse = '';
 
-      // Stream the AI response
       for await (const event of client.streamMessage(messageText, currentConversationId)) {
         switch (event.type) {
           case 'token':
-            // Update streaming content with full response (not appending)
-            // LangGraph sends accumulated content, not deltas
             fullResponse = event.content;
             setStreamingContent(fullResponse);
             break;
 
           case 'done': {
-            // Streaming complete - add full message to list
             const assistantMessage: Message = {
               id: event.messageId ?? `assistant-${String(Date.now())}`,
               role: 'assistant',
@@ -436,7 +335,6 @@ export function ChatPage() {
             setMessages((prev) => [...prev, assistantMessage]);
             setStreamingContent('');
 
-            // Update conversation timestamp for "most recent" ordering
             if (currentConversationId) {
               void touchConversationForUser(currentConversationId, session.user.id);
             }
@@ -444,7 +342,6 @@ export function ChatPage() {
           }
 
           case 'error': {
-            // Handle error - show in chat
             console.error('Stream error:', event.error);
             const errorMessage: Message = {
               id: `error-${String(Date.now())}`,
@@ -458,15 +355,11 @@ export function ChatPage() {
           }
 
           case 'interrupt': {
-            // Graph paused for user confirmation (HITL pattern)
-            // Show the confirmation UI and wait for user decision
             setStreamingContent('');
             setIsLoading(false);
 
             // For breathing confirmations, use immersive overlay
             if (isBreathingConfirmation(event.payload)) {
-              // Convert available techniques to BreathingTechnique format
-              // Map recommended_cycles → cycles for frontend compatibility
               const availableTechniques: BreathingTechnique[] =
                 event.payload.available_techniques.map((t) => ({
                   id: t.id,
@@ -494,17 +387,15 @@ export function ChatPage() {
                 },
               });
             } else {
-              // For other interrupts (voice selection), use inline UI
+              // For other interrupts (voice selection, journaling), use inline UI
               setInterruptData(event.payload);
             }
 
-            // Don't refocus input - user should interact with the confirmation
-            return; // Exit the loop, hitlResume will continue
+            return;
           }
         }
       }
     } catch (error) {
-      // Handle unexpected errors
       console.error('Failed to send message:', error);
       const errorMessage: Message = {
         id: `error-${String(Date.now())}`,
@@ -515,40 +406,20 @@ export function ChatPage() {
       setMessages((prev) => [...prev, errorMessage]);
     } finally {
       setIsLoading(false);
-      // Refocus input for convenience
-      inputRef.current?.focus();
-    }
-  };
-
-  /* --------------------------------------------------------------------------
-     Handle Enter key to send message
-     -------------------------------------------------------------------------- */
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    // Send on Enter (without Shift for newlines in future textarea)
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      void handleSendMessage();
+      focusInput();
     }
   };
 
   /* --------------------------------------------------------------------------
      Immersive Breathing Overlay Handlers
      -------------------------------------------------------------------------- */
-
-  /**
-   * Handle user confirming the breathing exercise in immersive overlay.
-   * Transitions from 'confirming' phase to 'active' phase.
-   */
   const handleImmersiveBreathingConfirm = useCallback(
     async (technique: BreathingTechnique) => {
-      if (activeActivity?.phase !== 'confirming') {
+      if (!isConfirmingActivity(activeActivity)) {
         return;
       }
 
-      // Store the introduction message for the exercise
       const introduction = activeActivity.data.message;
-
-      // Resume the graph with user's decision
       setIsLoading(true);
 
       try {
@@ -560,22 +431,15 @@ export function ChatPage() {
 
         const client = createAIClient(accessToken);
 
-        // Resume with 'start' decision and the selected technique
-        // Note: We don't need to capture the response content since we don't add
-        // the activity message to local state during live HITL (user sees overlay)
         for await (const event of client.resumeInterrupt(
           { decision: 'start', technique_id: technique.id },
           conversationId
         )) {
           switch (event.type) {
             case 'done': {
-              // During live HITL, we skip adding the activity message to local state
-              // because the user sees the activity in the ImmersiveBreathing overlay.
-              // The message is persisted via the backend and will appear when loading history.
               void touchConversationForUser(conversationId, session.user.id);
               break;
             }
-
             case 'error': {
               console.error('Resume stream error:', event.error);
               break;
@@ -588,7 +452,6 @@ export function ChatPage() {
         setIsLoading(false);
       }
 
-      // Transition to active phase - show the breathing exercise
       setActiveActivity({
         phase: 'active',
         type: 'breathing',
@@ -598,13 +461,16 @@ export function ChatPage() {
         },
       });
     },
-    [activeActivity, conversationId, touchConversationForUser, session, accessToken]
+    [
+      activeActivity,
+      conversationId,
+      touchConversationForUser,
+      session,
+      accessToken,
+      setActiveActivity,
+    ]
   );
 
-  /**
-   * Handle user declining the breathing exercise.
-   * Closes overlay and resumes graph with 'not_now'.
-   */
   const handleImmersiveBreathingDecline = useCallback(async () => {
     setActiveActivity(null);
     setIsLoading(true);
@@ -650,171 +516,79 @@ export function ChatPage() {
       console.error('Failed to resume graph:', error);
     } finally {
       setIsLoading(false);
-      inputRef.current?.focus();
+      focusInput();
     }
-  }, [conversationId, touchConversationForUser, session, accessToken]);
+  }, [
+    conversationId,
+    touchConversationForUser,
+    session,
+    accessToken,
+    setActiveActivity,
+    focusInput,
+  ]);
 
-  /**
-   * Handle breathing exercise completion.
-   * Closes overlay and optionally logs stats.
-   */
-  const handleImmersiveBreathingComplete = useCallback((_stats: BreathingStats) => {
-    // Close the overlay
-    setActiveActivity(null);
-    inputRef.current?.focus();
-
-    // TODO: Stats could be sent to backend for tracking (future enhancement)
-  }, []);
-
-  /**
-   * Handle user exiting exercise early (stop button or X).
-   */
-  const handleActivityClose = useCallback(() => {
-    setActiveActivity(null);
-    inputRef.current?.focus();
-  }, []);
-
-  /* --------------------------------------------------------------------------
-     Direct Activity Handlers (sidebar navigation)
-     -------------------------------------------------------------------------- */
-
-  /**
-   * Handle opening a component directly from DiscoverNav.
-   * Backend integration for session tracking will be added in future iteration.
-   */
-  const handleDirectComponent = useCallback((component: DirectComponent) => {
-    setDirectActivity(component);
-    // Close sidebar on mobile
-    if (isMobileViewport()) {
-      setIsSidebarOpen(false);
-    }
-  }, []);
-
-  /**
-   * Handle closing the direct activity overlay.
-   */
-  const handleDirectActivityClose = useCallback(() => {
-    setDirectActivity(null);
-    inputRef.current?.focus();
-  }, []);
-
-  /* --------------------------------------------------------------------------
-     Journal Entry Handlers
-     -------------------------------------------------------------------------- */
-
-  /**
-   * Handle selecting a journal entry from JournalHistory.
-   */
-  const handleSelectJournalEntry = useCallback((entry: JournalEntry) => {
-    setSelectedJournalEntry(entry);
-  }, []);
-
-  /**
-   * Handle closing the journal entry viewer.
-   */
-  const handleCloseJournalEntry = useCallback(() => {
-    setSelectedJournalEntry(null);
-  }, []);
-
-  /* --------------------------------------------------------------------------
-     Pre-recorded Meditation Handlers
-     -------------------------------------------------------------------------- */
-
-  /**
-   * Handle selecting a pre-recorded meditation track from the sidebar.
-   */
-  const handleSelectPrerecordedMeditation = useCallback((track: MeditationTrack) => {
-    setSelectedPrerecordedTrack(track);
-    // Close sidebar on mobile
-    if (isMobileViewport()) {
-      setIsSidebarOpen(false);
-    }
-  }, []);
-
-  /**
-   * Handle closing the pre-recorded meditation player.
-   */
-  const handleClosePrerecordedMeditation = useCallback(() => {
-    setSelectedPrerecordedTrack(null);
-    inputRef.current?.focus();
-  }, []);
+  const handleImmersiveBreathingComplete = useCallback(
+    (_stats: BreathingStats) => {
+      setActiveActivity(null);
+      focusInput();
+    },
+    [setActiveActivity, focusInput]
+  );
 
   /* --------------------------------------------------------------------------
      Sidebar Handlers
      -------------------------------------------------------------------------- */
-
-  /**
-   * Handle logout - signs user out via Supabase.
-   * Navigation will be handled by auth state change in the router.
-   */
   const handleLogout = async () => {
     try {
       await supabase.auth.signOut();
-      // Redirect to home page after successful logout
       void navigate({ to: '/' });
     } catch (error) {
       console.error('Logout failed:', error);
     }
   };
 
-  /**
-   * Handle new conversation - clears current messages and resets state.
-   * Closes sidebar on mobile for better UX.
-   */
   const handleNewConversation = async () => {
     try {
       if (!session) {
         return;
       }
 
-      // Create a new conversation in the database using mutation
       const newConversationId = await createConversationForUser(session.user.id);
       setConversationId(newConversationId);
 
-      // Clear local state
       setMessages([]);
       setStreamingContent('');
-      setInputValue('');
+      clearInput();
 
-      // Close sidebar on mobile (but keep open on desktop)
       if (isMobileViewport()) {
-        setIsSidebarOpen(false);
+        closeSidebar();
       }
 
-      inputRef.current?.focus();
+      focusInput();
     } catch (error) {
       console.error('Failed to create new conversation:', error);
     }
   };
 
-  /**
-   * Handle switching to a different conversation.
-   * Loads the conversation's messages and updates state.
-   */
   const handleSelectConversation = async (selectedConversationId: string) => {
-    // Don't reload if already viewing this conversation
     if (selectedConversationId === conversationId) {
       return;
     }
 
     try {
       setIsLoading(true);
-
-      // Load messages for the selected conversation
       const loadedMessages = await loadMessages(selectedConversationId);
 
-      // Update state
       setConversationId(selectedConversationId);
       setMessages(loadedMessages);
       setStreamingContent('');
-      setInputValue('');
+      clearInput();
 
-      // Close sidebar on mobile
       if (isMobileViewport()) {
-        setIsSidebarOpen(false);
+        closeSidebar();
       }
 
-      inputRef.current?.focus();
+      focusInput();
     } catch (error) {
       console.error('Failed to load conversation:', error);
     } finally {
@@ -822,25 +596,25 @@ export function ChatPage() {
     }
   };
 
-  // Typed wrapper keeps JSX callback inference safe.
   const handleConversationSelection = (selectedConversationId: string) => {
     void handleSelectConversation(selectedConversationId);
   };
 
-  /* --------------------------------------------------------------------------
-     Escape Key Handler - closes sidebar
-     -------------------------------------------------------------------------- */
-  useEffect(() => {
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isSidebarOpen) {
-        setIsSidebarOpen(false);
-      }
-    };
-    document.addEventListener('keydown', handleEscape);
-    return () => {
-      document.removeEventListener('keydown', handleEscape);
-    };
-  }, [isSidebarOpen]);
+  const handleActivityRequest = (type: 'breathing' | 'meditation' | 'journal' | 'sleep') => {
+    if (type === 'breathing') {
+      setInputValue('Guide me through a breathing exercise');
+    } else if (type === 'meditation') {
+      setInputValue('I would like to meditate');
+    } else if (type === 'sleep') {
+      setInputValue('Help me wind down for sleep');
+    } else {
+      setInputValue('Help me with journaling');
+    }
+    if (isMobileViewport()) {
+      closeSidebar();
+    }
+    focusInput();
+  };
 
   /* --------------------------------------------------------------------------
      Render
@@ -849,21 +623,13 @@ export function ChatPage() {
     <div className={styles.container}>
       {/* Overlay - closes sidebar when clicked (mobile only) */}
       {isSidebarOpen && (
-        <div
-          className={styles.overlay}
-          onClick={() => {
-            setIsSidebarOpen(false);
-          }}
-          aria-hidden="true"
-        />
+        <div className={styles.overlay} onClick={closeSidebar} aria-hidden="true" />
       )}
 
       {/* Sidebar navigation */}
       <ChatSidebar
         isOpen={isSidebarOpen}
-        onClose={() => {
-          setIsSidebarOpen(false);
-        }}
+        onClose={closeSidebar}
         isHydrated={isHydrated}
         userEmail={loaderData.userEmail}
         userId={loaderData.userId}
@@ -874,75 +640,27 @@ export function ChatPage() {
         onDirectComponent={handleDirectComponent}
         onSelectJournalEntry={handleSelectJournalEntry}
         onSelectPrerecordedMeditation={handleSelectPrerecordedMeditation}
-        onActivityRequest={(type) => {
-          // Handle activity navigation - send as message
-          if (type === 'breathing') {
-            setInputValue('Guide me through a breathing exercise');
-          } else if (type === 'meditation') {
-            setInputValue('I would like to meditate');
-          } else {
-            // type === 'journal' is the only other option
-            setInputValue('Help me with journaling');
-          }
-          // Close sidebar on mobile
-          if (isMobileViewport()) {
-            setIsSidebarOpen(false);
-          }
-          inputRef.current?.focus();
-        }}
+        onActivityRequest={handleActivityRequest}
       />
 
       {/* Main chat area */}
       <div className={styles.chatMain}>
         {/* Header with menu toggle */}
-        <header className={styles.header}>
-          {/* Mobile: hamburger menu toggle */}
-          <button
-            className={styles.menuButton}
-            onClick={() => {
-              setIsSidebarOpen(!isSidebarOpen);
-            }}
-            aria-label={isSidebarOpen ? 'Close menu' : 'Open menu'}
-            aria-expanded={isSidebarOpen}
-          >
-            {isSidebarOpen ? <CloseIcon /> : <MenuIcon />}
-          </button>
-
-          {/* Desktop: expand button (when sidebar is not open) */}
-          {!isSidebarOpen && (
-            <button
-              className={styles.expandButton}
-              onClick={() => {
-                setIsSidebarOpen(true);
-              }}
-              aria-label="Expand sidebar"
-            >
-              <ChevronRightIcon />
-            </button>
-          )}
-
-          <h1 className={styles.logo}>Wbot</h1>
-        </header>
+        <ChatHeader
+          isSidebarOpen={isSidebarOpen}
+          onToggleSidebar={toggleSidebar}
+          onExpandSidebar={openSidebar}
+        />
 
         {/* Message list - scrollable area */}
         <div className={styles.messages}>
           {/* Empty state when no messages */}
           {messages.length === 0 && !streamingContent && (
             <ChatEmptyState
-              onQuickAction={(action) => {
-                if (action === 'breathing') {
-                  setInputValue('Guide me through a breathing exercise');
-                } else if (action === 'meditation') {
-                  setInputValue('I would like to meditate');
-                } else {
-                  // action === 'journal'
-                  setInputValue('Help me with journaling');
-                }
-                inputRef.current?.focus();
-              }}
+              onQuickAction={handleActivityRequest}
               onStarterClick={(message) => {
                 setInputValue(message);
-                inputRef.current?.focus();
+                focusInput();
               }}
             />
           )}
@@ -965,75 +683,14 @@ export function ChatPage() {
             />
           )}
 
-          {/* Breathing exercise confirmation (HITL interrupt) */}
-          {interruptData && isBreathingConfirmation(interruptData) && (
-            <div className={styles.messageRow}>
-              <div
-                className={`${styles.bubble} ${styles.bubbleAssistant} ${styles.bubbleActivity}`}
-              >
-                <ErrorBoundary FallbackComponent={ErrorFallback}>
-                  <Suspense fallback={<ActivityLoadingSkeleton />}>
-                    <BreathingConfirmation
-                      proposedTechnique={interruptData.proposed_technique}
-                      message={interruptData.message}
-                      availableTechniques={interruptData.available_techniques}
-                      onConfirm={(decision, techniqueId) => {
-                        void hitlResume({ decision, technique_id: techniqueId });
-                      }}
-                    />
-                  </Suspense>
-                </ErrorBoundary>
-              </div>
-            </div>
-          )}
-
-          {/* Meditation voice selection confirmation (HITL interrupt) */}
-          {interruptData && isVoiceSelection(interruptData) && (
-            <div className={styles.messageRow}>
-              <div
-                className={`${styles.bubble} ${styles.bubbleAssistant} ${styles.bubbleActivity}`}
-              >
-                <ErrorBoundary FallbackComponent={ErrorFallback}>
-                  <Suspense fallback={<ActivityLoadingSkeleton />}>
-                    <VoiceSelectionConfirmation
-                      message={interruptData.message}
-                      availableVoices={interruptData.available_voices}
-                      recommendedVoice={interruptData.recommended_voice}
-                      meditationPreview={interruptData.meditation_preview}
-                      durationMinutes={interruptData.duration_minutes}
-                      onConfirm={(decision, voiceId) => {
-                        void hitlResume({ decision, voice_id: voiceId });
-                      }}
-                    />
-                  </Suspense>
-                </ErrorBoundary>
-              </div>
-            </div>
-          )}
-
-          {/* Journaling prompt confirmation (HITL interrupt) */}
-          {interruptData && isJournalingConfirmation(interruptData) && (
-            <div className={styles.messageRow}>
-              <div
-                className={`${styles.bubble} ${styles.bubbleAssistant} ${styles.bubbleActivity}`}
-              >
-                <ErrorBoundary FallbackComponent={ErrorFallback}>
-                  <Suspense fallback={<ActivityLoadingSkeleton />}>
-                    <JournalingConfirmation
-                      proposedPrompt={interruptData.proposed_prompt}
-                      message={interruptData.message}
-                      availablePrompts={interruptData.available_prompts}
-                      onConfirm={(prompt) => {
-                        void hitlResume({ decision: 'start', prompt_id: prompt.id });
-                      }}
-                      onDecline={() => {
-                        void hitlResume({ decision: 'not_now' });
-                      }}
-                    />
-                  </Suspense>
-                </ErrorBoundary>
-              </div>
-            </div>
+          {/* HITL interrupt prompts (breathing, voice, journaling) */}
+          {interruptData && (
+            <InterruptPrompt
+              interruptData={interruptData}
+              onResume={(payload) => {
+                void hitlResume(payload);
+              }}
+            />
           )}
 
           {/* Loading indicator when waiting for first token */}
@@ -1050,35 +707,19 @@ export function ChatPage() {
         </div>
 
         {/* Input area - fixed at bottom */}
-        <div className={styles.inputArea}>
-          <input
-            ref={inputRef}
-            type="text"
-            className={styles.input}
-            placeholder={
-              interruptData ? 'Please respond to the prompt above...' : 'Type a message...'
-            }
-            value={inputValue}
-            onChange={(e) => {
-              setInputValue(e.target.value);
-            }}
-            onKeyDown={handleKeyDown}
-            disabled={isLoading || !!interruptData}
-            aria-label="Message input"
-          />
-          <button
-            className={styles.sendButton}
-            onClick={() => {
-              void handleSendMessage();
-            }}
-            disabled={!inputValue.trim() || isLoading || !!interruptData}
-            aria-label="Send message"
-          >
-            <SendIcon />
-          </button>
-        </div>
+        <ChatInputArea
+          inputRef={inputRef}
+          value={inputValue}
+          onChange={setInputValue}
+          onSubmit={() => {
+            void handleSendMessage();
+          }}
+          disabled={isLoading || !!interruptData}
+          placeholder={
+            interruptData ? 'Please respond to the prompt above...' : 'Type a message...'
+          }
+        />
       </div>
-      {/* End chatMain */}
 
       {/* Immersive Activity Overlay */}
       <ActivityOverlay
@@ -1087,7 +728,7 @@ export function ChatPage() {
         activityType="breathing"
       >
         <Suspense fallback={<ActivityLoadingSkeleton />}>
-          {activeActivity?.phase === 'confirming' && (
+          {isConfirmingActivity(activeActivity) && (
             <ImmersiveBreathingConfirmation
               proposedTechnique={activeActivity.data.proposedTechnique}
               message={activeActivity.data.message}
@@ -1100,7 +741,7 @@ export function ChatPage() {
               }}
             />
           )}
-          {activeActivity?.phase === 'active' && (
+          {isActiveActivity(activeActivity) && (
             <ImmersiveBreathing
               technique={activeActivity.data.technique}
               introduction={activeActivity.data.introduction}
@@ -1142,66 +783,9 @@ export function ChatPage() {
       )}
 
       {/* Journal Entry Viewer Overlay */}
-      {selectedJournalEntry &&
-        (() => {
-          const categoryInfo = CATEGORY_INFO[selectedJournalEntry.prompt_category];
-          return (
-            <div
-              className={styles.journalOverlay}
-              onClick={handleCloseJournalEntry}
-              onKeyDown={(e) => {
-                if (e.key === 'Escape') {
-                  handleCloseJournalEntry();
-                }
-              }}
-              role="dialog"
-              aria-modal="true"
-              aria-label="Journal entry viewer"
-            >
-              <div
-                className={styles.journalViewer}
-                onClick={(e) => {
-                  e.stopPropagation();
-                }}
-                onKeyDown={(e) => {
-                  e.stopPropagation();
-                }}
-                role="document"
-              >
-                <button
-                  className={styles.journalCloseButton}
-                  onClick={handleCloseJournalEntry}
-                  aria-label="Close journal entry"
-                >
-                  <CloseIcon />
-                </button>
-                <div className={styles.journalHeader}>
-                  <span
-                    className={styles.journalCategory}
-                    style={{ backgroundColor: categoryInfo.color }}
-                  >
-                    {categoryInfo.emoji} {categoryInfo.label}
-                  </span>
-                  <span className={styles.journalDate}>
-                    {new Date(selectedJournalEntry.created_at).toLocaleDateString('en-US', {
-                      year: 'numeric',
-                      month: 'long',
-                      day: 'numeric',
-                    })}
-                  </span>
-                </div>
-                <div className={styles.journalPrompt}>{selectedJournalEntry.prompt_text}</div>
-                <div className={styles.journalContent}>{selectedJournalEntry.entry_text}</div>
-                <div className={styles.journalMeta}>
-                  <span>{String(selectedJournalEntry.word_count)} words</span>
-                  {selectedJournalEntry.is_favorite && (
-                    <span className={styles.favorite}>★ Favorite</span>
-                  )}
-                </div>
-              </div>
-            </div>
-          );
-        })()}
+      {selectedJournalEntry && (
+        <JournalEntryViewer entry={selectedJournalEntry} onClose={handleCloseJournalEntry} />
+      )}
     </div>
   );
 }
