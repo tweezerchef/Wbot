@@ -15,6 +15,7 @@ import { fileURLToPath } from 'node:url';
 
 import { devtools } from '@tanstack/devtools-vite';
 import { tanstackStart } from '@tanstack/react-start/plugin/vite';
+import { tanstackRouter } from '@tanstack/router-plugin/vite';
 import react from '@vitejs/plugin-react';
 import { nitro } from 'nitro/vite';
 import { visualizer } from 'rollup-plugin-visualizer';
@@ -40,6 +41,10 @@ export default defineConfig({
   },
 
   plugins: [
+    tanstackRouter({
+      target: 'react',
+      autoCodeSplitting: true, // Enable automatic code splitting
+    }),
     // TanStack Start plugin - handles routing, SSR, server functions
     // Must come before React plugin
     tanstackStart(),

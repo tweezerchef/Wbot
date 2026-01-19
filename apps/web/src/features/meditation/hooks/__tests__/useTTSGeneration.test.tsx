@@ -7,11 +7,18 @@
  * - Standard buffered playback fallback
  */
 
-import { renderHook, act, waitFor } from '@testing-library/react';
-import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vitest';
+import { act, renderHook, waitFor } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, type Mock, vi } from 'vitest';
 
-import type { PersonalizedScript, MeditationPersonalization } from '../../types';
+import type { MeditationPersonalization, PersonalizedScript } from '../../types';
 import { useTTSGeneration } from '../useTTSGeneration';
+
+import {
+  checkMeditationCache,
+  streamMeditationWithProgressivePlayback,
+  streamPersonalizedMeditation,
+} from '@/lib/meditation-tts';
+import { supabase } from '@/lib/supabase';
 
 // Mock the meditation-tts module
 vi.mock('@/lib/meditation-tts', () => ({
@@ -28,13 +35,6 @@ vi.mock('@/lib/supabase', () => ({
     },
   },
 }));
-
-import {
-  checkMeditationCache,
-  streamPersonalizedMeditation,
-  streamMeditationWithProgressivePlayback,
-} from '@/lib/meditation-tts';
-import { supabase } from '@/lib/supabase';
 
 // Test fixtures
 const mockScript: PersonalizedScript = {
