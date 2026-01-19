@@ -6,8 +6,8 @@
 // App Architecture:
 // - The chatbot is the PRIMARY interface (full-screen on mobile & desktop)
 // - Interactive activities (breathing, meditation, journaling) are displayed
-//   INSIDE the chatbot, triggered by the AI during conversation
-// - No traditional navigation - the AI guides the user through activities
+//   INSIDE the chatbot, triggered by the AI during conversation or by navigation with the user
+// - Sidebar provides navigation on the client side
 //
 // Routes:
 // - "/" (index): Landing page with login (when not authenticated)
@@ -33,6 +33,8 @@ import type { RouterContext } from '../types';
 
 // Import global styles - applies CSS reset and variables
 import '../styles/globals.css';
+// Import CSS module for root layout components
+import styles from './__root.module.css';
 
 // ----------------------------------------------------------------------------
 // Query Error Fallback Component
@@ -46,57 +48,12 @@ import '../styles/globals.css';
  */
 function QueryErrorFallback({ error, resetErrorBoundary }: FallbackProps) {
   return (
-    <div
-      role="alert"
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        minHeight: '100dvh',
-        padding: 'var(--spacing-lg)',
-        textAlign: 'center',
-        backgroundColor: 'var(--color-background)',
-        color: 'var(--color-text-primary)',
-      }}
-    >
-      <h2
-        style={{
-          fontSize: 'var(--font-size-xl)',
-          fontWeight: 'var(--font-weight-semibold)',
-          marginBottom: 'var(--spacing-md)',
-        }}
-      >
-        Something went wrong
-      </h2>
-      <p
-        style={{
-          color: 'var(--color-text-secondary)',
-          marginBottom: 'var(--spacing-lg)',
-          maxWidth: '400px',
-        }}
-      >
+    <div role="alert" className={styles.errorFallback}>
+      <h2 className={styles.errorHeading}>Something went wrong</h2>
+      <p className={styles.errorMessage}>
         {error instanceof Error ? error.message : 'An unexpected error occurred'}
       </p>
-      <button
-        onClick={resetErrorBoundary}
-        style={{
-          backgroundColor: 'var(--color-primary)',
-          color: 'var(--color-text-inverse)',
-          padding: 'var(--spacing-sm) var(--spacing-lg)',
-          borderRadius: 'var(--radius-md)',
-          fontSize: 'var(--font-size-base)',
-          fontWeight: 'var(--font-weight-medium)',
-          cursor: 'pointer',
-          transition: 'background-color var(--transition-fast)',
-        }}
-        onMouseOver={(e) => {
-          e.currentTarget.style.backgroundColor = 'var(--color-primary-hover)';
-        }}
-        onMouseOut={(e) => {
-          e.currentTarget.style.backgroundColor = 'var(--color-primary)';
-        }}
-      >
+      <button onClick={resetErrorBoundary} className={styles.retryButton}>
         Try Again
       </button>
     </div>
@@ -161,158 +118,23 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         {/* TanStack Router injects meta tags from route.head() */}
         <HeadContent />
         {/*
-          Critical CSS: Inline essential styles to prevent FOUC.
+          Critical CSS: Minimal inline styles to prevent mobile sidebar FOUC.
 
-          These styles are embedded directly in the HTML response so the page
-          looks styled immediately, before JavaScript loads CSS modules.
+          CSS variables, reset, and base styles are loaded via globals.css.
+          ChatPage critical layout is loaded via the chat route bundle (chat.css).
 
-          Includes:
-          1. Essential CSS variables (colors, fonts, spacing)
-          2. CSS reset (box-sizing, margins)
-          3. Body and html base styles
-          4. FOUC visibility transition
+          Only sidebar hide logic remains inline because:
+          - React initializes sidebar state to closed (useState(false))
+          - Without this, sidebar briefly appears then jumps to hidden
+          - This ~15 lines prevents that layout shift on all routes
         */}
         <style
           dangerouslySetInnerHTML={{
             __html: `
-              /* === Critical CSS Variables (ALL from variables.css) === */
-              :root {
-                /* Primary colors */
-                --color-primary: #4a9d9a;
-                --color-primary-hover: #3d8583;
-                --color-primary-light: #e8f4f3;
-
-                /* Secondary colors */
-                --color-secondary: #7c6f9c;
-                --color-secondary-hover: #685d84;
-                --color-secondary-light: #f0edf5;
-
-                /* Accent colors */
-                --color-accent: #e07a5f;
-                --color-accent-hover: #c96a51;
-
-                /* Neutral palette */
-                --color-neutral-50: #fafafa;
-                --color-neutral-100: #f5f5f5;
-                --color-neutral-200: #e5e5e5;
-                --color-neutral-300: #d4d4d4;
-                --color-neutral-400: #a3a3a3;
-                --color-neutral-500: #737373;
-                --color-neutral-600: #525252;
-                --color-neutral-700: #404040;
-                --color-neutral-800: #262626;
-                --color-neutral-900: #171717;
-
-                /* Semantic colors */
-                --color-success: #22c55e;
-                --color-success-light: #dcfce7;
-                --color-warning: #eab308;
-                --color-warning-light: #fef9c3;
-                --color-error: #ef4444;
-                --color-error-light: #fee2e2;
-
-                /* Background/Surface colors */
-                --color-background: #ffffff;
-                --color-background-secondary: #fafafa;
-                --color-surface: #ffffff;
-
-                /* Text colors */
-                --color-text-primary: #262626;
-                --color-text-secondary: #737373;
-                --color-text-muted: #a3a3a3;
-                --color-text-inverse: #ffffff;
-
-                /* Spacing scale */
-                --spacing-xs: 4px;
-                --spacing-sm: 8px;
-                --spacing-md: 16px;
-                --spacing-lg: 24px;
-                --spacing-xl: 32px;
-                --spacing-2xl: 48px;
-                --spacing-3xl: 64px;
-
-                /* Typography */
-                --font-family-sans: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-                --font-family-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
-                --font-size-xs: 0.75rem;
-                --font-size-sm: 0.875rem;
-                --font-size-base: 1rem;
-                --font-size-lg: 1.125rem;
-                --font-size-xl: 1.25rem;
-                --font-size-2xl: 1.5rem;
-                --font-size-3xl: 1.875rem;
-                --font-size-4xl: 2.25rem;
-                --font-weight-normal: 400;
-                --font-weight-medium: 500;
-                --font-weight-semibold: 600;
-                --font-weight-bold: 700;
-                --line-height-tight: 1.25;
-                --line-height-normal: 1.5;
-                --line-height-relaxed: 1.75;
-
-                /* Borders & Radius */
-                --border-width: 1px;
-                --border-color: #e5e5e5;
-                --radius-sm: 4px;
-                --radius-md: 8px;
-                --radius-lg: 12px;
-                --radius-xl: 16px;
-                --radius-full: 9999px;
-
-                /* Shadows */
-                --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-                --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-                --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
-                --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
-
-                /* Transitions */
-                --transition-fast: 150ms ease;
-                --transition-normal: 250ms ease;
-                --transition-slow: 350ms ease;
-
-                /* Layout */
-                --max-width-content: 800px;
-                --max-width-wide: 1200px;
-                --header-height: 64px;
-                --sidebar-width: 280px;
-              }
-
-              /* === CSS Reset === */
-              *, *::before, *::after { box-sizing: border-box; }
-              * { margin: 0; }
-              html {
-                -webkit-font-smoothing: antialiased;
-                -moz-osx-font-smoothing: grayscale;
-                -webkit-text-size-adjust: 100%;
-              }
-
-              /* === Body Base Styles === */
-              body {
-                font-family: var(--font-family-sans);
-                font-size: var(--font-size-base);
-                line-height: var(--line-height-normal);
-                color: var(--color-text-primary);
-                background-color: var(--color-background);
-              }
-
-              /* === Button Reset === */
-              button { cursor: pointer; border: none; background: none; padding: 0; font: inherit; }
-              button:disabled { cursor: not-allowed; opacity: 0.5; }
-
-              /* === Link Styles === */
-              a { color: var(--color-primary); text-decoration: none; }
-              a:hover { color: var(--color-primary-hover); }
-
-              /* === Critical Layout: Sidebar Hidden by Default === */
-              /*
-               * The sidebar must be hidden initially to match React's useState(false).
-               * Without this, the sidebar renders visible then jumps to hidden.
-               */
+              /* Sidebar must be hidden initially to match React useState(false) */
               [class*="_sidebar_"]:not([class*="_sidebarOpen_"]) {
                 transform: translateX(-100%);
               }
-
-              /* Desktop: sidebar collapses to 0 width when closed */
               @media (min-width: 768px) {
                 [class*="_sidebar_"]:not([class*="_sidebarOpen_"]) {
                   position: relative;
@@ -320,50 +142,6 @@ function RootDocument({ children }: { children: React.ReactNode }) {
                   width: 0;
                   overflow: hidden;
                 }
-              }
-
-              /* === ChatPage Critical Layout === */
-              /*
-               * Essential chat layout styles inlined to prevent layout shift.
-               * These match the CSS module classes in ChatPage.module.css.
-               */
-              [class*="_container_"][class*="_chatPage_"],
-              [class*="_chatPage_"] {
-                display: flex;
-                height: 100dvh;
-                overflow: hidden;
-                background: linear-gradient(135deg, #e8f4f3 0%, #f0edf5 100%);
-              }
-
-              [class*="_chatMain_"] {
-                display: flex;
-                flex-direction: column;
-                flex: 1;
-                min-width: 0;
-              }
-
-              [class*="_header_"][class*="_chatPage_"] {
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                height: 64px;
-                padding: 0 var(--spacing-md);
-                border-bottom: 1px solid var(--border-color);
-                background: var(--color-background);
-              }
-
-              [class*="_messages_"] {
-                flex: 1;
-                overflow-y: auto;
-                padding: var(--spacing-md);
-              }
-
-              [class*="_inputArea_"] {
-                display: flex;
-                gap: var(--spacing-sm);
-                padding: var(--spacing-md);
-                border-top: 1px solid var(--border-color);
-                background: var(--color-background);
               }
             `,
           }}
@@ -386,20 +164,8 @@ function RootDocument({ children }: { children: React.ReactNode }) {
                     The app container fills the entire viewport.
                     This is important for mobile full-screen experience.
                     Using dvh (dynamic viewport height) to account for mobile browser chrome.
-
-                    Critical layout styles are inlined to prevent layout shift while
-                    CSS module chunks load asynchronously.
                   */}
-                  <div
-                    id="app"
-                    style={{
-                      minHeight: '100dvh',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      backgroundColor: 'var(--color-background)',
-                      color: 'var(--color-text-primary)',
-                    }}
-                  >
+                  <div id="app" className={styles.appContainer}>
                     {/* Child routes render here (landing or chat) */}
                     {children}
                   </div>
