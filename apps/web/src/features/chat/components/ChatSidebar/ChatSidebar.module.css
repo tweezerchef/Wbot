@@ -36,30 +36,29 @@
   transform: translateX(0);
 }
 
-/* Desktop: part of layout, open by default to avoid layout shift */
+/* Desktop: part of CSS Grid layout, fixed in first column */
 @media (min-width: 768px) {
   .sidebar {
     position: relative;
-    flex-shrink: 0;
+    grid-column: 1; /* Explicitly place in first grid column */
     transform: translateX(0);
-    /* Open by default on desktop - CSS controls initial state */
-    width: var(--sidebar-width);
+    /* Width is controlled by grid-template-columns in container */
+    width: 100%;
+    height: 100dvh;
     overflow: hidden;
+    /* Remove width transition to prevent CLS */
+    transition: none;
   }
 
   /*
-   * CRITICAL FOR CLS: Only collapse sidebar AFTER hydration.
-   * Without .sidebarHydrated, the sidebar stays at full width during SSR/initial paint.
-   * This prevents the 280px layout shift that was causing CLS 0.999.
-   *
-   * Sequence:
-   * 1. SSR: sidebar has width: 280px (no sidebarHydrated class)
-   * 2. Paint: user sees layout with sidebar open
-   * 3. Hydration: JS adds sidebarHydrated class
-   * 4. If user closes sidebar, width transitions to 0 (no shift, user initiated)
+   * When sidebar is closed on desktop, collapse it visually.
+   * Grid column still exists but sidebar content is hidden.
    */
   .sidebarClosed.sidebarHydrated {
     width: 0;
+    padding: 0;
+    border: none;
+    overflow: hidden;
   }
 }
 
@@ -75,6 +74,7 @@
 
   /* Prevent layout shift from async content loading */
   contain: layout style;
+  min-height: 0; /* Prevents flex overflow thrash */
 }
 
 /* ----------------------------------------------------------------------------
@@ -109,10 +109,6 @@
 
   /* Prevent layout shift from async content loading */
   contain: layout style;
-
-  /* Optimize rendering for off-screen sections */
-  content-visibility: auto;
-  contain-intrinsic-size: auto 200px;
 }
 
 .sidebarSection:first-child {
@@ -132,6 +128,8 @@
   display: flex;
   flex-direction: column;
   gap: var(--spacing-sm);
+  flex-shrink: 0;
+  margin-top: auto;
 }
 
 /* Theme toggle wrapper */
@@ -229,7 +227,7 @@
 }
 
 .skeletonDiscoverNav {
-  min-height: 200px;
+  min-height: 48px;
   background: linear-gradient(
     90deg,
     var(--color-neutral-100) 25%,
@@ -242,7 +240,7 @@
 }
 
 .skeletonConversationHistory {
-  min-height: 150px;
+  min-height: 48px;
   background: linear-gradient(
     90deg,
     var(--color-neutral-100) 25%,
@@ -255,7 +253,7 @@
 }
 
 .skeletonJournalHistory {
-  min-height: 100px;
+  min-height: 48px;
   background: linear-gradient(
     90deg,
     var(--color-neutral-100) 25%,
@@ -268,7 +266,7 @@
 }
 
 .skeletonMeditations {
-  min-height: 100px;
+  min-height: 48px;
   background: linear-gradient(
     90deg,
     var(--color-neutral-100) 25%,
@@ -281,7 +279,7 @@
 }
 
 .skeletonProgressWidget {
-  min-height: 80px;
+  min-height: 48px;
   background: linear-gradient(
     90deg,
     var(--color-neutral-100) 25%,

@@ -11,10 +11,11 @@
   align-items: center;
   justify-content: center;
   flex: 1;
+  min-height: 100%;
+  width: 100%;
   padding: var(--spacing-lg);
   background: var(--gradient-calm);
-  min-height: 0;
-  overflow-y: auto;
+  overflow: visible;
 }
 
 /* ----------------------------------------------------------------------------

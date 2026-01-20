@@ -4,6 +4,7 @@
 
 .container {
   margin-top: var(--spacing-sm);
+  min-height: 48px; /* Reserve space for toggle button to reduce CLS */
 }
 
 /* ----------------------------------------------------------------------------

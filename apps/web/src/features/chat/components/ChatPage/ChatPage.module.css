@@ -15,7 +15,8 @@
 /* ----------------------------------------------------------------------------
    Container
    ----------------------------------------------------------------------------
-   Full viewport container using flexbox for the three-section layout.
+   Full viewport container using flexbox for mobile, CSS Grid for desktop.
+   Grid provides more predictable sizing and prevents layout shifts.
    ---------------------------------------------------------------------------- */
 .container {
   /* Fill the entire viewport */
@@ -30,10 +31,14 @@
   background-color: var(--color-background-secondary);
 }
 
-/* Desktop: flex row for sidebar + chat main */
+/* Desktop: CSS Grid for predictable sidebar + chat layout */
 @media (min-width: 768px) {
   .container {
-    flex-direction: row;
+    display: grid;
+    /* Sidebar takes fixed width, chat takes remaining space */
+    grid-template-columns: var(--sidebar-width) 1fr;
+    /* Prevent grid recalculation during hydration */
+    contain: layout style;
   }
 }
 
@@ -79,10 +84,11 @@
 .messages {
   /* Grow to fill space */
   flex: 1;
+  min-height: 0;
 
   /* Enable scrolling */
   overflow-y: auto;
-  scrollbar-gutter: stable; /* Reserve space for scrollbar to prevent CLS */
+  scrollbar-gutter: stable both-edges; /* Reserve space for scrollbar to prevent CLS */
 
   /* Padding around messages */
   padding: var(--spacing-md);
@@ -91,6 +97,9 @@
   display: flex;
   flex-direction: column;
   gap: var(--spacing-sm);
+
+  /* Avoid cross-axis layout thrash as content hydrates */
+  contain: layout paint;
 }
 
 /* ----------------------------------------------------------------------------
@@ -705,11 +714,20 @@
 .chatMain {
   display: flex;
   flex-direction: column;
-  flex: 1;
-  min-width: 0; /* Prevent flex item from overflowing */
+  flex: 1; /* Mobile: fill remaining space in column layout */
+  height: 100%;
+  min-width: 0; /* Prevent grid/flex item from overflowing */
   min-height: 0; /* Prevent flex item from expanding beyond container */
   overflow: hidden; /* Contain overflow to prevent layout shifts */
-  contain: strict; /* Upgraded from layout - isolates all layout/paint recalculations to reduce CLS */
+  contain: layout paint; /* Isolate layout/paint but not size (for flex/grid compat) */
+}
+
+/* Desktop: Grid column takes full height, no flex needed */
+@media (min-width: 768px) {
+  .chatMain {
+    grid-column: 2; /* Explicitly place in second grid column */
+    height: 100dvh; /* Full viewport height */
+  }
 }
 
 /* ----------------------------------------------------------------------------
