@@ -228,18 +228,6 @@ export function ChatSkeleton() {
               >
                 Welcome to Wbot
               </h2>
-              {/* Real subtext - matches ChatEmptyState.subtext */}
-              <p
-                style={{
-                  fontSize: '16px',
-                  color: 'var(--color-neutral-500)',
-                  margin: 0,
-                  lineHeight: 1.8, // Matches --line-height-relaxed
-                }}
-              >
-                Your personal wellness companion is here to support your journey. How can I help you
-                today?
-              </p>
             </div>
 
             {/* Quick action cards skeleton */}

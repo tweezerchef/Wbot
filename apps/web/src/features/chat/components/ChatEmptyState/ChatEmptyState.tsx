@@ -138,10 +138,6 @@ export function ChatEmptyState({ onQuickAction, onStarterClick }: ChatEmptyState
       {/* Welcome Text */}
       <div className={styles.textContent}>
         <h2 className={styles.headline}>Welcome to Wbot</h2>
-        <p className={styles.subtext}>
-          Your personal wellness companion is here to support your journey. How can I help you
-          today?
-        </p>
       </div>
 
       {/* Quick Action Cards */}
