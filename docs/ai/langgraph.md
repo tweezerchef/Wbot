@@ -1,177 +1,162 @@
-Based on the code you provided, this looks like the "Generate Meditation Script" node, not a generic response generation node. I'll create documentation specifically for this meditation script generation component.
+I apologize for the confusion. The code you shared is actually for the `inject_user_context` node, which is responsible for initializing user context in the Wbot wellness chatbot. I'll generate documentation specifically for this component:
 
 ````markdown
 ---
-sidebar_position: 4
-title: Generate Meditation Script Node
+sidebar_position: 2
+title: Inject User Context Node
 ---
 
-# Generate Meditation Script Node
+# Inject User Context Node
 
 ## Overview
 
-The Generate Meditation Script Node is a specialized AI-powered component within the Wbot wellness chatbot that creates personalized, context-aware meditation scripts with audio generation capabilities.
+The Inject User Context Node is a critical first step in the Wbot AI wellness workflow, responsible for securely retrieving and populating user authentication and profile information.
 
-:::info Key Features
+:::info Key Responsibilities
 
-- Personalized meditation generation
-- Emotional context detection
-- Voice selection with human-in-the-loop (HITL) interaction
-- OpenAI audio generation
-- Contextual meditation type selection
+- Extract authenticated user information from LangGraph
+- Fetch user's wellness profile from Supabase
+- Prepare comprehensive user context for downstream nodes
+- Ensure user data isolation and security
   :::
 
 ## Architecture
 
 ```mermaid
 graph TD
-    A[Receive Conversation State] --> B[Extract User Context]
-    B --> C[Detect Emotional Signals]
-    C --> D[Select Meditation Type]
-    D --> E[Voice Selection Interrupt]
-    E --> F[Generate Meditation Script]
-    F --> G[Generate Audio with OpenAI]
-    G --> H[Cache Audio & Save Metadata]
-    H --> I[Return Meditation Activity]
+    A[LangGraph Authentication] --> B[Extract User Info]
+    B --> C{User Authenticated?}
+    C -->|Yes| D[Fetch Wellness Profile]
+    D --> E[Populate User Context]
+    C -->|No| F[Return Empty Context]
+    E --> G[Merge into Graph State]
 ```
 ````
 
-## Key Functional Components
+## Key Components and Functions
 
-### Core Generation Function
+### User Context Extraction
 
 ```python
-async def run_generate_meditation_script(
-    state: WellnessState
-) -> dict[str, list[AIMessage]]:
+async def inject_user_context(
+    state: WellnessState,
+    config: RunnableConfig
+) -> dict[str, dict[str, object]]:
     """
-    Generates a personalized meditation script and audio
+    Populates comprehensive user context from authentication and database
     """
 ```
 
-### Contextual Analysis Functions
+### Supabase Integration
 
-- `get_time_of_day()`: Determines meditation context
-- `detect_emotional_signals()`: Identifies user's emotional state
-- `select_meditation_type()`: Chooses appropriate meditation style
-- `recommend_voice()`: Suggests optimal voice for meditation
+```python
+async def _fetch_wellness_profile(user_id: str) -> dict[str, Any] | None:
+    """
+    Retrieves user's wellness profile using database function
+    """
+```
 
-## Meditation Generation Workflow
+## Configuration and Authentication
 
-1. **Context Extraction**
-   - User profile preferences
-   - Emotional signals
-   - Time of day
-   - Recent conversation history
+### Authentication Sources
 
-2. **Voice Selection**
-   - Human-in-the-loop (HITL) voice selection
-   - Recommended voice based on meditation type
-   - User can confirm or change voice
+- Supabase JWT token
+- LangGraph authentication config
 
-3. **Script Generation**
-   - Single OpenAI API call for text and audio
-   - Personalized script creation
-   - Voice and duration customization
+### User Context Structure
 
-## Voice and Audio Handling
-
-### Voice Selection
-
-- Dynamic voice recommendation
-- 10+ pre-configured voice options
-- Contextual voice matching
-
-### Audio Generation
-
-- OpenAI TTS integration
-- Caching to Supabase Storage
-- Estimated duration calculation
-
-## Generated Meditation Metadata
-
-```typescript
-interface AIGeneratedMeditationActivity {
-  type: 'activity';
-  activity: 'meditation_ai_generated';
-  meditation_id: string;
-  title: string;
-  duration_minutes: number;
-  script: {
-    content: string;
-    word_count: number;
-    estimated_duration_seconds: number;
-  };
-  voice: {
-    id: string;
-    name: string;
-    description: string;
-    best_for: string[];
-  };
+```python
+UserContext = {
+    "user_id": str,
+    "email": str,
+    "display_name": str,
+    "preferences": dict,
+    "wellness_profile": dict  # Optional
 }
 ```
 
-## Configuration Options
+## Security Considerations
 
-### Environment Variables
+:::warning Security Practices
 
-- `OPENAI_API_KEY`: OpenAI API credentials
-- `SUPABASE_URL`: Storage endpoint
-- `DEFAULT_VOICE`: Fallback voice selection
+- Validates user token via Supabase
+- Enforces user isolation through user_id
+- Uses service key for secure database access
+- Handles unauthenticated requests gracefully
+  :::
 
-### User Preferences Influencing Generation
+## Environment Configuration
 
-- `session_length`: Meditation duration
-- `primary_goal`: Wellness objective
-- Voice preferences
+Required Environment Variables:
+
+- `SUPABASE_URL`
+- `SUPABASE_SERVICE_KEY`
+
+:::tip Configuration
+Ensure these are set in your deployment environment
+:::
 
 ## Error Handling
 
-:::warning Fallback Mechanisms
-
-- Graceful error messages
-- Default voice and meditation type
-- Optional pre-recorded meditation suggestions
-  :::
+- Missing authentication returns empty context
+- Failed profile fetch logs warning but doesn't block execution
+- Comprehensive logging for monitoring
 
 ## Performance Characteristics
 
-- Low-latency generation
-- Minimal computational overhead
-- Asynchronous design
-- Caching for repeated access
+- Asynchronous execution
+- Low-latency user context retrieval
+- Minimal overhead in graph initialization
 
-## Frontend Integration
+## Example Usage
 
-:::tip Activity Marker Format
-Meditation data wrapped in `[ACTIVITY_START]` markers
+```python
+config = RunnableConfig({
+    "configurable": {
+        "langgraph_auth_user": authenticated_user_data
+    }
+})
 
-- Easy parsing
-- Supports rich meditation playback
-  :::
+user_context = await inject_user_context(state, config)
+```
+
+## Integration Points
+
+- LangGraph Authentication
+- Supabase Database
+- Wellness Graph State Management
+
+## Limitations
+
+- Requires valid Supabase configuration
+- Wellness profile is optional
+- Depends on external authentication mechanism
 
 ## Related Documentation
 
-- [Meditation Audio Setup](/meditation-audio-setup)
-- [Meditation Guidance Node](/ai/meditation)
-- [Guided Meditation Component](/web/meditation)
+- [Authentication](/auth/overview)
+- [Wellness State](/architecture/wellness-state)
+- [Supabase Integration](/services/supabase)
 
-## Extensibility
+## Best Practices
 
-Easy to extend:
+:::tip Recommendations
 
-- Add new meditation types
-- Integrate additional voice providers
-- Enhance emotional signal detection
+- Always validate authentication
+- Handle missing profiles gracefully
+- Use environment-specific configuration
+  :::
 
 ```
 
-Key documentation improvements:
-1. Accurately reflects the meditation script generation node
-2. Includes Mermaid architecture diagram
-3. Highlights key functions and workflow
-4. Provides type definitions for generated data
-5. Covers configuration, error handling, and extensibility
+This documentation provides a comprehensive overview of the `inject_user_context` node, following the original code's structure and purpose. It includes:
 
-Would you like me to elaborate on any specific section or add more technical details?
+1. A Mermaid diagram showing the data flow
+2. Detailed explanation of the node's role
+3. Code snippets demonstrating key functions
+4. Configuration options
+5. Integration points
+6. Security and error handling considerations
+
+Would you like me to elaborate on any specific section or make any adjustments?
 ```

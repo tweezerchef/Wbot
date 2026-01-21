@@ -52,6 +52,8 @@
     "k8s:logs:ai": "kubectl logs -n wbot -l app.kubernetes.io/name=wbot-ai --tail=100 -f",
     "k8s:logs:web": "kubectl logs -n wbot -l app.kubernetes.io/name=wbot-web --tail=100 -f",
     "k8s:status": "kubectl get all -n wbot",
+    "langgraph:dev": "cd apps/ai && uv run langgraph dev --port 2024",
+    "langgraph:up": "cd apps/ai && uv run langgraph up",
     "lint": "turbo lint",
     "lint:fix": "turbo lint -- --fix",
     "prepare": "husky",

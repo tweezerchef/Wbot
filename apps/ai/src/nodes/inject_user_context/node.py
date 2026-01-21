@@ -29,6 +29,7 @@ from supabase import AsyncClient, acreate_client
 
 from src.graph.state import WellnessState
 from src.logging_config import NodeLogger
+from src.utils.auth_helpers import extract_user_context
 
 # Set up logging for this node
 logger = NodeLogger("inject_user_context")
@@ -132,16 +133,9 @@ async def inject_user_context(
         logger.node_end()
         return {}
 
-    user_id = auth_user.get("identity")
-
-    # Map auth keys to expected state keys
-    # The auth module returns 'identity' but nodes expect 'user_id'
-    user_context: dict[str, Any] = {
-        "user_id": user_id,  # Map 'identity' → 'user_id'
-        "email": auth_user.get("email"),
-        "display_name": auth_user.get("display_name"),
-        "preferences": auth_user.get("preferences", {}),
-    }
+    # Extract user context from auth_user (handles both dict and StudioUser)
+    user_context = extract_user_context(auth_user)
+    user_id = user_context["user_id"]
 
     # Fetch wellness profile for personalization
     if user_id:

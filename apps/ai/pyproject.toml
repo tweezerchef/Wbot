@@ -40,7 +40,7 @@ dependencies = [
     # -------------------------------------------------------------------------
     # Powers the conversation graph with state management
     # Enables complex multi-turn conversations with memory
-    "langgraph>=1.0.5",
+    "langgraph>=1.0.6",
     # -------------------------------------------------------------------------
     # Supabase
     # -------------------------------------------------------------------------
@@ -74,7 +74,7 @@ dependencies = [
     # -------------------------------------------------------------------------
     # PostgreSQL checkpointer for persistent conversation state (self-hosted)
     # Uses psycopg3 with connection pooling for efficient database access
-    "langgraph-checkpoint-postgres>=3.0.2",
+    "langgraph-checkpoint-postgres>=3.0.3",
     # psycopg with binary and pool support for optimal performance
     "psycopg[binary,pool]>=3.3.0",
 ]
@@ -86,6 +86,7 @@ dev = [
     "mypy>=1.19.1",            # Static type checking
     "pytest>=9.0.2",           # Testing framework
     "pytest-asyncio>=1.3.0",   # Async test support
+    "langgraph-cli[inmem]>=0.2.0",  # LangGraph Studio for visual debugging
 ]
 
 # ============================================================================
@@ -238,4 +239,5 @@ filterwarnings = [
 dev = [
     "pytest-asyncio>=1.3.0",
     "pytest-mock>=3.15.1",
+    "langgraph-cli[inmem]>=0.2.0",  # LangGraph Studio for visual debugging
 ]

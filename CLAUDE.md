@@ -517,6 +517,10 @@ ANTHROPIC_API_KEY=        # Claude API key
 GOOGLE_API_KEY=           # Gemini API key (optional)
 SUPABASE_URL=             # For token validation
 SUPABASE_SERVICE_KEY=     # Service role key (server only)
+
+# LangGraph Studio (optional - for local debugging)
+TEST_USER=                # Test user email for Studio authentication
+TEST_USER_PASSWORD=       # Test user password
 ```
 
 ---

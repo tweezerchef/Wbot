@@ -1,0 +1,10 @@
+{
+  "dependencies": ["."],
+  "graphs": {
+    "wellness": "./src/graph/wellness.py:graph"
+  },
+  "auth": {
+    "path": "./src/auth.py:auth"
+  },
+  "env": "../../.env"
+}

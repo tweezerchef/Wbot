@@ -303,6 +303,10 @@ LANGSMITH_PROJECT=wbot-wellness       # Optional
 
 # Production
 CORS_ORIGINS=https://your-domain.com  # Optional, defaults to *
+
+# LangGraph Studio (for local debugging)
+TEST_USER=test@example.com           # Optional
+TEST_USER_PASSWORD=your-password     # Optional
 ```
 
 ### Web Frontend (`apps/web/.env`)
@@ -443,6 +447,21 @@ uv run pytest             # Run all tests
 uv run pytest -v          # Verbose output
 ```
 
+### LangGraph Studio (Visual Debugging)
+
+```bash
+pnpm langgraph:dev        # Start LangGraph Studio (opens browser UI)
+```
+
+This starts a local development server with hot-reload. Open the URL shown in the terminal to access the visual debugger where you can:
+
+- Step through graph execution node by node
+- Inspect state at each step
+- Re-run from any checkpoint
+- Edit prompts without restarting
+
+**Authentication Setup:** To enable full functionality (memories, user profiles), set `TEST_USER` and `TEST_USER_PASSWORD` in `apps/ai/.env` with credentials for a Supabase test account.
+
 ### Docker (Self-Hosted)
 
 ```bash
@@ -484,15 +503,6 @@ kubectl apply -f k8s/03-redis.yaml
 kubectl apply -f k8s/04-ai-backend.yaml
 kubectl apply -f k8s/05-web-frontend.yaml
 kubectl apply -f k8s/06-ingress.yaml
-```
-
-### Option 3: LangGraph Cloud
-
-For managed deployment:
-
-```bash
-cd apps/ai
-langgraph deploy
 ```
 
 ### Web Frontend Deployment
