@@ -2,7 +2,7 @@
 name: Bug Report
 about: Report a bug to help us improve Wbot
 title: "[Bug] "
-labels: bug
+labels: bug, enhancement
 assignees: ''
 
 ---
