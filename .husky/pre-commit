@@ -1,2 +1,2 @@
 pnpm exec lint-staged
-pnpm build
+TURBO_UI=stream pnpm build
