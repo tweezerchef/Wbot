@@ -70,6 +70,11 @@ const config: Config = {
     // Navbar configuration
     navbar: {
       title: 'Wbot',
+      logo: {
+        alt: 'Wbot Logo',
+        src: 'img/logo.svg',
+        href: '/architecture/overview',
+      },
       items: [
         {
           type: 'docSidebar',
@@ -92,7 +97,7 @@ const config: Config = {
         {
           title: 'Documentation',
           items: [
-            { label: 'Getting Started', to: '/' },
+            { label: 'Architecture Overview', to: '/architecture/overview' },
             { label: 'Architecture', to: '/architecture/overview' },
             { label: 'AI Backend', to: '/ai/langgraph' },
           ],

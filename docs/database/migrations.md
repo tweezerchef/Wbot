@@ -1,7 +1,3 @@
----
-sidebar_position: 2
----
-
 # Database Migrations
 
 Wbot uses Supabase migrations for database schema management.

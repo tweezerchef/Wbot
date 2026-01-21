@@ -22,6 +22,13 @@ This document outlines the development progress and next steps for Wbot.
 - [x] Guided meditation with pre-recorded tracks
 - [x] AI-generated personalized meditations with TTS
 - [x] User profiling system with wellness tracking
+- [x] Journaling prompts with AI-generated reflective prompts
+- [x] Journal entry history and viewing
+- [x] TanStack Query for data fetching patterns
+- [x] Theme system (light/dark/system)
+- [x] Feature-based frontend architecture
+- [x] Gamification UI components (badges, streaks, goals - frontend only)
+- [x] Activity navigation system with lazy loading
 
 ---
 
@@ -99,23 +106,25 @@ This document outlines the development progress and next steps for Wbot.
   - Meditation series/courses with progress tracking
   - MeditationStreakBadge component
 
-- [ ] **4.4 Journaling Prompts** ⚠️ STUB
-  - [x] Backend node scaffold (returns placeholder message)
-  - [ ] AI-generated reflective prompts based on conversation
-  - [ ] Text input area in chat
-  - [ ] Save journal entries to database
-  - [ ] Frontend journaling component
-  - [ ] Optional sharing with AI for discussion
+- [x] **4.4 Journaling Prompts** ✅
+  - AI-generated prompts with 5 categories (reflection, gratitude, processing, growth, self-compassion)
+  - LLM-based prompt selection from conversation context
+  - HITL confirmation flow for prompt selection
+  - Text editor with word count and writing time tracking
+  - Mood tracking before/after writing
+  - Share with AI option for discussion
+  - Journal entries saved to database with RLS
+  - Journal history sidebar component
 
 - [ ] **4.5 Activity History** ⚠️ PARTIAL
-  - [x] Database tables (user_wellness_profiles, activity_effectiveness)
+  - [x] Database tables (user_wellness_profiles, activity_effectiveness, journal_entries)
   - [x] MeditationLibrary shows saved AI-generated meditations
-  - [x] MeditationStreakBadge UI component
+  - [x] JournalHistory shows saved journal entries
+  - [x] Gamification UI components (Badge, StreakDisplay, WeeklyGoals)
+  - [ ] Backend integration for gamification (fetch real badges/streaks)
   - [ ] Unified activity history dashboard
   - [ ] Breathing session history view
   - [ ] Activity statistics and insights
-  - [ ] Streak tracking backend integration
-  - [ ] Progress visualization over time
 
 ---
 
@@ -132,23 +141,26 @@ This document outlines the development progress and next steps for Wbot.
 
 - [ ] **4.5.2 Exercise Completion Notifications**
   - Current: Frontend callback is empty after exercise completion
-  - File: `apps/web/src/components/pages/ChatPage/ChatPage.tsx:1035`
+  - File: `apps/web/src/features/chat/components/MessageBubble/MessageBubble.tsx:90`
   - TODO: Notify AI that exercise completed for follow-up message
 
-- [ ] **4.5.3 Exercise Stats Backend Tracking**
+- [ ] **4.5.3 Activity Stats Backend Tracking**
   - Current: Frontend collects stats but doesn't send to backend
-  - File: `apps/web/src/components/pages/ChatPage/ChatPage.tsx:636`
-  - TODO: Send breathing/meditation stats to backend for user tracking
+  - File: `apps/web/src/features/navigation/components/ActivityRenderer/ActivityRenderer.tsx`
+  - TODO: Send breathing/meditation/journaling stats to backend for tracking
 
-- [ ] **4.5.4 TanStack Query Integration**
-  - Current: Query functions return placeholder empty arrays
-  - File: `apps/web/src/lib/queries/conversations.ts`
-  - TODO: Implement actual fetch when Query is used for conversation lists
+- [x] ~~**4.5.4 TanStack Query Integration**~~ ✅ COMPLETE
+  - Implemented in `apps/web/src/lib/queries/conversations.ts`
 
 - [ ] **4.5.5 Web Audio Tests**
-  - Current: 3 tests skipped due to mock setup issues
-  - File: `apps/web/src/components/BreathingExercise/__tests__/useBreathingAudio.test.tsx`
+  - Current: 3 tests have TODO comments about mock setup
+  - File: `apps/web/src/features/breathing/.../useBreathingAudio.test.tsx`
   - Note: Functionality works in browser, tests verify implementation details
+
+- [ ] **4.5.6 Gamification Backend Integration** (NEW)
+  - Current: Frontend uses placeholder data for badges, streaks, goals
+  - File: `apps/web/src/features/navigation/components/ActivityRenderer/ActivityRenderer.tsx`
+  - TODO: Fetch actual badge/streak/goal data from backend
 
 ---
 
@@ -184,7 +196,7 @@ This document outlines the development progress and next steps for Wbot.
   - CORS configuration
   - Content Security Policy
 
-- [ ] **5.4 Analytics & Monitoring**
+- [ ] **5.5 Analytics & Monitoring**
   - Error tracking (Sentry)
   - Usage analytics
   - Performance monitoring
@@ -231,46 +243,48 @@ pnpm dev:ai     # AI backend
 
 **Priority 1 - Complete Phase 4:**
 
-1. **4.4 Journaling Prompts** - Build frontend component and connect backend
-2. **4.5 Activity History** - Create unified dashboard for all activities
+1. ~~Journaling Prompts~~ ✅ COMPLETE
+2. **Activity History Dashboard** - Create unified view for all activities
+3. **Gamification Backend** - Implement real badge/streak tracking
 
 **Priority 2 - Backend Cleanup (Phase 4.5):**
 
 1. Thread deletion implementation
 2. Exercise completion notifications to AI
-3. Stats tracking to backend
+3. Activity stats tracking to backend
 
 **Priority 3 - Move to Phase 5 (Polish):**
 
-1. Add loading states and skeletons
-2. Improve error boundaries
+1. Storybook stories for components
+2. Test coverage for chat and auth features
 3. Accessibility audit
 
 ---
 
 ## Files to Reference
 
-| Task               | Key Files                                       |
-| ------------------ | ----------------------------------------------- |
-| Auth               | `apps/web/src/lib/supabase.ts`                  |
-| Routing            | `apps/web/src/routes/*.tsx`                     |
-| Chat UI            | `apps/web/src/components/pages/ChatPage/`       |
-| Breathing          | `apps/web/src/components/BreathingExercise/`    |
-| Wim Hof            | `apps/web/src/components/WimHofExercise/`       |
-| Immersive Mode     | `apps/web/src/components/ImmersiveBreathing/`   |
-| Meditation         | `apps/web/src/components/GuidedMeditation/`     |
-| Meditation Library | `apps/web/src/components/MeditationLibrary/`    |
-| Meditation Series  | `apps/web/src/components/MeditationSeries/`     |
-| Activity Parsing   | `apps/web/src/lib/parseActivity.ts`             |
-| Conversations      | `apps/web/src/lib/conversations.ts`             |
-| Styling            | `apps/web/src/styles/variables.css`             |
-| AI Graph           | `apps/ai/src/graph/wellness.py`                 |
-| AI Nodes           | `apps/ai/src/nodes/*/node.py`                   |
-| Memory System      | `apps/ai/src/memory/`                           |
-| Meditation Gen     | `apps/ai/src/nodes/generate_meditation_script/` |
-| Journaling Stub    | `apps/ai/src/nodes/journaling_prompt/`          |
-| DB Schema          | `supabase/migrations/*.sql`                     |
-| Types              | `packages/shared/src/types/*.ts`                |
+| Task             | Key Files                             |
+| ---------------- | ------------------------------------- |
+| Auth             | `apps/web/src/features/auth/`         |
+| Routing          | `apps/web/src/routes/`                |
+| Chat UI          | `apps/web/src/features/chat/`         |
+| Breathing        | `apps/web/src/features/breathing/`    |
+| Meditation       | `apps/web/src/features/meditation/`   |
+| Journaling       | `apps/web/src/features/journaling/`   |
+| Wellness         | `apps/web/src/features/wellness/`     |
+| Gamification     | `apps/web/src/features/gamification/` |
+| Navigation       | `apps/web/src/features/navigation/`   |
+| Settings/Theme   | `apps/web/src/features/settings/`     |
+| Shared UI        | `apps/web/src/components/`            |
+| Activity Parsing | `apps/web/src/lib/parseActivity.ts`   |
+| TanStack Queries | `apps/web/src/lib/queries/`           |
+| Supabase Client  | `apps/web/src/lib/supabase/`          |
+| AI Graph         | `apps/ai/src/graph/wellness.py`       |
+| AI Nodes         | `apps/ai/src/nodes/*/`                |
+| Memory System    | `apps/ai/src/memory/`                 |
+| TTS System       | `apps/ai/src/tts/`                    |
+| DB Schema        | `supabase/migrations/*.sql`           |
+| Shared Types     | `packages/shared/src/types/`          |
 
 ---
 
@@ -287,4 +301,4 @@ pnpm dev:ai     # AI backend
 
 ---
 
-_Last updated: January 8, 2025_
+_Last updated: January 21, 2026_

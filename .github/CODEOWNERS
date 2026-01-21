@@ -1,0 +1,30 @@
+# CODEOWNERS - Defines who must review changes to specific paths
+# See: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Global owner - all files require review from project owner
+* @tweezerchef
+
+# Specific areas (add trusted contributors here as needed)
+# Example: /apps/ai/ @tweezerchef @ai-contributor
+# Example: /apps/web/ @tweezerchef @frontend-contributor
+
+# AI Backend
+/apps/ai/ @tweezerchef
+
+# Web Frontend
+/apps/web/ @tweezerchef
+
+# Shared packages
+/packages/ @tweezerchef
+
+# Database migrations (critical - owner only)
+/supabase/migrations/ @tweezerchef
+
+# Infrastructure (critical - owner only)
+/k8s/ @tweezerchef
+
+# CI/CD workflows (critical - owner only)
+/.github/workflows/ @tweezerchef
+
+# Documentation
+/docs/ @tweezerchef

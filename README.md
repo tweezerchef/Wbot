@@ -72,20 +72,22 @@ A web-based wellness chatbot that provides personalized mental wellness support 
 
 ## Tech Stack
 
-| Component         | Technology                                |
-| ----------------- | ----------------------------------------- |
-| Frontend          | TanStack Start, React 19, Vite 7          |
-| Styling           | CSS Modules, CSS Variables                |
-| AI Backend        | Python, FastAPI, LangGraph, LangChain     |
-| LLM Providers     | Anthropic Claude (primary), Google Gemini |
-| TTS Providers     | OpenAI TTS, ElevenLabs                    |
-| Database          | Supabase (PostgreSQL + pgvector)          |
-| Embedding Cache   | Redis (Upstash or self-hosted)            |
-| State Persistence | langgraph-checkpoint-postgres             |
-| Auth              | Supabase Auth (Email + Google OAuth)      |
-| Package Manager   | pnpm (frontend), uv (Python)              |
-| Build System      | Turborepo                                 |
-| Linting           | ESLint 9 + Prettier, Ruff (Python)        |
+| Component         | Technology                                        |
+| ----------------- | ------------------------------------------------- |
+| Frontend          | TanStack Start 1.150+, React 19, Vite 7           |
+| Styling           | CSS Modules, CSS Variables                        |
+| AI Backend        | Python 3.11+, FastAPI, LangGraph, LangChain       |
+| LLM Providers     | Anthropic Claude (primary), Google Gemini         |
+| TTS Providers     | OpenAI TTS, ElevenLabs                            |
+| Database          | Supabase (PostgreSQL + pgvector)                  |
+| Embedding Cache   | Redis (Upstash or self-hosted)                    |
+| State Persistence | langgraph-checkpoint-postgres                     |
+| Auth              | Supabase Auth (Email + Google OAuth)              |
+| Package Manager   | pnpm (frontend), uv (Python)                      |
+| Build System      | Turborepo                                         |
+| Linting           | ESLint 9 + Prettier, Ruff (Python)                |
+| Testing           | Vitest + Testing Library (frontend), pytest (AI)  |
+| Documentation     | Docusaurus (project docs), Storybook (components) |
 
 ## Directory Structure
 
@@ -97,31 +99,40 @@ wbot/
 │   │       ├── routes/              # File-based routing (TanStack Router)
 │   │       │   ├── __root.tsx       # Root layout
 │   │       │   ├── _authed.tsx      # Protected route layout
-│   │       │   ├── _authed/         # Protected routes
-│   │       │   └── index.tsx        # Landing page
+│   │       │   ├── _authed/chat.tsx # Main chat page (protected)
+│   │       │   ├── index.tsx        # Landing page
+│   │       │   └── signup.tsx       # Signup page
 │   │       │
 │   │       ├── features/            # Feature-based organization
 │   │       │   ├── auth/            # LandingPage, SignupPage
 │   │       │   ├── breathing/       # Breathing exercises & hooks
 │   │       │   ├── chat/            # Chat interface components
-│   │       │   ├── meditation/      # Guided meditation, library, series
-│   │       │   ├── journaling/      # Journaling exercise & history
-│   │       │   ├── wellness/        # Wellness profile, mood check
 │   │       │   ├── gamification/    # Badges, streaks, progress
-│   │       │   ├── navigation/      # Navigation components
+│   │       │   ├── journaling/      # Journaling exercise & history
+│   │       │   ├── meditation/      # Guided meditation, library, series
+│   │       │   ├── navigation/      # Navigation components, ActivityRenderer
 │   │       │   ├── settings/        # Theme toggle, preferences
-│   │       │   └── user/            # User profile components
+│   │       │   ├── user/            # User profile components
+│   │       │   └── wellness/        # Wellness profile, mood check
 │   │       │
 │   │       ├── components/          # Shared UI components
-│   │       │   ├── ui/              # Atomic components, icons
+│   │       │   ├── ui/              # Atomic components (icons, ActivityCard)
+│   │       │   ├── effects/         # Visual effects
 │   │       │   ├── feedback/        # Error boundaries, NotFound
-│   │       │   └── overlays/        # Activity overlay
+│   │       │   ├── illustrations/   # SVG illustrations
+│   │       │   ├── overlays/        # Activity overlay
+│   │       │   └── skeletons/       # Loading skeleton components
 │   │       │
 │   │       ├── lib/                 # Utilities and clients
 │   │       │   ├── supabase/        # Supabase client (client.ts, server.ts)
 │   │       │   ├── queries/         # TanStack Query patterns
 │   │       │   ├── schemas/         # Zod validation schemas
-│   │       │   └── ai-client.ts     # LangGraph SDK client
+│   │       │   ├── hooks/           # Shared hooks
+│   │       │   ├── constants/       # App constants
+│   │       │   ├── middleware/      # Server middleware
+│   │       │   ├── server-functions/ # Server-side functions
+│   │       │   ├── ai-client.ts     # LangGraph SDK client
+│   │       │   └── conversations.ts # Conversation utilities
 │   │       │
 │   │       └── styles/              # Global styles
 │   │
@@ -138,16 +149,16 @@ wbot/
 │           │   └── wellness.py      # Main graph definition
 │           │
 │           ├── nodes/               # Graph nodes (one folder each)
-│           │   ├── generate_response/
-│           │   ├── detect_activity/
+│           │   ├── analyze_profile/
 │           │   ├── breathing_exercise/
-│           │   ├── meditation_guidance/
+│           │   ├── detect_activity/
 │           │   ├── generate_meditation_script/
-│           │   ├── journaling_prompt/
-│           │   ├── retrieve_memories/
-│           │   ├── store_memory/
+│           │   ├── generate_response/
 │           │   ├── inject_user_context/
-│           │   └── analyze_profile/
+│           │   ├── journaling_prompt/
+│           │   ├── meditation_guidance/
+│           │   ├── retrieve_memories/
+│           │   └── store_memory/
 │           │
 │           ├── memory/              # Semantic memory system
 │           │   ├── store.py         # Memory storage (pgvector)
@@ -166,7 +177,16 @@ wbot/
 │       └── docker-compose.self-hosted.yml  # Self-hosted Docker
 │
 ├── packages/
-│   └── shared/                      # Shared TypeScript types
+│   ├── shared/                      # Shared TypeScript types
+│   └── storybook/                   # Component documentation (Storybook)
+│
+├── docs/                            # Internal documentation
+│   ├── architecture/                # System design, data flow diagrams
+│   ├── web/                         # Frontend documentation
+│   ├── ai/                          # AI backend documentation
+│   ├── database/                    # Database schema docs
+│   ├── tooling/                     # Development tools docs
+│   └── ROADMAP.md                   # Development roadmap
 │
 ├── supabase/
 │   └── migrations/                  # SQL migrations (11 files)
@@ -233,8 +253,8 @@ pnpm dev:all
 
 **Services:**
 
-- Web frontend: http://localhost:5173
-- AI backend: http://localhost:2024
+- Web frontend: <http://localhost:5173>
+- AI backend: <http://localhost:2024>
 
 ## Environment Variables
 
@@ -302,17 +322,19 @@ The database uses Supabase PostgreSQL with the **pgvector** extension for semant
 
 ### Tables
 
-| Table                        | Purpose                                 |
-| ---------------------------- | --------------------------------------- |
-| `profiles`                   | User profile and preferences            |
-| `conversations`              | Chat conversation sessions              |
-| `messages`                   | Individual chat messages                |
-| `memories`                   | Semantic memory store (with embeddings) |
-| `journal_entries`            | User journal entries                    |
-| `user_profiling`             | Learned user preferences and patterns   |
-| `meditation_scripts`         | AI-generated meditation scripts         |
-| `user_generated_meditations` | User's saved meditation sessions        |
-| `conversation_history`       | Extended conversation metadata          |
+| Table                        | Purpose                                     |
+| ---------------------------- | ------------------------------------------- |
+| `profiles`                   | User profile and preferences                |
+| `conversations`              | Chat conversation sessions                  |
+| `messages`                   | Individual chat messages (with FTS support) |
+| `memories`                   | Semantic memory store (with embeddings)     |
+| `journal_entries`            | User journal entries                        |
+| `user_wellness_profiles`     | Learned user wellness preferences           |
+| `conversation_analyses`      | Analysis of user conversations              |
+| `emotional_snapshots`        | Point-in-time emotional state captures      |
+| `activity_effectiveness`     | Tracks effectiveness of wellness activities |
+| `meditation_scripts`         | AI-generated meditation scripts             |
+| `user_generated_meditations` | User's saved meditation sessions            |
 
 ### Migrations
 
@@ -342,7 +364,7 @@ The AI backend uses a LangGraph state machine with 10 nodes:
 
 ### Execution Flow
 
-```
+```text
 START
    │
    ├── retrieve_memories ────┐
@@ -373,6 +395,15 @@ pnpm dev:all              # Start web + AI (recommended)
 pnpm dev:web              # Start web frontend only (port 5173)
 pnpm dev:ai               # Start AI backend only (port 2024)
 pnpm build                # Build all packages
+```
+
+### Documentation
+
+```bash
+pnpm storybook            # Start Storybook at http://localhost:6006
+pnpm storybook:build      # Build Storybook for production
+pnpm docs                 # Start Docusaurus at http://localhost:3001
+pnpm docs:build           # Build documentation for production
 ```
 
 ### Database
@@ -480,7 +511,7 @@ The AI backend exposes a FastAPI server with these endpoints:
 
 ### Health Check
 
-```
+```http
 GET /health
 ```
 
@@ -488,7 +519,7 @@ Returns service health status.
 
 ### Chat Stream
 
-```
+```http
 POST /api/chat/stream
 Content-Type: application/json
 Authorization: Bearer <supabase-jwt>
@@ -504,7 +535,7 @@ Streams chat responses via Server-Sent Events (SSE).
 
 ### Meditation Generation
 
-```
+```http
 POST /api/meditation/generate
 Content-Type: application/json
 Authorization: Bearer <supabase-jwt>
