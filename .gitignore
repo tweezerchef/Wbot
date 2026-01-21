@@ -49,6 +49,9 @@ coverage/
 
 # Vite temporary files
 app.config.timestamp_*.js
+
+# TanStack Router generated route tree
+apps/web/src/routeTree.gen.ts
 supabase/.branches/
 
 # LangGraph local API cache
