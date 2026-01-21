@@ -94,6 +94,28 @@ pnpm dev:web    # Frontend at http://localhost:5173
 pnpm dev:ai     # AI backend at http://localhost:2024
 ```
 
+### Documentation Tools
+
+This project uses two documentation systems:
+
+**Storybook (Component Documentation)**
+
+```bash
+pnpm storybook            # Start at http://localhost:6006
+pnpm storybook:build      # Build for production
+```
+
+Use Storybook to browse, test, and document UI components interactively.
+
+**Docusaurus (Project Documentation)**
+
+```bash
+pnpm docs                 # Start at http://localhost:3001
+pnpm docs:build           # Build for production
+```
+
+Project documentation lives in `docs/` with architecture guides, API references, and tutorials.
+
 ## Project Structure
 
 ```text
@@ -330,6 +352,31 @@ Include:
 - Clear description of the feature
 - Use case or problem it solves
 - Any implementation ideas (optional)
+
+## Contributing to Documentation
+
+When adding or updating documentation:
+
+1. **Place files in the appropriate folder** by area:
+   - `docs/architecture/` - System design and diagrams
+   - `docs/web/` - Frontend documentation
+   - `docs/ai/` - AI backend documentation
+   - `docs/database/` - Database schema and migrations
+   - `docs/tooling/` - Development tools
+
+2. **Use kebab-case** for filenames: `my-new-guide.md`
+
+3. **Add Docusaurus frontmatter** for proper sidebar ordering:
+
+   ```yaml
+   ---
+   sidebar_position: 1
+   ---
+   ```
+
+4. **Update the docs README** (`docs/README.md`) if adding a new section
+
+5. **Create Storybook stories** for new UI components (see `apps/web/src/**/*.stories.tsx`)
 
 ## Questions?
 
