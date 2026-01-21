@@ -1,3 +1,8 @@
+---
+description:
+alwaysApply: true
+---
+
 # Claude Code Instructions for Wbot
 
 This file provides instructions and context for Claude Code when working on this project.
