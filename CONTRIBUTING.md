@@ -5,6 +5,7 @@ Thank you for your interest in contributing to Wbot! This guide will help you ge
 ## Table of Contents
 
 - [Code of Conduct](#code-of-conduct)
+- [Merge Policy](#merge-policy)
 - [Getting Started](#getting-started)
 - [Development Setup](#development-setup)
 - [Project Structure](#project-structure)
@@ -17,6 +18,52 @@ Thank you for your interest in contributing to Wbot! This guide will help you ge
 ## Code of Conduct
 
 Be respectful, inclusive, and constructive. We're building something to help people with their wellness - let's make the contributor experience positive too.
+
+## Merge Policy
+
+All changes to the `main` branch are protected and must follow this process:
+
+### Requirements for Merging
+
+1. **Pull Request Required** - All changes must be submitted via Pull Request (no direct pushes to `main`)
+2. **Code Owner Approval** - PRs require approval from a designated code owner (see `.github/CODEOWNERS`)
+3. **CI Checks Must Pass** - All automated tests and linting must pass
+4. **Conversations Resolved** - All review comments must be addressed
+
+### Code Owners
+
+This repository uses GitHub's CODEOWNERS feature to automatically request reviews from the right people:
+
+| Path                    | Owner(s)     |
+| ----------------------- | ------------ |
+| `*` (all files)         | @tweezerchef |
+| `/apps/ai/`             | @tweezerchef |
+| `/apps/web/`            | @tweezerchef |
+| `/supabase/migrations/` | @tweezerchef |
+| `/k8s/`                 | @tweezerchef |
+| `/.github/workflows/`   | @tweezerchef |
+
+As the project grows, trusted contributors may be added as code owners for specific areas.
+
+### For External Contributors
+
+1. **Fork** the repository to your own GitHub account
+2. **Create a branch** for your changes
+3. **Submit a PR** from your fork to this repository's `main` branch
+4. **Wait for review** - A code owner will review your changes
+5. **Address feedback** - Make any requested changes
+6. **Merge** - Once approved and CI passes, a maintainer will merge your PR
+
+### Branch Protection
+
+The following protections are enabled on `main`:
+
+- ✅ Require pull request before merging
+- ✅ Require approvals from code owners
+- ✅ Require status checks to pass
+- ✅ Require conversation resolution
+- ❌ Force pushes disabled
+- ❌ Branch deletion disabled
 
 ## Getting Started
 
