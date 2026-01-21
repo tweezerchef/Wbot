@@ -37,6 +37,11 @@ load_monorepo_dotenv()
 # This is exported and referenced in langgraph.json
 auth = Auth()
 
+# Test user credentials for LangGraph Studio debugging
+# Set these in .env to enable unauthenticated Studio access
+TEST_USER = os.getenv("TEST_USER")
+TEST_USER_PASSWORD = os.getenv("TEST_USER_PASSWORD")
+
 
 async def get_supabase_client() -> AsyncClient:
     """
@@ -78,31 +83,14 @@ async def verify_token(authorization: str | None) -> Auth.types.MinimalUserDict:
     """
     Validates a Supabase JWT token from the Authorization header.
 
-    This function is decorated with @auth.authenticate, making it the
-    authentication handler for all LangGraph API requests.
-
-    Args:
-        authorization: The Authorization header value (e.g., "Bearer <token>").
-                       LangGraph extracts this from request headers automatically.
-
-    Returns:
-        A MinimalUserDict containing authenticated user info.
-        The "identity" field is required by LangGraph.
-        Additional fields are available in the graph via langgraph_auth_user.
-
-    Raises:
-        Auth.exceptions.HTTPException: If token is missing, invalid, or expired.
-                                       LangGraph returns a 401 Unauthorized response.
-
-    Example:
-        # Client sends request with header:
-        # Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
-
-        # This function validates and returns:
-        # {"identity": "123e4567-e89b-12d3-a456-426614174000", ...}
+    Falls back to test credentials (TEST_USER/TEST_USER_PASSWORD env vars)
+    when no token is provided - useful for LangGraph Studio debugging.
     """
-    # Validate header is present
+    # If no authorization header, try test credentials for Studio debugging
     if not authorization:
+        if TEST_USER and TEST_USER_PASSWORD:
+            return await _authenticate_test_user()
+
         raise Auth.exceptions.HTTPException(
             status_code=401,
             detail="Missing Authorization header. Expected: 'Bearer <supabase_access_token>'",
@@ -124,25 +112,39 @@ async def verify_token(authorization: str | None) -> Auth.types.MinimalUserDict:
             detail="Empty token provided in Authorization header",
         )
 
-    # Create async Supabase client for validation
-    # Using async client to avoid blocking the event loop in ASGI
+    return await _validate_token(token)
+
+
+async def _authenticate_test_user() -> Auth.types.MinimalUserDict:
+    """
+    Authenticates using test credentials for LangGraph Studio debugging.
+
+    Returns:
+        User context dict with identity, email, display_name, preferences.
+
+    Raises:
+        Auth.exceptions.HTTPException: If test credentials are invalid.
+    """
     supabase = await get_supabase_client()
 
     try:
-        # Validate the token and get the user
-        # This calls Supabase's auth API to verify the JWT
-        user_response = await supabase.auth.get_user(token)
+        # Sign in with test credentials
+        auth_response = await supabase.auth.sign_in_with_password(
+            {
+                "email": TEST_USER,
+                "password": TEST_USER_PASSWORD,
+            }
+        )
 
-        if not user_response or not user_response.user:
+        if not auth_response or not auth_response.user:
             raise Auth.exceptions.HTTPException(
                 status_code=401,
-                detail="Token validation failed: no user returned",
+                detail="Test user authentication failed: invalid credentials",
             )
 
-        user = user_response.user
+        user = auth_response.user
 
-        # Fetch user's profile and preferences from our profiles table
-        # This gives the AI context about the user's goals and preferences
+        # Fetch user profile
         profile_response = await (
             supabase.table("profiles")
             .select("display_name, preferences")
@@ -153,25 +155,74 @@ async def verify_token(authorization: str | None) -> Auth.types.MinimalUserDict:
 
         profile = profile_response.data if profile_response.data else {}
 
-        # Return authenticated user context
-        # "identity" is required by LangGraph Auth
-        # Additional fields are available in the graph via langgraph_auth_user
+        print(f"[Auth] Authenticated test user: {TEST_USER}")
+
         return {
-            "identity": user.id,  # Required field for LangGraph Auth
+            "identity": user.id,
             "email": user.email,
             "display_name": profile.get("display_name"),
             "preferences": profile.get("preferences", {}),
         }
 
     except Auth.exceptions.HTTPException:
-        # Re-raise our own exceptions as-is
+        raise
+    except Exception as e:
+        print(f"Test user authentication error: {e}")
+        raise Auth.exceptions.HTTPException(
+            status_code=401,
+            detail="Test user authentication failed. Check TEST_USER and TEST_USER_PASSWORD.",
+        ) from e
+
+
+async def _validate_token(token: str) -> Auth.types.MinimalUserDict:
+    """
+    Validates a Supabase JWT token.
+
+    Args:
+        token: The JWT token to validate.
+
+    Returns:
+        User context dict with identity, email, display_name, preferences.
+
+    Raises:
+        Auth.exceptions.HTTPException: If token is invalid or expired.
+    """
+    supabase = await get_supabase_client()
+
+    try:
+        user_response = await supabase.auth.get_user(token)
+
+        if not user_response or not user_response.user:
+            raise Auth.exceptions.HTTPException(
+                status_code=401,
+                detail="Token validation failed: no user returned",
+            )
+
+        user = user_response.user
+
+        # Fetch user profile
+        profile_response = await (
+            supabase.table("profiles")
+            .select("display_name, preferences")
+            .eq("id", user.id)
+            .single()
+            .execute()
+        )
+
+        profile = profile_response.data if profile_response.data else {}
+
+        return {
+            "identity": user.id,
+            "email": user.email,
+            "display_name": profile.get("display_name"),
+            "preferences": profile.get("preferences", {}),
+        }
+
+    except Auth.exceptions.HTTPException:
         raise
 
     except Exception as e:
-        # Log the error for debugging (don't expose details to client)
         print(f"Token validation error: {e}")
-
-        # Raise a generic error to avoid leaking information
         raise Auth.exceptions.HTTPException(
             status_code=401,
             detail="Authentication failed. Please sign in again.",

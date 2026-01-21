@@ -20,6 +20,7 @@ from langchain_core.runnables import RunnableConfig
 from src.graph.state import WellnessState
 from src.logging_config import NodeLogger
 from src.memory.store import search_memories
+from src.utils.auth_helpers import get_auth_user_field
 
 # Set up logging for this node
 logger = NodeLogger("retrieve_memories")
@@ -62,7 +63,7 @@ async def retrieve_memories(
     # This allows memory retrieval to run at START in parallel with inject_user_context
     configurable = config.get("configurable", {})
     auth_user = configurable.get("langgraph_auth_user", {})
-    user_id = auth_user.get("identity")
+    user_id = get_auth_user_field(auth_user, "identity")
 
     if not user_id:
         # No user ID means no memories to search (unauthenticated request)
