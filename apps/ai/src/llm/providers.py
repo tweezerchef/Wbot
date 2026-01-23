@@ -9,10 +9,17 @@ Model tiers:
 - FAST: Gemini 3 Flash Preview - for routing, classification, structured extraction
 - STANDARD: Claude Haiku 4.5 - for complex responses, conversation
 
+Additional providers:
+- GLM-4.7: Z.AI's flagship model - enhanced coding, multi-step reasoning
+- GLM-4.7-Flash: Lightweight, free variant with good speed/quality balance
+- GLM-4.7-FlashX: High-speed, affordable option
+
 Fallback chain (on 429 rate limit errors):
 - Gemini 3 Flash → Haiku → Gemini 2.5 Flash-Lite
 - Gemini 2.5 Flash-Lite → Haiku
 - Haiku → Gemini 2.5 Flash-Lite
+- GLM-4.7 → Haiku → GLM-4.7-Flash
+- GLM-4.7-Flash → GLM-4.7-FlashX → Gemini 2.5 Flash-Lite
 ============================================================================
 """
 
@@ -52,6 +59,9 @@ class ModelTier(Enum):
 MODEL_GEMINI_FLASH = "gemini-3-flash-preview"
 MODEL_GEMINI_LITE = "gemini-2.5-flash-lite"
 MODEL_HAIKU = "claude-haiku-4-5-20251001"
+MODEL_GLM_4_7 = "glm-4.7"
+MODEL_GLM_FLASH = "glm-4.7-Flash"
+MODEL_GLM_FLASHX = "glm-4.7-FlashX"
 
 # Fallback chain for rate limit handling
 # Each model maps to a list of fallback models to try in order
@@ -59,6 +69,9 @@ FALLBACK_CHAIN: dict[str, list[str]] = {
     MODEL_GEMINI_FLASH: [MODEL_HAIKU, MODEL_GEMINI_LITE],
     MODEL_GEMINI_LITE: [MODEL_HAIKU],
     MODEL_HAIKU: [MODEL_GEMINI_LITE],
+    MODEL_GLM_4_7: [MODEL_HAIKU, MODEL_GLM_FLASH],
+    MODEL_GLM_FLASH: [MODEL_GLM_FLASHX, MODEL_GEMINI_LITE],
+    MODEL_GLM_FLASHX: [MODEL_GLM_FLASH, MODEL_GEMINI_LITE],
 }
 
 # Map tiers to their primary model
@@ -138,6 +151,8 @@ def _create_model_by_name(model_name: str, temperature: float, max_tokens: int) 
         return _create_google_lite_model(temperature, max_tokens)
     elif model_name == MODEL_HAIKU:
         return _create_anthropic_model(temperature, max_tokens)
+    elif model_name in (MODEL_GLM_4_7, MODEL_GLM_FLASH, MODEL_GLM_FLASHX):
+        return _create_glm_model(model_name, temperature, max_tokens)
     else:
         raise ValueError(f"Unknown model: {model_name}")
 
@@ -221,6 +236,79 @@ def _create_google_lite_model(temperature: float, max_tokens: int) -> BaseChatMo
         temperature=temperature,
         max_output_tokens=max_tokens,
     )
+
+
+def _create_glm_model(model_name: str, temperature: float, max_tokens: int) -> BaseChatModel:
+    """
+    Creates a Z.AI GLM model instance using OpenAI-compatible API.
+
+    Available models:
+    - glm-4.7: Flagship model with enhanced coding and reasoning capabilities.
+               Excellent for complex agent tasks and multi-step reasoning.
+    - glm-4.7-Flash: Lightweight, free variant. Good balance of speed and quality.
+    - glm-4.7-FlashX: Lightweight, high-speed, affordable option.
+
+    All GLM-4.7 models feature:
+    - 200K context length
+    - 128K maximum output tokens
+    - Interleaved thinking for improved instruction following
+
+    Requires: ZAI_API_KEY environment variable
+
+    See: https://docs.z.ai/guides/develop/langchain/introduction
+    """
+    from langchain_openai import ChatOpenAI
+
+    api_key = os.getenv("ZAI_API_KEY")
+    if not api_key:
+        raise ValueError(
+            "ZAI_API_KEY environment variable is required for GLM models. "
+            "Get your API key from https://z.ai/"
+        )
+
+    return ChatOpenAI(
+        model=model_name,
+        openai_api_key=api_key,
+        openai_api_base="https://api.z.ai/api/paas/v4/",
+        temperature=temperature,
+        max_tokens=max_tokens,
+    )
+
+
+def create_glm(
+    model: str = MODEL_GLM_4_7,
+    temperature: float = 0.7,
+    max_tokens: int = 4096,
+) -> BaseChatModel:
+    """
+    Creates a Z.AI GLM model instance.
+
+    Args:
+        model: Which GLM model to use. Options:
+               - MODEL_GLM_4_7 (default): Flagship model, best for complex tasks
+               - MODEL_GLM_FLASH: Free variant, good speed/quality balance
+               - MODEL_GLM_FLASHX: High-speed, affordable option
+
+        temperature: Controls randomness in responses.
+                     0.0 = deterministic, 1.0 = very random.
+
+        max_tokens: Maximum tokens in the response.
+                    GLM-4.7 models support up to 128K output tokens.
+
+    Returns:
+        A LangChain chat model configured for the specified GLM model.
+
+    Example:
+        # Use flagship model for complex tasks
+        llm = create_glm()
+
+        # Use free Flash variant for faster responses
+        llm = create_glm(model=MODEL_GLM_FLASH)
+
+        # Use FlashX for high-speed, affordable inference
+        llm = create_glm(model=MODEL_GLM_FLASHX, temperature=0.2)
+    """
+    return _create_glm_model(model, temperature, max_tokens)
 
 
 # -----------------------------------------------------------------------------
