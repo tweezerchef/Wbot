@@ -12,6 +12,8 @@ This runner:
 ============================================================================
 """
 
+import json
+import re
 import time
 from typing import Any
 
@@ -29,6 +31,21 @@ from src.eval.evaluators.metrics import create_cost_evaluator, create_latency_ev
 from src.logging_config import NodeLogger
 
 logger = NodeLogger("activity_eval")
+
+
+def extract_json_from_response(content: str) -> str:
+    """
+    Extract JSON from a response that might be wrapped in markdown code blocks.
+
+    GLM models often return JSON wrapped in ```json ... ``` blocks, which breaks
+    the standard JSON parser. This function strips those wrappers.
+    """
+    # Try to extract JSON from markdown code blocks
+    code_block_pattern = r"```(?:json)?\s*([\s\S]*?)```"
+    match = re.search(code_block_pattern, content)
+    if match:
+        return match.group(1).strip()
+    return content.strip()
 
 
 # -----------------------------------------------------------------------------
@@ -84,14 +101,14 @@ IMPORTANT:
 - Confidence should be HIGH (0.8+) only for explicit requests or strong signals.
 - Confidence should be MEDIUM (0.5-0.7) for implicit signals that suggest an activity.
 - If unsure, return null with low confidence.
-- Return ONLY raw JSON, no markdown code blocks or formatting.
 
 {context}
 
 Current user message:
 "{message}"
 
-Analyze this and determine if a wellness activity would help."""
+Respond with a JSON object using EXACTLY these field names:
+{{"detected_activity": "breathing" | "meditation" | "journaling" | null, "confidence": 0.0-1.0, "reasoning": "brief explanation"}}"""
 
 
 # -----------------------------------------------------------------------------
@@ -134,18 +151,35 @@ def run_activity_detection(
         # Create model and get structured output
         llm = model_config.create(temperature=0.2, max_tokens=200)
 
-        # Use method from model config (json_mode for GLM, default for others)
-        if model_config.structured_output_method:
-            structured_llm = llm.with_structured_output(
-                ActivityDetection, method=model_config.structured_output_method
-            )
-        else:
-            structured_llm = llm.with_structured_output(ActivityDetection)
-
         logger.debug(f"[{model_config.name}] Invoking structured output...")
 
-        # Use synchronous invoke to avoid asyncio event loop issues
-        result: ActivityDetection = structured_llm.invoke([HumanMessage(content=prompt)])
+        # For GLM models (json_mode), use manual parsing to handle markdown code blocks
+        if model_config.structured_output_method == "json_mode":
+            # Get raw response and parse manually
+            raw_response = llm.invoke([HumanMessage(content=prompt)])
+            raw_content = (
+                raw_response.content if hasattr(raw_response, "content") else str(raw_response)
+            )
+
+            # Extract JSON from potential code blocks
+            json_str = extract_json_from_response(raw_content)
+            parsed = json.loads(json_str)
+
+            # Normalize detected_activity (handle "null" string and variants)
+            activity = parsed.get("detected_activity")
+            if activity in ("null", "None", "none", ""):
+                activity = None
+
+            # Create ActivityDetection from parsed JSON
+            result = ActivityDetection(
+                detected_activity=activity,
+                confidence=parsed.get("confidence", 0.5),
+                reasoning=parsed.get("reasoning", ""),
+            )
+        else:
+            # Use standard structured output for other models
+            structured_llm = llm.with_structured_output(ActivityDetection)
+            result = structured_llm.invoke([HumanMessage(content=prompt)])
 
         latency_ms = (time.time() - start_time) * 1000
 
