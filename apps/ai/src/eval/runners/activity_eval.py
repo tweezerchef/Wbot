@@ -84,6 +84,7 @@ IMPORTANT:
 - Confidence should be HIGH (0.8+) only for explicit requests or strong signals.
 - Confidence should be MEDIUM (0.5-0.7) for implicit signals that suggest an activity.
 - If unsure, return null with low confidence.
+- Return ONLY raw JSON, no markdown code blocks or formatting.
 
 {context}
 
