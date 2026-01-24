@@ -9,6 +9,12 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const webAppPath = resolve(__dirname, '../../../apps/web');
 
+// Detect Chromatic builds via STORYBOOK_ prefixed environment variable
+// Storybook auto-exposes STORYBOOK_* vars at build time
+// Chromatic CLI doesn't pass regular env vars to the build subprocess
+// Reference: https://github.com/chromaui/chromatic-cli/issues/532
+const isChromatic = !!process.env.STORYBOOK_IS_CHROMATIC;
+
 interface RollupLogLike {
   code?: string;
   message: string;
@@ -23,23 +29,27 @@ type RollupWarningHandler = (
   defaultHandler: RollupDefaultHandler
 ) => void;
 
-const config: StorybookConfig = {
-  stories: ['../stories/**/*.mdx', '../stories/**/*.stories.@(js|jsx|mjs|ts|tsx)'],
-  addons: [
-    getAbsolutePath('@storybook/addon-a11y'),
-    getAbsolutePath('@storybook/addon-docs'),
-    getAbsolutePath('@storybook/addon-vitest'),
-    {
-      name: getAbsolutePath('@storybook/addon-mcp'),
-      options: {
-        toolsets: {
-          dev: true, // Story URL retrieval & UI instructions
-          docs: true, // Component manifest & documentation
-        },
+// Build addons array - vitest addon is always included as it provides 'storybook/test' module
+// that stories import from. The addon handles production builds gracefully.
+const addons: StorybookConfig['addons'] = [
+  getAbsolutePath('@storybook/addon-a11y'),
+  getAbsolutePath('@storybook/addon-docs'),
+  getAbsolutePath('@storybook/addon-vitest'),
+  {
+    name: getAbsolutePath('@storybook/addon-mcp'),
+    options: {
+      toolsets: {
+        dev: true, // Story URL retrieval & UI instructions
+        docs: true, // Component manifest & documentation
       },
     },
-    getAbsolutePath('@chromatic-com/storybook'),
-  ],
+  },
+  getAbsolutePath('@chromatic-com/storybook'),
+];
+
+const config: StorybookConfig = {
+  stories: ['../stories/**/*.mdx', '../stories/**/*.stories.@(js|jsx|mjs|ts|tsx)'],
+  addons,
 
   // Required for MCP docs tools
   features: {
@@ -142,6 +152,48 @@ const config: StorybookConfig = {
         },
       },
     };
+
+    // For Chromatic builds, inject stubs for Storybook module globals BEFORE the vitest mocker entry.
+    // The vitest addon injects vite-inject-mocker-entry.js as the first script in <head>, which tries to
+    // access __STORYBOOK_MODULE_TEST__.spyOn before Storybook's preview runtime sets it up.
+    // This causes "Error: __STORYBOOK_MODULE_TEST__ is not defined" in Chromatic.
+    if (isChromatic) {
+      config.plugins = config.plugins ?? [];
+      config.plugins.push({
+        name: 'storybook:chromatic-test-stubs',
+        enforce: 'post',
+        transformIndexHtml(html) {
+          // Inject stubs BEFORE any other scripts by inserting right after <head>
+          // These provide the minimum API surface needed by the vitest mocker entry
+          const stubScript = `<script>
+// Chromatic test stubs - provides Storybook module globals before vitest mocker loads
+// __STORYBOOK_MODULE_TEST__ - Testing utilities (fn, spyOn, expect, userEvent, etc.)
+window.__STORYBOOK_MODULE_TEST__ = {
+  fn: function() { var f = function() {}; f.mockClear = function() { return f; }; f.mockReset = function() { return f; }; f.mockReturnValue = function() { return f; }; f.mockImplementation = function() { return f; }; f.mockResolvedValue = function() { return f; }; f.mockRejectedValue = function() { return f; }; return f; },
+  spyOn: function() { return window.__STORYBOOK_MODULE_TEST__.fn(); },
+  expect: function() { var chain = { toBe: function() { return chain; }, toEqual: function() { return chain; }, toBeTruthy: function() { return chain; }, toBeFalsy: function() { return chain; }, toHaveBeenCalled: function() { return chain; }, toHaveBeenCalledWith: function() { return chain; }, toHaveBeenCalledTimes: function() { return chain; }, toContain: function() { return chain; }, toHaveLength: function() { return chain; }, toBeNull: function() { return chain; }, toBeUndefined: function() { return chain; }, toBeDefined: function() { return chain; }, toBeInstanceOf: function() { return chain; }, toThrow: function() { return chain; }, toThrowError: function() { return chain; }, resolves: chain, rejects: chain, not: {} }; chain.not = { toBe: function() { return chain; }, toEqual: function() { return chain; }, toHaveBeenCalled: function() { return chain; }, toContain: function() { return chain; } }; return chain; },
+  userEvent: { click: async function() {}, type: async function() {}, clear: async function() {}, hover: async function() {}, unhover: async function() {}, tab: async function() {}, keyboard: async function() {}, setup: function() { return window.__STORYBOOK_MODULE_TEST__.userEvent; } },
+  within: function() { return { getByRole: function() { return document.createElement('div'); }, getByText: function() { return document.createElement('div'); }, getByLabelText: function() { return document.createElement('div'); }, getByTestId: function() { return document.createElement('div'); }, getByPlaceholderText: function() { return document.createElement('div'); }, queryByRole: function() { return null; }, queryByText: function() { return null; }, queryByTestId: function() { return null; }, findByRole: async function() { return document.createElement('div'); }, findByText: async function() { return document.createElement('div'); } }; },
+  waitFor: async function(fn) { if (typeof fn === 'function') { return fn(); } },
+  fireEvent: { click: function() {}, change: function() {}, submit: function() {}, focus: function() {}, blur: function() {} }
+};
+// __STORYBOOK_MODULE_CORE_EVENTS_PREVIEW_ERRORS__ - Error types for preview
+window.__STORYBOOK_MODULE_CORE_EVENTS_PREVIEW_ERRORS__ = {
+  MissingStoryAfterHmrError: function(data) { this.name = 'MissingStoryAfterHmrError'; this.message = 'Story missing after HMR'; this.data = data; },
+  ImplicitActionsDuringRendering: function(data) { this.name = 'ImplicitActionsDuringRendering'; this.message = 'Implicit actions during rendering'; this.data = data; },
+  CalledExtractOnStoreError: function(data) { this.name = 'CalledExtractOnStoreError'; this.message = 'Called extract on store'; this.data = data; },
+  MissingStoryFromCsfFileError: function(data) { this.name = 'MissingStoryFromCsfFileError'; this.message = 'Missing story from CSF file'; this.data = data; },
+  StoryIndexFetchError: function(data) { this.name = 'StoryIndexFetchError'; this.message = 'Story index fetch error'; this.data = data; },
+  StoryStoreAccessedBeforeInitializationError: function(data) { this.name = 'StoryStoreAccessedBeforeInitializationError'; this.message = 'Store accessed before init'; this.data = data; },
+  NoStoryMatchError: function(data) { this.name = 'NoStoryMatchError'; this.message = 'No story match'; this.data = data; },
+  EmptyIndexError: function(data) { this.name = 'EmptyIndexError'; this.message = 'Empty index'; this.data = data; }
+};
+</script>`;
+          // Insert at the very beginning of <head> so it runs before vitest mocker entry
+          return html.replace('<head>', '<head>' + stubScript);
+        },
+      });
+    }
 
     return config;
   },
