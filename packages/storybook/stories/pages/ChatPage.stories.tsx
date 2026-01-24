@@ -11,6 +11,12 @@ import type { ReactElement } from 'react';
 import { useEffect, useState } from 'react';
 
 import { useStorybookAuth } from '../../.storybook/context/AuthContext';
+import {
+  MOCK_CONVERSATION_MESSAGES,
+  MOCK_BREATHING_INTERRUPT,
+  MOCK_VOICE_INTERRUPT,
+  MOCK_JOURNALING_INTERRUPT,
+} from '../mocks';
 
 import { ChatPage } from '@/features/chat';
 import type { Message } from '@/lib/ai-client';
@@ -273,4 +279,385 @@ type Story = StoryObj<typeof ChatPage>;
  */
 export const Default: Story = {
   render: () => <ChatPageWithRealData />,
+};
+
+// ============================================================================
+// Mock Data Wrapper Component
+// ============================================================================
+
+/**
+ * Creates a ChatPage wrapped in router with mock data (no backend required).
+ * Useful for testing specific UI states without Supabase connection.
+ */
+function ChatPageWithMockData({
+  messages,
+  conversationId = 'mock-conversation-123',
+}: {
+  messages: Message[];
+  conversationId?: string;
+}): ReactElement {
+  const [router, setRouter] = useState<ReturnType<typeof createRouterWithLoaderData> | null>(null);
+  const [routerReady, setRouterReady] = useState(false);
+
+  useEffect(() => {
+    const loaderData: ChatLoaderData = {
+      conversationId,
+      messages,
+    };
+
+    const newRouter = createRouterWithLoaderData(loaderData);
+    setRouter(newRouter);
+
+    // Wait for router to be ready
+    void newRouter.load().then(() => {
+      setRouterReady(true);
+    });
+  }, [messages, conversationId]);
+
+  if (!router || !routerReady) {
+    return <div style={{ padding: '2rem', textAlign: 'center' }}>Loading...</div>;
+  }
+
+  return <RouterProvider router={router} />;
+}
+
+// ============================================================================
+// Mock Data Stories
+// ============================================================================
+
+/**
+ * Empty state - new user with no conversation history.
+ * Shows the welcome screen.
+ */
+export const EmptyState: Story = {
+  render: () => (
+    <ChatPageWithMockData messages={[]} conversationId={undefined as unknown as string} />
+  ),
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'Empty state for new users with no previous conversations. Shows the welcome screen.',
+      },
+    },
+  },
+};
+
+/**
+ * With messages - active conversation with message history.
+ */
+export const WithMessages: Story = {
+  render: () => <ChatPageWithMockData messages={MOCK_CONVERSATION_MESSAGES} />,
+  parameters: {
+    docs: {
+      description: {
+        story: 'Active conversation with message history. Shows user and assistant messages.',
+      },
+    },
+  },
+};
+
+/**
+ * Welcome state - shows the welcome message from the assistant.
+ */
+export const WelcomeMessage: Story = {
+  render: () => (
+    <ChatPageWithMockData
+      messages={[
+        {
+          id: 'welcome-1',
+          role: 'assistant',
+          content:
+            "Hello! I'm Wbot, your wellness companion. I'm here to help you with breathing exercises, guided meditations, journaling, and more. How are you feeling today?",
+          createdAt: new Date(),
+        },
+      ]}
+    />
+  ),
+};
+
+/**
+ * Long conversation - many messages to test scrolling.
+ */
+export const LongConversation: Story = {
+  render: () => {
+    const longMessages: Message[] = [
+      {
+        id: 'msg-1',
+        role: 'assistant',
+        content: 'Hello! How are you feeling today?',
+        createdAt: new Date('2024-01-15T10:00:00'),
+      },
+    ];
+
+    // Add alternating user/assistant messages
+    for (let i = 2; i <= 20; i++) {
+      const isUser = i % 2 === 0;
+      const messageNum = String(Math.floor(i / 2));
+      longMessages.push({
+        id: `msg-${String(i)}`,
+        role: isUser ? 'user' : 'assistant',
+        content: isUser
+          ? `This is user message number ${messageNum}.`
+          : `This is assistant response number ${messageNum}. Let me help you with your wellness journey.`,
+        createdAt: new Date(`2024-01-15T10:${String(i).padStart(2, '0')}:00`),
+      });
+    }
+
+    return <ChatPageWithMockData messages={longMessages} />;
+  },
+  parameters: {
+    docs: {
+      description: {
+        story: 'Long conversation with many messages to test scrolling behavior.',
+      },
+    },
+  },
+};
+
+// ============================================================================
+// Mobile View Stories
+// ============================================================================
+
+/**
+ * Mobile portrait view.
+ */
+export const MobilePortrait: Story = {
+  render: () => <ChatPageWithMockData messages={MOCK_CONVERSATION_MESSAGES} />,
+  parameters: {
+    viewport: {
+      defaultViewport: 'mobile1',
+    },
+    docs: {
+      description: {
+        story: 'Mobile portrait view of the chat interface.',
+      },
+    },
+  },
+};
+
+/**
+ * Mobile landscape view.
+ */
+export const MobileLandscape: Story = {
+  render: () => <ChatPageWithMockData messages={MOCK_CONVERSATION_MESSAGES} />,
+  parameters: {
+    viewport: {
+      defaultViewport: 'mobile2',
+    },
+  },
+};
+
+/**
+ * Tablet view.
+ */
+export const Tablet: Story = {
+  render: () => <ChatPageWithMockData messages={MOCK_CONVERSATION_MESSAGES} />,
+  parameters: {
+    viewport: {
+      defaultViewport: 'tablet',
+    },
+  },
+};
+
+// ============================================================================
+// HITL (Human-in-the-Loop) Documentation Stories
+// ============================================================================
+
+/**
+ * Documentation for HITL interrupt states.
+ * Shows the three types of interrupt prompts that can appear in chat.
+ */
+export const HITLDocumentation: StoryObj = {
+  render: () => (
+    <div style={{ padding: '24px', maxWidth: '800px', margin: '0 auto' }}>
+      <h2 style={{ marginBottom: '16px' }}>HITL Interrupt States</h2>
+      <p style={{ marginBottom: '24px', color: '#666', lineHeight: '1.6' }}>
+        The ChatPage handles three types of Human-in-the-Loop (HITL) interrupts. When the AI
+        suggests an activity, it pauses the conversation and displays a confirmation prompt. These
+        states are managed by the InterruptPrompt component.
+      </p>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+        <div
+          style={{
+            padding: '16px',
+            background: '#f0f9ff',
+            borderRadius: '8px',
+            borderLeft: '4px solid #3b82f6',
+          }}
+        >
+          <h3 style={{ marginBottom: '8px' }}>1. Breathing Confirmation</h3>
+          <p style={{ fontSize: '14px', color: '#4b5563' }}>
+            <strong>Type:</strong> breathing_confirmation
+            <br />
+            <strong>Triggered when:</strong> AI suggests a breathing exercise
+            <br />
+            <strong>User can:</strong> Start, change technique, or decline
+          </p>
+          <pre
+            style={{
+              marginTop: '12px',
+              padding: '12px',
+              background: '#1e293b',
+              color: '#e2e8f0',
+              borderRadius: '4px',
+              fontSize: '12px',
+              overflow: 'auto',
+            }}
+          >
+            {JSON.stringify(MOCK_BREATHING_INTERRUPT, null, 2)}
+          </pre>
+        </div>
+
+        <div
+          style={{
+            padding: '16px',
+            background: '#fdf4ff',
+            borderRadius: '8px',
+            borderLeft: '4px solid #a855f7',
+          }}
+        >
+          <h3 style={{ marginBottom: '8px' }}>2. Voice Selection</h3>
+          <p style={{ fontSize: '14px', color: '#4b5563' }}>
+            <strong>Type:</strong> voice_selection
+            <br />
+            <strong>Triggered when:</strong> AI creates a personalized meditation
+            <br />
+            <strong>User can:</strong> Choose voice, preview meditation, or decline
+          </p>
+          <pre
+            style={{
+              marginTop: '12px',
+              padding: '12px',
+              background: '#1e293b',
+              color: '#e2e8f0',
+              borderRadius: '4px',
+              fontSize: '12px',
+              overflow: 'auto',
+            }}
+          >
+            {JSON.stringify(MOCK_VOICE_INTERRUPT, null, 2)}
+          </pre>
+        </div>
+
+        <div
+          style={{
+            padding: '16px',
+            background: '#f0fdf4',
+            borderRadius: '8px',
+            borderLeft: '4px solid #22c55e',
+          }}
+        >
+          <h3 style={{ marginBottom: '8px' }}>3. Journaling Confirmation</h3>
+          <p style={{ fontSize: '14px', color: '#4b5563' }}>
+            <strong>Type:</strong> journaling_confirmation
+            <br />
+            <strong>Triggered when:</strong> AI suggests journaling
+            <br />
+            <strong>User can:</strong> Start, change prompt, or decline
+          </p>
+          <pre
+            style={{
+              marginTop: '12px',
+              padding: '12px',
+              background: '#1e293b',
+              color: '#e2e8f0',
+              borderRadius: '4px',
+              fontSize: '12px',
+              overflow: 'auto',
+            }}
+          >
+            {JSON.stringify(MOCK_JOURNALING_INTERRUPT, null, 2)}
+          </pre>
+        </div>
+      </div>
+
+      <div
+        style={{
+          marginTop: '24px',
+          padding: '16px',
+          background: '#fef3c7',
+          borderRadius: '8px',
+        }}
+      >
+        <h4 style={{ marginBottom: '8px' }}>Note</h4>
+        <p style={{ fontSize: '14px', color: '#92400e' }}>
+          To see these states in action, interact with the live ChatPage or use the individual
+          InterruptPrompt stories. The interrupt state is managed by ChatPage and cannot be directly
+          controlled via Storybook args.
+        </p>
+      </div>
+    </div>
+  ),
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'Documentation showing the structure of HITL interrupt payloads for breathing, voice selection, and journaling confirmations.',
+      },
+    },
+  },
+};
+
+/**
+ * Documentation for inline activity messages.
+ * Shows how activities render inside MessageBubble.
+ */
+export const InlineActivityDocumentation: StoryObj = {
+  render: () => (
+    <div style={{ padding: '24px', maxWidth: '800px', margin: '0 auto' }}>
+      <h2 style={{ marginBottom: '16px' }}>Inline Activities in Messages</h2>
+      <p style={{ marginBottom: '24px', color: '#666', lineHeight: '1.6' }}>
+        When the AI confirms an activity, the activity component renders inline within a
+        MessageBubble. The message content contains JSON that is parsed by parseActivityContent.
+      </p>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <div style={{ padding: '16px', background: '#f5f5f5', borderRadius: '8px' }}>
+          <h4 style={{ marginBottom: '8px' }}>Supported Activities</h4>
+          <ul style={{ paddingLeft: '20px', fontSize: '14px', lineHeight: '1.8' }}>
+            <li>
+              <strong>breathing_wim_hof</strong> → WimHofExercise component
+            </li>
+            <li>
+              <strong>breathing</strong> → Completed exercise summary (historical)
+            </li>
+            <li>
+              <strong>meditation</strong> → GuidedMeditation component
+            </li>
+            <li>
+              <strong>meditation_ai_generated</strong> → AIGeneratedMeditation component
+            </li>
+            <li>
+              <strong>journaling</strong> → JournalingExercise component
+            </li>
+          </ul>
+        </div>
+
+        <div style={{ padding: '16px', background: '#f5f5f5', borderRadius: '8px' }}>
+          <h4 style={{ marginBottom: '8px' }}>Activity Message Flow</h4>
+          <ol style={{ paddingLeft: '20px', fontSize: '14px', lineHeight: '1.8' }}>
+            <li>User triggers activity via conversation</li>
+            <li>AI returns HITL interrupt → InterruptPrompt shown</li>
+            <li>User confirms → Graph resumes</li>
+            <li>AI returns activity message with JSON content</li>
+            <li>MessageBubble parses JSON → Renders inline activity</li>
+            <li>Activity completes → onComplete callback fires</li>
+          </ol>
+        </div>
+      </div>
+
+      <p style={{ marginTop: '16px', fontSize: '14px', color: '#888' }}>
+        See the MessageBubble stories for individual activity rendering examples.
+      </p>
+    </div>
+  ),
+  parameters: {
+    docs: {
+      description: {
+        story: 'Documentation explaining how activities render inline within chat messages.',
+      },
+    },
+  },
 };
