@@ -238,7 +238,12 @@ def _create_google_lite_model(temperature: float, max_tokens: int) -> BaseChatMo
     )
 
 
-def _create_glm_model(model_name: str, temperature: float, max_tokens: int) -> BaseChatModel:
+def _create_glm_model(
+    model_name: str,
+    temperature: float,
+    max_tokens: int,
+    timeout: float = 120.0,  # GLM can be slow, especially for structured output
+) -> BaseChatModel:
     """
     Creates a Z.AI GLM model instance using OpenAI-compatible API.
 
@@ -272,6 +277,8 @@ def _create_glm_model(model_name: str, temperature: float, max_tokens: int) -> B
         openai_api_base="https://api.z.ai/api/paas/v4/",
         temperature=temperature,
         max_tokens=max_tokens,
+        request_timeout=timeout,
+        max_retries=2,
     )
 
 

@@ -65,6 +65,7 @@ class ModelConfig:
     description: str
     factory: Callable[[float, int], BaseChatModel]
     structured_output_method: str | None = field(default=None)
+    max_concurrency: int = field(default=4)  # Max concurrent API calls for evaluation
 
     def create(self, temperature: float = 0.2, max_tokens: int = 1024) -> BaseChatModel:
         """Create a LangChain model instance with the given parameters."""
@@ -120,6 +121,7 @@ EVAL_MODELS: dict[str, ModelConfig] = {
         description="Flagship model with enhanced coding and multi-step reasoning",
         factory=lambda t, m: _create_glm_model(MODEL_GLM_4_7, t, m),
         structured_output_method="json_mode",
+        max_concurrency=1,  # GLM has strict rate limits
     ),
     "glm-flash": ModelConfig(
         name="GLM-4.7-Flash",
@@ -130,6 +132,7 @@ EVAL_MODELS: dict[str, ModelConfig] = {
         description="Lightweight, free variant with good speed/quality balance",
         factory=lambda t, m: _create_glm_model(MODEL_GLM_FLASH, t, m),
         structured_output_method="json_mode",
+        max_concurrency=1,  # GLM has strict rate limits
     ),
     "glm-flashx": ModelConfig(
         name="GLM-4.7-FlashX",
@@ -140,6 +143,7 @@ EVAL_MODELS: dict[str, ModelConfig] = {
         description="High-speed, affordable option",
         factory=lambda t, m: _create_glm_model(MODEL_GLM_FLASHX, t, m),
         structured_output_method="json_mode",
+        max_concurrency=1,  # GLM has strict rate limits
     ),
 }
 

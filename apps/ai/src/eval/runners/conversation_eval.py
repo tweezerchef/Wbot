@@ -200,13 +200,16 @@ def run_conversation_evaluation(
         # Run evaluation
         experiment_name = f"{experiment_prefix}-{model_id}"
 
+        # Use model's max_concurrency if lower than requested (respects rate limits)
+        effective_concurrency = min(max_concurrency, model_config.max_concurrency)
+
         try:
             experiment_results = evaluate(
                 target,
                 data=CONVERSATION_DATASET_NAME,
                 evaluators=evaluators,
                 experiment_prefix=experiment_name,
-                max_concurrency=max_concurrency,
+                max_concurrency=effective_concurrency,
             )
 
             results[model_id] = {

@@ -205,6 +205,9 @@ def configure_logging(verbose: bool = False) -> None:
         "langsmith",
         "langchain",
         "openai",
+        "google_genai",  # Suppress Google GenAI SDK logs (AFC, retries)
+        "google_genai.models",
+        "google_genai._api_client",
     ]:
         logging.getLogger(logger_name).setLevel(logging.WARNING)
 

@@ -80,6 +80,12 @@ dependencies = [
     "langchain-openai>=1.1.7",
     "langchainhub>=0.1.21",
     "httpx-sse>=0.4.3",
+    # -------------------------------------------------------------------------
+    # LangSmith - Evaluation and Tracing
+    # -------------------------------------------------------------------------
+    # LLM observability and evaluation framework
+    # Used by src/eval/ for model comparison evaluations
+    "langsmith>=0.6.0",
 ]
 
 # Development dependencies (installed with `uv sync --dev`)
