@@ -281,11 +281,20 @@ async def response_quality_evaluator(
 
 def create_empathy_evaluator():  # noqa: ANN201
     """Create a LangSmith-compatible empathy evaluator."""
+    import asyncio
 
-    async def evaluate(run, example):  # noqa: ANN001, ANN202
+    def evaluate(run, example):  # noqa: ANN001, ANN202
         # LangSmith Example has .inputs attribute, not .get()
         example_inputs = example.inputs if hasattr(example, "inputs") else {}
-        result = await empathy_evaluator(run.outputs, example_inputs)
+
+        # Get or create event loop for this thread
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
+        result = loop.run_until_complete(empathy_evaluator(run.outputs, example_inputs))
         return {
             "key": "empathy",
             "score": result["score"],
@@ -297,11 +306,20 @@ def create_empathy_evaluator():  # noqa: ANN201
 
 def create_response_quality_evaluator():  # noqa: ANN201
     """Create a LangSmith-compatible response quality evaluator."""
+    import asyncio
 
-    async def evaluate(run, example):  # noqa: ANN001, ANN202
+    def evaluate(run, example):  # noqa: ANN001, ANN202
         # LangSmith Example has .inputs attribute, not .get()
         example_inputs = example.inputs if hasattr(example, "inputs") else {}
-        result = await response_quality_evaluator(run.outputs, example_inputs)
+
+        # Get or create event loop for this thread
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
+        result = loop.run_until_complete(response_quality_evaluator(run.outputs, example_inputs))
         return {
             "key": "response_quality",
             "score": result["score"],

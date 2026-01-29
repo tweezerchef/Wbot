@@ -60,7 +60,7 @@ def generate_response(
 
     # Log the input being processed
     message_preview = user_message[:80] + "..." if len(user_message) > 80 else user_message
-    logger.info(f"[{model_config.name}] Input", message=message_preview)
+    logger.info(f"[{model_config.name}] Input", message_preview=message_preview)
 
     # Build conversation messages
     messages = []
@@ -103,7 +103,7 @@ def generate_response(
         logger.info(
             f"[{model_config.name}] Response",
             latency_ms=f"{latency_ms:.0f}",
-            preview=response_preview,
+            response_preview=response_preview,
         )
 
         return {

@@ -6,7 +6,7 @@ Configures and creates language model instances with tier-based selection.
 
 Model tiers:
 - LITE: Gemini 2.5 Flash-Lite - for very simple tasks (activity detection)
-- FAST: Gemini 3 Flash Preview - for routing, classification, structured extraction
+- FAST: Gemini 2.5 Flash-Lite - for routing, classification, structured extraction
 - STANDARD: Claude Haiku 4.5 - for complex responses, conversation
 
 Additional providers:
@@ -15,7 +15,6 @@ Additional providers:
 - GLM-4.7-FlashX: High-speed, affordable option
 
 Fallback chain (on 429 rate limit errors):
-- Gemini 3 Flash → Haiku → Gemini 2.5 Flash-Lite
 - Gemini 2.5 Flash-Lite → Haiku
 - Haiku → Gemini 2.5 Flash-Lite
 - GLM-4.7 → Haiku → GLM-4.7-Flash
@@ -44,7 +43,7 @@ class ModelTier(Enum):
           Currently uses Gemini 2.5 Flash-Lite.
 
     FAST: Use for routing, classification, and structured extraction.
-          Currently uses Gemini 3 Flash Preview.
+          Currently uses Gemini 2.5 Flash-Lite.
 
     STANDARD: Use for complex responses and main conversation.
               Currently uses Claude Haiku 4.5.
@@ -56,28 +55,32 @@ class ModelTier(Enum):
 
 
 # Model identifiers
-MODEL_GEMINI_FLASH = "gemini-3-flash-preview"
+MODEL_GEMINI_FLASH = "gemini-2.5-flash-lite"  # Previously gemini-3-flash-preview
 MODEL_GEMINI_LITE = "gemini-2.5-flash-lite"
 MODEL_HAIKU = "claude-haiku-4-5-20251001"
 MODEL_GLM_4_7 = "glm-4.7"
 MODEL_GLM_FLASH = "glm-4.7-Flash"
 MODEL_GLM_FLASHX = "glm-4.7-FlashX"
+MODEL_CEREBRAS_GLM = "zai-glm-4.7"  # GLM-4.7 on Cerebras (fast inference)
 
 # Fallback chain for rate limit handling
 # Each model maps to a list of fallback models to try in order
+# Note: MODEL_GEMINI_FLASH now points to same model as MODEL_GEMINI_LITE
 FALLBACK_CHAIN: dict[str, list[str]] = {
-    MODEL_GEMINI_FLASH: [MODEL_HAIKU, MODEL_GEMINI_LITE],
+    MODEL_GEMINI_FLASH: [MODEL_HAIKU],  # Simplified - was [MODEL_HAIKU, MODEL_GEMINI_LITE]
     MODEL_GEMINI_LITE: [MODEL_HAIKU],
     MODEL_HAIKU: [MODEL_GEMINI_LITE],
     MODEL_GLM_4_7: [MODEL_HAIKU, MODEL_GLM_FLASH],
     MODEL_GLM_FLASH: [MODEL_GLM_FLASHX, MODEL_GEMINI_LITE],
     MODEL_GLM_FLASHX: [MODEL_GLM_FLASH, MODEL_GEMINI_LITE],
+    MODEL_CEREBRAS_GLM: [MODEL_HAIKU, MODEL_GLM_FLASH],
 }
 
 # Map tiers to their primary model
+# Note: Both LITE and FAST now use Gemini 2.5 Flash-Lite
 TIER_TO_MODEL: dict[ModelTier, str] = {
     ModelTier.LITE: MODEL_GEMINI_LITE,
-    ModelTier.FAST: MODEL_GEMINI_FLASH,
+    ModelTier.FAST: MODEL_GEMINI_LITE,  # Changed from MODEL_GEMINI_FLASH
     ModelTier.STANDARD: MODEL_HAIKU,
 }
 
@@ -110,7 +113,7 @@ def create_llm(
     Args:
         tier: Which model tier to use.
               LITE for very simple tasks (Gemini 2.5 Flash-Lite).
-              FAST for routing/classification (Gemini 3 Flash).
+              FAST for routing/classification (Gemini 2.5 Flash-Lite).
               STANDARD for complex responses (Claude Haiku 4.5).
 
         temperature: Controls randomness in responses.
@@ -131,10 +134,8 @@ def create_llm(
         # Use FAST for routing and structured extraction
         llm = create_llm(tier=ModelTier.FAST, temperature=0.2)
     """
-    if tier == ModelTier.LITE:
+    if tier in (ModelTier.LITE, ModelTier.FAST):
         return _create_google_lite_model(temperature, max_tokens)
-    elif tier == ModelTier.FAST:
-        return _create_google_model(temperature, max_tokens)
     else:
         return _create_anthropic_model(temperature, max_tokens)
 
@@ -153,6 +154,8 @@ def _create_model_by_name(model_name: str, temperature: float, max_tokens: int) 
         return _create_anthropic_model(temperature, max_tokens)
     elif model_name in (MODEL_GLM_4_7, MODEL_GLM_FLASH, MODEL_GLM_FLASHX):
         return _create_glm_model(model_name, temperature, max_tokens)
+    elif model_name == MODEL_CEREBRAS_GLM:
+        return _create_cerebras_model(temperature, max_tokens)
     else:
         raise ValueError(f"Unknown model: {model_name}")
 
@@ -186,7 +189,10 @@ def _create_anthropic_model(temperature: float, max_tokens: int) -> BaseChatMode
 
 def _create_google_model(temperature: float, max_tokens: int) -> BaseChatModel:
     """
-    Creates a Google Gemini 3 Flash Preview model instance.
+    Creates a Google Gemini 2.5 Flash-Lite model instance.
+
+    NOTE: This function exists for backward compatibility with MODEL_GEMINI_FLASH.
+    It now uses the same model as _create_google_lite_model (Gemini 2.5 Flash-Lite).
 
     Used for routing, classification, and simple tasks:
     - Very fast response times
@@ -205,7 +211,7 @@ def _create_google_model(temperature: float, max_tokens: int) -> BaseChatModel:
         )
 
     return ChatGoogleGenerativeAI(
-        model="gemini-3-flash-preview",
+        model="gemini-2.5-flash-lite",
         temperature=temperature,
         max_output_tokens=max_tokens,
     )
@@ -282,6 +288,56 @@ def _create_glm_model(
     )
 
 
+def _create_cerebras_model(
+    temperature: float,
+    max_tokens: int,
+    timeout: float = 60.0,  # Cerebras is fast, shorter timeout is fine
+) -> BaseChatModel:
+    """
+    Creates a Cerebras GLM-4.7 model instance using OpenAI-compatible API.
+
+    Cerebras provides extremely fast inference via custom hardware.
+    The zai-glm-4.7 model is GLM-4.7 running on Cerebras infrastructure.
+
+    Features:
+    - Very fast inference (Cerebras custom hardware)
+    - GLM-4.7 model capabilities
+    - OpenAI-compatible API
+
+    IMPORTANT: The zai-glm-4.7 model uses internal "reasoning tokens" before
+    generating output. This means it needs significantly more max_tokens than
+    the expected output length. We enforce a minimum of 1024 tokens to ensure
+    the model has room for both reasoning and output.
+
+    Requires: CEREBRAS_API_KEY environment variable
+
+    See: https://inference-docs.cerebras.ai/api-reference/chat-completions
+    """
+    from langchain_openai import ChatOpenAI
+
+    api_key = os.getenv("CEREBRAS_API_KEY")
+    if not api_key:
+        raise ValueError(
+            "CEREBRAS_API_KEY environment variable is required for Cerebras models. "
+            "Get your API key from https://cloud.cerebras.ai/"
+        )
+
+    # Enforce minimum max_tokens for reasoning model
+    # The zai-glm-4.7 model uses ~300-500 tokens for internal reasoning
+    # before generating any output, so we need at least 1024 to be safe
+    effective_max_tokens = max(max_tokens, 1024)
+
+    return ChatOpenAI(
+        model=MODEL_CEREBRAS_GLM,
+        openai_api_key=api_key,
+        openai_api_base="https://api.cerebras.ai/v1",
+        temperature=temperature,
+        max_tokens=effective_max_tokens,
+        request_timeout=timeout,
+        max_retries=2,
+    )
+
+
 def create_glm(
     model: str = MODEL_GLM_4_7,
     temperature: float = 0.7,
@@ -331,7 +387,6 @@ class ResilientLLM:
     the next model in the fallback chain.
 
     Fallback chain:
-    - Gemini 3 Flash → Haiku → Gemini 2.5 Flash-Lite
     - Gemini 2.5 Flash-Lite → Haiku
     - Haiku → Gemini 2.5 Flash-Lite
 

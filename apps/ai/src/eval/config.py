@@ -18,6 +18,7 @@ from enum import Enum
 from langchain_core.language_models.chat_models import BaseChatModel
 
 from src.llm.providers import (
+    MODEL_CEREBRAS_GLM,
     MODEL_GEMINI_FLASH,
     MODEL_GEMINI_LITE,
     MODEL_GLM_4_7,
@@ -25,6 +26,7 @@ from src.llm.providers import (
     MODEL_GLM_FLASHX,
     MODEL_HAIKU,
     _create_anthropic_model,
+    _create_cerebras_model,
     _create_glm_model,
     _create_google_lite_model,
     _create_google_model,
@@ -37,6 +39,7 @@ class ModelProvider(Enum):
     ANTHROPIC = "anthropic"
     GOOGLE = "google"
     ZAI = "zai"
+    CEREBRAS = "cerebras"
 
 
 @dataclass
@@ -145,6 +148,20 @@ EVAL_MODELS: dict[str, ModelConfig] = {
         structured_output_method="json_mode",
         max_concurrency=1,  # GLM has strict rate limits
     ),
+    # Cerebras Models
+    # Note: Cerebras provides fast inference via custom hardware.
+    # Uses OpenAI-compatible API with json_mode for structured output.
+    "cerebras-glm": ModelConfig(
+        name="Cerebras GLM-4.7",
+        model_id=MODEL_CEREBRAS_GLM,
+        provider=ModelProvider.CEREBRAS,
+        cost_per_1k_input=0.00060,  # Estimated based on Cerebras pricing
+        cost_per_1k_output=0.00060,  # Estimated - same rate for input/output
+        description="GLM-4.7 on Cerebras hardware - extremely fast inference",
+        factory=_create_cerebras_model,
+        structured_output_method="json_mode",
+        max_concurrency=1,  # Use 1 for debugging, can increase later
+    ),
 }
 
 
@@ -161,12 +178,14 @@ EVAL_PROFILES: dict[str, list[str]] = {
         "gemini-flash",
         "glm-flash",
         "glm-flashx",
+        "cerebras-glm",
     ],
     # Conversation quality: test quality-focused models for responses
     "conversation": [
         "haiku",
         "glm-4.7",
         "gemini-flash",
+        "cerebras-glm",
     ],
     # Full comparison: test all models across all tasks
     "full_comparison": [
@@ -176,6 +195,7 @@ EVAL_PROFILES: dict[str, list[str]] = {
         "glm-4.7",
         "glm-flash",
         "glm-flashx",
+        "cerebras-glm",
     ],
     # Budget-friendly: focus on low/no cost models
     "budget": [
@@ -188,6 +208,7 @@ EVAL_PROFILES: dict[str, list[str]] = {
         "haiku",
         "glm-4.7",
         "gemini-flash",
+        "cerebras-glm",
     ],
 }
 
