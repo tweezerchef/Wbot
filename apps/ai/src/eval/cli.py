@@ -27,20 +27,26 @@ Usage:
 ============================================================================
 """
 
-import argparse
-import logging
-import sys
-from typing import Any
+# Load environment variables before any other imports
+# This must run first so that API keys are available when modules initialize
+from src.env import load_monorepo_dotenv
 
-from src.eval.config import (
+load_monorepo_dotenv()
+
+import argparse  # noqa: E402
+import logging  # noqa: E402
+import sys  # noqa: E402
+from typing import Any  # noqa: E402
+
+from src.eval.config import (  # noqa: E402
     EVAL_MODELS,
     EVAL_PROFILES,
     get_models_for_profile,
     list_available_models,
 )
-from src.eval.datasets.seed import seed_all_datasets
-from src.eval.runners.activity_eval import run_activity_evaluation
-from src.eval.runners.conversation_eval import run_conversation_evaluation
+from src.eval.datasets.seed import seed_all_datasets  # noqa: E402
+from src.eval.runners.activity_eval import run_activity_evaluation  # noqa: E402
+from src.eval.runners.conversation_eval import run_conversation_evaluation  # noqa: E402
 
 
 def cmd_list_models(args: argparse.Namespace) -> None:

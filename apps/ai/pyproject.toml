@@ -86,6 +86,7 @@ dependencies = [
     # LLM observability and evaluation framework
     # Used by src/eval/ for model comparison evaluations
     "langsmith>=0.6.0",
+    "cerebras-cloud-sdk>=1.64.1",
 ]
 
 # Development dependencies (installed with `uv sync --dev`)

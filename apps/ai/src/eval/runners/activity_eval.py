@@ -163,6 +163,7 @@ def run_activity_detection(
 
             # Extract JSON from potential code blocks
             json_str = extract_json_from_response(raw_content)
+
             parsed = json.loads(json_str)
 
             # Normalize detected_activity (handle "null" string and variants)
